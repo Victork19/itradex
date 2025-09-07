@@ -1,0 +1,9 @@
+flask
+flask_sqlalchemy
+flask_limiter
+pyjwt
+python-dotenv
+dnspython
+gunicorn
+Werkzeug
+requests

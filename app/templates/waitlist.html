@@ -1,0 +1,521 @@
+{% extends "base.html" %}
+
+{% block title %}iTradeX — Join Waitlist{% endblock %}
+
+{% block content %}
+<!-- Step 1: Follow + Retweet -->
+<div class="panel fade-slide" id="step1">
+  <h2 class="fw-bold mb-3 text-center">Join the iTradeX Waitlist</h2>
+  <p class="text-center text-muted mb-4">
+    To secure your spot, follow us on Twitter and quote the pinned post with <strong>#iTradeXWaitlist</strong> in your caption.
+  </p>
+
+  <div class="card-radius mb-3 text-center position-relative">
+    <a href="https://twitter.com/intent/follow?screen_name=itradexdotxyz"
+       id="btnFollowRetweet"
+       class="btn btn-primary w-100 mb-3"
+       rel="noopener noreferrer">
+      Follow Us
+    </a>
+
+    <input type="url" class="form-control mb-3" placeholder="Paste quote tweet link here" id="retweetLink" />
+    <input type="text" class="form-control mb-3" placeholder="Enter your Twitter username to verify actions"
+      id="verifyHandle" />
+    <div style="position: relative;">
+      <button class="btn btn-secondary w-100" id="btnVerifyActions">Verify Actions</button>
+      <div id="verifyProgress"
+        style="position:absolute; left:0; top:0; height:100%; width:0; background:rgba(255,255,255,0.3); border-radius:inherit; pointer-events:none;">
+      </div>
+    </div>
+  </div>
+
+  <p class="small text-center text-muted mt-2">
+    <a href="#" id="howToQuote">How to quote a tweet?</a>
+  </p>
+</div>
+
+<!-- Step 2: Email + Wallet + Referral -->
+<div class="panel fade-slide hidden" id="step2">
+  <h2 class="fw-bold mb-3 text-center">Complete Your Entry</h2>
+  <p class="text-center text-muted mb-4">Fill in your details to secure your waitlist spot.</p>
+
+  <div class="card-radius mb-3">
+    <label class="form-label">Email Address</label>
+    <input type="email" id="email" class="form-control" placeholder="you@email.com">
+  </div>
+
+  <div class="card-radius mb-3">
+    <label class="form-label">Wallet Address (optional)</label>
+    <input type="text" id="wallet" class="form-control" placeholder="0x...">
+  </div>
+
+  <div style="display:none;">
+    <input type="text" name="extra_field" value="">
+  </div>
+
+  <div class="card-radius mb-3">
+    <label class="form-label">Referral Code (optional)</label>
+    <input type="text" id="referralCode" class="form-control" placeholder="8-char code" value="{{ referred_by }}" {% if referred_by %}readonly class="text-muted"{% endif %}>
+  </div>
+  <div class="g-recaptcha" data-sitekey="6Lfwm74rAAAAACYoIpWoht5e6_zAL9cLH50bZax4"></div>
+
+
+  <button class="btn btn-primary w-100" id="btnJoinWaitlist">Continue</button>
+</div>
+
+<!-- Step 3: Verify Code -->
+<div class="panel hidden" id="step3">
+  <h2 class="fw-bold mb-3 text-center">Verify Your Email</h2>
+  <p class="text-center text-muted mb-4">
+    We’ve sent a code to <span id="verifyEmailText"></span>. Enter it below.
+  </p>
+  <div class="card-radius mb-3">
+    <input type="text" id="verificationCode" name="verification_code"
+           class="form-control text-center mb-3"
+           maxlength="12" placeholder="Enter your code">
+    <button class="btn btn-primary w-100" id="btnVerify">Verify & Continue</button>
+    <p class="small text-center text-muted mb-0">
+      Didn’t get the code? <a href="#" id="btnResend" class="text-decoration-none">Resend</a>
+      <span id="resendTimer" class="text-muted"></span>
+    </p>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+  /* keep minimal UI helpers */
+  .input-error { border: 2px solid red !important; animation: shake 0.45s; }
+  @keyframes shake { 0%{transform:translateX(0)}25%{transform:translateX(-5px)}50%{transform:translateX(5px)}75%{transform:translateX(-5px)}100%{transform:translateX(0)}}
+  #howToQuote { touch-action: manipulation; -webkit-tap-highlight-color: rgba(0,0,0,0.06); }
+  #btnFollowRetweet, #btnVerifyActions { touch-action: manipulation; }
+</style>
+
+<script>
+  (function () {
+    document.addEventListener('DOMContentLoaded', () => {
+      // element lookups
+      const btnFollowRetweet = document.getElementById('btnFollowRetweet');
+      const btnVerifyActions = document.getElementById('btnVerifyActions');
+      const verifyHandleInput = document.getElementById('verifyHandle');
+      const retweetLinkInput = document.getElementById('retweetLink');
+      const progress = document.getElementById('verifyProgress');
+      const referralInput = document.getElementById('referralCode');
+
+      // helper: mobile detect
+      function isMobileUA() {
+        return /Mobi|Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+      }
+
+      // ---------- DYNAMIC ALERT SYSTEM ----------
+      // creates and returns a runtime alert element that uses only inline styles
+      function getAlert() {
+        let alert = document.getElementById('itradex_runtime_alert');
+        if (alert) return alert;
+
+        // container
+        alert = document.createElement('div');
+        alert.id = 'itradex_runtime_alert';
+        // inline styles only. prevents stylesheet interference.
+        Object.assign(alert.style, {
+          position: 'fixed',
+          top: '20px',
+          left: '50%',
+          transform: 'translateX(-50%) scale(0.95)',
+          opacity: '0',
+          transition: 'transform 180ms ease, opacity 180ms ease',
+          maxWidth: '92%',
+          width: 'min(360px, 92%)',
+          zIndex: '2147483647',
+          background: '#fff',
+          borderRadius: '10px',
+          boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
+          padding: '14px 16px',
+          display: 'none',
+          pointerEvents: 'none',
+          whiteSpace: 'pre-line',
+          textAlign: 'center',
+          fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial',
+          fontSize: '15px',
+          fontWeight: '600',
+        });
+
+        // text node
+        const p = document.createElement('div');
+        p.id = 'itradex_runtime_alert_text';
+        p.setAttribute('role', 'status');
+        p.setAttribute('aria-live', 'polite');
+        Object.assign(p.style, { color: '#0b5fff', margin: '0' });
+
+        alert.appendChild(p);
+        document.body.appendChild(alert);
+        return alert;
+      }
+
+      // show alert (overrides CSS)
+      function showAlert(message, type = 'success', duration = 2000) {
+        const alert = getAlert();
+        const text = document.getElementById('itradex_runtime_alert_text');
+        if (!alert || !text) return;
+        text.textContent = message;
+
+        // color by type
+        text.style.color = type === 'success' ? '#0b5fff' : '#d23f3f';
+
+        // make visible
+        alert.style.display = 'block';
+        // ensure reflow so transition animates
+        void alert.offsetHeight;
+        alert.style.pointerEvents = 'auto';
+        alert.style.transform = 'translateX(-50%) scale(1)';
+        alert.style.opacity = '1';
+
+        // hide timer
+        if (alert._hideTimer) clearTimeout(alert._hideTimer);
+        alert._hideTimer = setTimeout(() => {
+          alert.style.transform = 'translateX(-50%) scale(0.95)';
+          alert.style.opacity = '0';
+          alert.style.pointerEvents = 'none';
+          // allow transition to finish
+          setTimeout(() => {
+            alert.style.display = 'none';
+          }, 220);
+        }, duration);
+      }
+
+      // show threat (with small shake)
+      function showThreat(message, duration = 3000) {
+        const alert = getAlert();
+        const text = document.getElementById('itradex_runtime_alert_text');
+        if (!alert || !text) return;
+        text.textContent = message;
+        text.style.color = '#d23f3f';
+
+        alert.style.display = 'block';
+        void alert.offsetHeight;
+        alert.style.pointerEvents = 'auto';
+        alert.style.transform = 'translateX(-50%) scale(1)';
+        alert.style.opacity = '1';
+
+        // add quick shake using Web Animations API when available
+        if (alert.animate) {
+          alert.animate([
+            { transform: 'translateX(-50%) translateX(0)' },
+            { transform: 'translateX(-50%) translateX(-8px)' },
+            { transform: 'translateX(-50%) translateX(8px)' },
+            { transform: 'translateX(-50%) translateX(0)' }
+          ], { duration: 420, iterations: 1 });
+        }
+
+        if (alert._hideTimer) clearTimeout(alert._hideTimer);
+        alert._hideTimer = setTimeout(() => {
+          alert.style.transform = 'translateX(-50%) scale(0.95)';
+          alert.style.opacity = '0';
+          alert.style.pointerEvents = 'none';
+          setTimeout(() => {
+            alert.style.display = 'none';
+          }, 220);
+        }, duration);
+      }
+
+      // expose globally so older code paths keep working
+      window.showAlert = showAlert;
+      window.showThreat = showThreat;
+
+      // ---------- End alert system ----------
+
+      // persistent follow detection
+      try {
+        if (!localStorage.getItem('itradex_follow_clicked')) {
+          // noop
+        }
+      } catch (e) {}
+
+      // Follow anchor behavior
+      if (btnFollowRetweet) {
+        btnFollowRetweet.addEventListener('click', (e) => {
+          e.preventDefault();
+          try { localStorage.setItem('itradex_follow_clicked', '1'); } catch (e) {}
+          const url = btnFollowRetweet.getAttribute('href') || 'https://twitter.com/itradexdotxyz';
+          if (isMobileUA()) {
+            window.location.href = url;
+          } else {
+            window.open(url, '_blank', 'noopener');
+          }
+        });
+      }
+
+      // maintain followClicked on visibility change (user returns after following)
+      let followClicked = !!localStorage.getItem('itradex_follow_clicked');
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && localStorage.getItem('itradex_follow_clicked') === '1') {
+          followClicked = true;
+        }
+      });
+
+      // how-to-quote binding (tap-safe)
+      const howEl = document.getElementById('howToQuote');
+      if (howEl) {
+        const handler = (ev) => {
+          if (ev) ev.preventDefault();
+          showAlert(
+`1. Tap Retweet then choose Quote.
+2. Add #iTradeXWaitlist to your caption.
+3. Post the quote tweet.
+4. Open your quote tweet, copy its link and paste here.`,
+            'success',
+            7000
+          );
+        };
+        howEl.addEventListener('click', handler);
+        howEl.addEventListener('pointerup', handler, { passive: true });
+      }
+
+      // improved retweet validation for mobile variants
+      function isValidRetweet(link) {
+        if (!link || typeof link !== 'string') return false;
+        return /^(https?:\/\/)?((www|mobile|m)\.)?(twitter|x)\.com\/[A-Za-z0-9_]+\/status\/\d+\/?(\S*)?$/i.test(link.trim());
+      }
+      function extractUsernameFromRetweet(link) {
+        if (!link || typeof link !== 'string') return null;
+        const m = link.match(/^(?:https?:\/\/)?(?:www\.|mobile\.|m\.)?(?:twitter|x)\.com\/([A-Za-z0-9_]+)\/status\/\d+/i);
+        return m ? m[1] : null;
+      }
+
+      // verify handle UI toggle
+      if (verifyHandleInput && btnVerifyActions && retweetLinkInput) {
+        verifyHandleInput.addEventListener('input', () => {
+          const value = verifyHandleInput.value.trim();
+          btnVerifyActions.classList.toggle('btn-primary', !!value);
+          btnVerifyActions.classList.toggle('btn-secondary', !value);
+          if (value && !retweetLinkInput.value.trim()) {
+            retweetLinkInput.classList.add('input-error');
+          }
+        });
+      }
+
+      // Verify Actions flow
+      if (btnVerifyActions) {
+        btnVerifyActions.addEventListener('click', async () => {
+          const username = verifyHandleInput ? verifyHandleInput.value.trim().replace(/^@/, '') : '';
+          const retweetLink = retweetLinkInput ? retweetLinkInput.value.trim() : '';
+
+          if (!username) return showAlert('Enter your Twitter username', 'error');
+
+          if (!retweetLink || !isValidRetweet(retweetLink)) {
+            if (retweetLinkInput) {
+              retweetLinkInput.classList.add('input-error');
+              setTimeout(()=> retweetLinkInput.classList.remove('input-error'), 600);
+            }
+            return showThreat('Quote Tweet link invalid.');
+          }
+
+          const retweetUsername = extractUsernameFromRetweet(retweetLink);
+          if (!retweetUsername || retweetUsername.toLowerCase() !== username.toLowerCase()) {
+            return showThreat('Quote Tweet username does not match the handle you provided.');
+          }
+
+          if (!followClicked) {
+            if (btnFollowRetweet) {
+              btnFollowRetweet.classList.add('input-error');
+              setTimeout(()=> btnFollowRetweet.classList.remove('input-error'), 500);
+            }
+            return showThreat("We didn't detect a Follow action. Tap Follow and come back.");
+          }
+
+          // backend uniqueness check
+          try {
+            const res = await fetch("{{ url_for('check_username') }}", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ username })
+            });
+            const data = await res.json();
+            if (!data.available) return showThreat('This Twitter username is already taken.');
+          } catch (err) {
+            console.error(err);
+            return showAlert('Error checking username.', 'error');
+          }
+
+          // progress animation
+          try {
+            let totalSeconds = Math.floor(Math.random() * 4) + 5;
+            let elapsed = 0;
+            btnVerifyActions.disabled = true;
+            const interval = 100;
+            const totalSteps = totalSeconds * 1000 / interval;
+
+            const countdown = setInterval(() => {
+              elapsed++;
+              const percent = Math.min((elapsed / totalSteps) * 100, 100);
+              if (progress) progress.style.width = percent + '%';
+              btnVerifyActions.innerText = `Verifying... ${Math.ceil((totalSteps - elapsed) / 10)}s`;
+
+              if (elapsed >= totalSteps) {
+                clearInterval(countdown);
+                if (progress) progress.style.width = '0%';
+                btnVerifyActions.innerText = 'Verified';
+                showAlert('Actions verified', 'success', 1500);
+                localStorage.setItem('waitlistUsername', username);
+                localStorage.setItem('waitlistRetweet', retweetLink);
+                const step1 = document.getElementById('step1');
+                if (step1) step1.classList.add('hidden');
+                const step2 = document.getElementById('step2');
+                if (step2) {
+                  step2.classList.remove('hidden');
+                  step2.classList.add('fade-in');
+                }
+                followClicked = true;
+              }
+            }, interval);
+          } catch (e) {
+            console.error(e);
+            showAlert('Verified', 'success', 1200);
+          }
+        });
+      }
+
+      // rest of handlers (join, resend, verify) left unchanged but guarded
+      // btnJoinWaitlist
+      const btnJoinWaitlist = document.getElementById('btnJoinWaitlist');
+      if (btnJoinWaitlist) {
+        btnJoinWaitlist.addEventListener('click', async () => {
+          const emailEl = document.getElementById('email');
+          const walletEl = document.getElementById('wallet');
+          const email = emailEl ? emailEl.value.trim() : '';
+          const wallet = walletEl ? walletEl.value.trim() : '';
+          const username = localStorage.getItem('waitlistUsername');
+          const retweet = localStorage.getItem('waitlistRetweet');
+          const referralCode = referralInput ? referralInput.value.trim() : '';
+
+          if (!email) return showAlert('Email is required', 'error');
+
+          if (referralCode) {
+            try {
+              const refRes = await fetch("{{ url_for('check_referral') }}", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ code: referralCode })
+              });
+              const refData = await refRes.json();
+              if (!refData.valid) return showAlert('Invalid referral code.', 'error');
+            } catch (err) {
+              console.error(err);
+              return showAlert('Error validating referral code.', 'error');
+            }
+          }
+
+          try {
+            const res = await fetch("{{ url_for('submit_waitlist') }}", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ username, retweet, email, wallet, referred_by: referralCode })
+            });
+            const data = await res.json();
+            if (data.success) {
+              document.getElementById('step2').classList.add('hidden');
+              const step3 = document.getElementById('step3');
+              if (step3) {
+                step3.classList.remove('hidden');
+                step3.classList.add('fade-in');
+              }
+              const vEmailText = document.getElementById('verifyEmailText');
+              if (vEmailText) vEmailText.innerText = email;
+              showAlert('Check your email for the login code', 'success', 3000);
+              if (typeof startCooldown === 'function') startCooldown();
+            } else {
+              showAlert(data.error || 'Email or Wallet Address taken.', 'error');
+            }
+          } catch (err) {
+            console.error(err);
+            showAlert('Error submitting.', 'error');
+          }
+        });
+      }
+
+      // resend and verify (guarded)
+      const btnResend = document.getElementById('btnResend');
+      const resendTimerEl = document.getElementById('resendTimer');
+      const btnVerify = document.getElementById('btnVerify');
+      let timerInterval;
+      let resendCooldown = 0;
+      let resendAttempts = 0;
+      const maxResends = 3;
+
+      function startCooldown() {
+        if (resendAttempts === 1) resendCooldown = 30;
+        else if (resendAttempts === 2) resendCooldown = 300;
+        else if (resendAttempts === 3) resendCooldown = 600;
+        else return;
+
+        if (btnResend) btnResend.classList.add('disabled');
+
+        clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+          if (resendCooldown <= 0) {
+            clearInterval(timerInterval);
+            if (resendTimerEl) resendTimerEl.innerText = '';
+            if (btnResend && resendAttempts < maxResends) btnResend.classList.remove('disabled');
+          } else {
+            if (resendTimerEl) resendTimerEl.innerText = ` (wait ${resendCooldown}s)`;
+            resendCooldown--;
+          }
+        }, 1000);
+      }
+
+      if (btnResend) {
+        btnResend.addEventListener('click', async (e) => {
+          e.preventDefault();
+          if (resendCooldown > 0) return;
+          if (resendAttempts >= maxResends) {
+            return showAlert('You have reached the maximum number of resends', 'error');
+          }
+          const emailEl = document.getElementById('verifyEmailText');
+          const email = emailEl ? emailEl.innerText : '';
+          try {
+            const res = await fetch('/resend_code', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email })
+            });
+            const data = await res.json();
+            if (data.success) {
+              resendAttempts++;
+              showAlert(`New code sent to your email (Attempt ${resendAttempts}/${maxResends})`, 'success');
+              startCooldown();
+            } else {
+              showAlert(data.error || 'Failed to resend code', 'error');
+            }
+          } catch (err) {
+            console.error(err);
+            showAlert('Error resending code', 'error');
+          }
+        });
+      }
+
+      if (btnVerify) {
+        btnVerify.addEventListener('click', async () => {
+          const codeEl = document.getElementById('verificationCode');
+          const code = codeEl ? codeEl.value.trim() : '';
+          const emailEl = document.getElementById('verifyEmailText');
+          const email = emailEl ? emailEl.innerText : '';
+          if (!code) return showAlert('Enter your code', 'error');
+          try {
+            const res = await fetch('/verify_code', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email, code })
+            });
+            const data = await res.json();
+            if (data.success) window.location.href = '/leaderboard';
+            else showAlert(data.error || 'Invalid code', 'error');
+          } catch (err) {
+            console.error(err);
+            showAlert('Verification failed', 'error');
+          }
+        });
+      }
+    }); // DOMContentLoaded
+  })();
+</script>
+{% endblock %}

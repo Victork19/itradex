@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}iTradeX — Dashboard{% endblock %}
+
+{% block content %}
+<main class="container py-5 d-flex justify-content-center">
+  <div class="w-100" style="max-width:720px;">
+    
+    <!-- Welcome Panel -->
+    <div class="panel mb-4 text-center">
+      <h3 class="fw-bold mb-2">Welcome, @{{ user.twitter }}</h3>
+      <p class="text-muted mb-0">Your current rank: <strong>#{{ position }}</strong></p>
+      <p class="text-muted">Total referrals: <strong>{{ user_referral_count }}</strong></p>
+    </div>
+
+    <!-- Referral Link -->
+    <div class="card-radius mb-4">
+      <h5 class="fw-semibold mb-3">Your Referral Link</h5>
+      <div class="input-group">
+        <input type="text" class="form-control" id="referralLink" readonly value="https://waitlist.itradex.xyz/r/{{ user.referral_code }}">
+        <button class="btn btn-primary" id="btnCopy"><i class="bi bi-copy"></i></button>
+      </div>
+      <p class="small text-muted mt-2">Share this link to climb the leaderboard.</p>
+    </div>
+
+    <!-- Leaderboard -->
+    <div class="card-radius">
+      <h5 class="fw-semibold mb-3">Leaderboard</h5>
+
+      <div class="table-responsive">
+        <table class="table align-middle">
+          <thead>
+            <tr>
+              <th scope="col">Rank</th>
+              <th scope="col">Username</th>
+              <th scope="col">Referrals</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in scores %}
+            <tr class="{% if s.email == user.email %}highlight{% endif %}">
+              <td>#{{ loop.index }}</td>
+              <td>@{{ s.username }}</td>
+              <td>{{ s.referrals }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- Alert Card -->
+<div id="alertCard" class="hidden card-radius bg-white shadow-sm p-3 text-center"
+  style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%) scale(0.8); opacity: 0; transition: all 0.3s ease; max-width: 300px; z-index: 1000;">
+  <p id="alertCardText" class="mb-0 fw-bold"></p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showAlert(message, type = "success", duration = 2000) {
+  const card = document.getElementById('alertCard');
+  const text = document.getElementById('alertCardText');
+  text.innerText = message;
+  text.classList.remove('text-success', 'text-danger');
+  text.classList.add(type === "success" ? 'text-success' : 'text-danger');
+  card.classList.remove('hidden');
+  card.style.transform = 'translateX(-50%) scale(1)';
+  card.style.opacity = '1';
+  setTimeout(() => {
+    card.style.transform = 'translateX(-50%) scale(0.8)';
+    card.style.opacity = '0';
+    setTimeout(() => card.classList.add('hidden'), 300);
+  }, duration);
+}
+
+document.getElementById('btnCopy').addEventListener('click', () => {
+  const link = document.getElementById('referralLink');
+  link.select();
+  link.setSelectionRange(0, 99999);
+  navigator.clipboard.writeText(link.value);
+  showAlert('Referral link copied!', 'success');
+});
+</script>
+{% endblock %}

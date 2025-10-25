@@ -1,0 +1,1223 @@
+<!doctype html>
+<html lang="en" data-theme="light" data-bs-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>iTrade Journal - Onboarding</title>
+
+  <!-- Fonts and Bootstrap -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
+
+  <style>
+    :root {
+      --brand-500: #2F6BFF;
+      --brand-600: #1F55E0;
+      --bg: #F8FAFC;
+      --surface: #fff;
+      --text: #0F172A;
+      --muted: #64748B;
+      --border: #E6EEF8;
+      --radius: 16px;
+      --shadow: 0 10px 30px rgba(15,23,42,0.08);
+      --accent: #06B6D4;
+      --success: #22C55E;
+      --warning: #FACC15;
+      --danger: #EF4444;
+    }
+
+    [data-theme="dark"] {
+      --bg: #0B0F16;
+      --surface: #1A1F2B;
+      --text: #E5E7EB;
+      --muted: #94A3B8;
+      --border: rgba(148,163,184,0.18);
+    }
+
+    body {
+      font-family: Inter, system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      overflow: auto;
+    }
+
+    .navbar {
+      padding: 20px 0;
+      background: transparent;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .navbar-brand {
+      font-weight: 700;
+      color: var(--brand-500);
+      font-size: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+
+    .onboarding-container {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .progress-bar {
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      margin: 0 auto 24px;
+      overflow: hidden;
+      max-width: 400px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--brand-500);
+      transition: width 0.3s ease;
+      border-radius: 2px;
+    }
+
+    .step-indicator {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 32px;
+    }
+
+    .step-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: background 0.3s ease;
+    }
+
+    .step-dot.active {
+      background: var(--brand-500);
+    }
+
+    .step-content {
+      flex: 1;
+      display: none;
+      padding: 0 20px;
+      overflow-y: auto;
+    }
+
+    .step-content.active {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .step-content h2 {
+      font-weight: 700;
+      font-size: 1.25rem;
+      margin-bottom: 8px;
+    }
+
+    .step-content p {
+      color: var(--muted);
+      margin-bottom: 24px;
+    }
+
+    .onboarding-card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 32px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      position: sticky;
+      bottom: 0;
+    }
+
+    /* Theme Cards for Step 1 */
+    .theme-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 16px;
+      padding-bottom: 16px;
+      flex: 1;
+      justify-items: center;
+    }
+
+    .theme-card {
+      height: 200px;
+      width: 200px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .theme-card:hover, .theme-card.selected {
+      border-color: var(--brand-500);
+      box-shadow: var(--shadow);
+      transform: translateY(-4px);
+    }
+
+    .theme-card i {
+      font-size: 3rem;
+      display: block;
+      margin-bottom: 12px;
+    }
+
+    .theme-card .title {
+      font-weight: 600;
+      margin-bottom: 4px;
+      color: var(--text);
+    }
+
+    .theme-card .desc {
+      font-size: 0.875rem;
+      color: var(--muted);
+    }
+
+    /* Step 2: Psychology */
+    .psych-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 16px;
+      padding-bottom: 16px;
+      flex: 1;
+    }
+
+    .psych-card {
+      height: 200px;
+      width: 160px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .psych-card:hover, .psych-card.selected {
+      border-color: var(--brand-500);
+      box-shadow: var(--shadow);
+      transform: translateY(-4px);
+    }
+
+    .psych-card i {
+      font-size: 2.5rem;
+      display: block;
+      margin-bottom: 12px;
+    }
+
+    .psych-card .title {
+      font-weight: 600;
+      margin-bottom: 4px;
+      color: var(--text);
+    }
+
+    .psych-card .desc {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .tooltip {
+      position: absolute;
+      bottom: -40px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--text);
+      color: var(--surface);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity 0.2s;
+      z-index: 30;
+      pointer-events: none;
+      box-shadow: var(--shadow);
+    }
+
+    .psych-card:hover .tooltip {
+      opacity: 1;
+    }
+
+    @media (max-width: 768px) {
+      .tooltip {
+        position: static;
+        transform: none;
+        left: auto;
+        bottom: auto;
+        background: transparent;
+        color: var(--muted);
+        padding: 4px 0;
+        opacity: 1;
+        box-shadow: none;
+        white-space: normal;
+        font-size: 0.7rem;
+        margin-top: 4px;
+      }
+
+      .psych-card:hover .tooltip {
+        opacity: 1;
+      }
+    }
+
+    .notes-textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      resize: none;
+      min-height: 60px;
+      margin-bottom: 8px;
+      background: var(--surface);
+      color: var(--text);
+    }
+
+    .notes-textarea:focus {
+      border-color: var(--brand-500);
+      box-shadow: 0 0 0 2px rgba(47,107,255,0.18);
+    }
+
+    .notes-textarea::placeholder {
+      color: var(--muted);
+    }
+
+    .char-count {
+      text-align: right;
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    /* Step 3: Strategy */
+    .strategy-dropdown {
+      position: relative;
+      margin-bottom: 16px;
+    }
+
+    .strategy-input {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      width: 100%;
+      cursor: pointer;
+      background: var(--surface);
+      color: var(--text);
+    }
+
+    .strategy-input::placeholder {
+      color: var(--muted);
+    }
+
+    .strategy-input:focus {
+      border-color: var(--brand-500);
+      box-shadow: 0 0 0 2px rgba(47,107,255,0.18);
+      outline: none;
+    }
+
+    .strategy-options {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0 0 10px 10px;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 30;
+      display: none;
+      box-shadow: var(--shadow);
+    }
+
+    .strategy-option {
+      padding: 12px 16px;
+      cursor: pointer;
+      transition: background 0.2s;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .strategy-option:hover,
+    .strategy-option.selected {
+      background: rgba(47,107,255,0.08);
+    }
+
+    .strategy-option:last-child {
+      border-bottom: none;
+    }
+
+    .custom-desc {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      width: 100%;
+      resize: vertical;
+      min-height: 80px;
+      margin-bottom: 16px;
+      background: var(--surface);
+      color: var(--text);
+    }
+
+    .custom-desc:focus {
+      border-color: var(--brand-500);
+      box-shadow: 0 0 0 2px rgba(47,107,255,0.18);
+    }
+
+    .custom-desc::placeholder {
+      color: var(--muted);
+    }
+
+    .params-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .chip {
+      background: rgba(47,107,255,0.08);
+      color: var(--brand-500);
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      border: 1px solid rgba(47,107,255,0.2);
+    }
+
+    .chip:hover {
+      background: var(--brand-500);
+      color: var(--surface);
+    }
+
+    .chip.selected {
+      background: var(--brand-500);
+      color: var(--surface);
+      border-color: var(--brand-500);
+    }
+
+    .chip i {
+      font-size: 0.75rem;
+    }
+
+    .toggle-switch {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--text);
+      margin-bottom: 16px;
+    }
+
+    .toggle-switch input[type="checkbox"] {
+      display: none;
+    }
+
+    .toggle-slider {
+      position: relative;
+      width: 40px;
+      height: 20px;
+      background: var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .toggle-slider::before {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 16px;
+      height: 16px;
+      background: var(--text);
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+
+    .toggle-switch input:checked + .toggle-slider {
+      background: var(--brand-500);
+    }
+
+    .toggle-switch input:checked + .toggle-slider::before {
+      transform: translateX(20px);
+      background: var(--surface);
+    }
+
+    .toggle-tooltip {
+      position: relative;
+    }
+
+    .toggle-tooltip:hover::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--text);
+      color: var(--surface);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      white-space: nowrap;
+      z-index: 30;
+      box-shadow: var(--shadow);
+    }
+
+    /* Step 4: Risk */
+    .risk-sliders {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      margin-bottom: 24px;
+      flex: 1;
+    }
+
+    .risk-item {
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 16px;
+      border: 1px solid var(--border);
+    }
+
+    .risk-item label {
+      font-weight: 600;
+      display: block;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+
+    .slider-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .form-range {
+      flex: 1;
+      height: 6px;
+      border-radius: 3px;
+      background: var(--border);
+      accent-color: var(--brand-500);
+    }
+
+    .slider-value {
+      min-width: 50px;
+      text-align: right;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .checkbox-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .form-check {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .form-check-input {
+      margin-top: 2px;
+      accent-color: var(--brand-500);
+      transform: scale(1.2);
+    }
+
+    .form-check-label {
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .initial-deposit {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      width: 100%;
+      margin-bottom: 16px;
+      background: var(--surface);
+      color: var(--text);
+    }
+
+    .initial-deposit::placeholder {
+      color: var(--muted);
+    }
+
+    .initial-deposit:focus {
+      border-color: var(--brand-500);
+      box-shadow: 0 0 0 2px rgba(47,107,255,0.18);
+    }
+
+    .preview-table {
+      background: var(--surface);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-top: 16px;
+      border: 1px solid var(--border);
+    }
+
+    .preview-table table {
+      width: 100%;
+    }
+
+    .preview-table th,
+    .preview-table td {
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .preview-table th {
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    .preview-table .safe {
+      color: var(--success);
+    }
+
+    .preview-table .risky {
+      color: var(--warning);
+    }
+
+    /* Success Screen */
+    .success-screen {
+      text-align: center;
+      padding: 60px 24px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .success-screen h2 {
+      color: var(--success);
+      margin-bottom: 16px;
+    }
+
+    .success-screen p {
+      color: var(--muted);
+      margin-bottom: 32px;
+    }
+
+    .confetti {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    /* Mobile */
+    @media (max-width: 768px) {
+      .psych-cards,
+      .theme-cards {
+        padding: 0 0 20px;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      }
+
+      .psych-cards {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+
+      .psych-card,
+      .theme-card {
+        height: 180px;
+        padding: 16px;
+        width: 100%;
+      }
+
+      .psych-card i,
+      .theme-card i {
+        font-size: 2rem;
+      }
+
+      .step-content {
+        padding: 0 16px;
+      }
+
+      .footer {
+        padding: 16px;
+      }
+
+      .onboarding-card {
+        padding: 24px 20px;
+      }
+
+      .strategy-options {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        max-height: 50vh;
+        border-radius: 0 0 10px 10px;
+        margin-top: 50px;
+      }
+
+      .toggle-tooltip:hover::after {
+        position: static;
+        transform: none;
+        left: auto;
+        bottom: auto;
+        background: transparent;
+        color: var(--muted);
+        padding: 4px 0;
+        white-space: normal;
+        box-shadow: none;
+        font-size: 0.7rem;
+        margin-top: 4px;
+        display: block;
+      }
+    }
+
+    /* Accessibility */
+    .psych-card:focus,
+    .theme-card:focus {
+      outline: 2px solid var(--brand-500);
+      outline-offset: 2px;
+    }
+  </style>
+</head>
+<body>
+  <div class="onboarding-container">
+    <nav class="navbar">
+      <div class="container">
+        <a class="navbar-brand" href="/dashboard">
+          <i class="bi bi-graph-up-arrow"></i> iTrade
+        </a>
+      </div>
+    </nav>
+
+    <div class="progress-bar mx-auto">
+      <div class="progress-fill" id="progressFill" style="width: 25%;"></div>
+    </div>
+
+    <div class="step-indicator mx-auto">
+      <div class="step-dot active"></div>
+      <div class="step-dot"></div>
+      <div class="step-dot"></div>
+      <div class="step-dot"></div>
+    </div>
+
+    <main class="container py-4 flex-grow-1">
+      <!-- Step 1: Theme Selection -->
+      <section class="step-content active" data-step="1" role="region" aria-label="Theme Selection">
+        <div class="onboarding-card">
+          <div>
+            <h2>Choose your theme</h2>
+            <p class="text-muted mb-4">Light or dark mode for your eyes.</p>
+            <div class="theme-cards" role="radiogroup" aria-label="Theme options">
+              <div class="theme-card" data-theme="light" tabindex="0" role="radio" aria-checked="true" aria-describedby="tooltip-light">
+                <i class="bi bi-sun-fill text-warning"></i>
+                <div class="title">Light Mode</div>
+                <div class="desc">Bright and airy</div>
+                <div class="tooltip" id="tooltip-light">Default bright theme for daytime viewing</div>
+              </div>
+              <div class="theme-card" data-theme="dark" tabindex="0" role="radio" aria-checked="false" aria-describedby="tooltip-dark">
+                <i class="bi bi-moon-fill text-info"></i>
+                <div class="title">Dark Mode</div>
+                <div class="desc">Easy on the eyes</div>
+                <div class="tooltip" id="tooltip-dark">Low-light theme for night or focus</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Step 2: Psychology Zone -->
+      <section class="step-content" data-step="2" role="region" aria-label="Psychology Zone Selection">
+        <div class="onboarding-card">
+          <div>
+            <h2>What's your trading style?</h2>
+            <p class="text-muted mb-4">This helps flag emotional biases in your trades.</p>
+            <div class="psych-cards" role="radiogroup" aria-label="Trading style options">
+              <div class="psych-card" data-zone="aggressive" tabindex="0" role="radio" aria-checked="false" aria-describedby="tooltip-aggressive">
+                <i class="bi bi-lightning-charge text-warning"></i>
+                <div class="title">Aggressive Hunter</div>
+                <div class="desc">High-volume breakouts</div>
+                <div class="tooltip" id="tooltip-aggressive">High-volume breakouts, tolerates volatility</div>
+              </div>
+              <div class="psych-card" data-zone="cautious" tabindex="0" role="radio" aria-checked="false" aria-describedby="tooltip-cautious">
+                <i class="bi bi-shield-check text-success"></i>
+                <div class="title">Cautious Scalper</div>
+                <div class="desc">Tight entries, low risk</div>
+                <div class="tooltip" id="tooltip-cautious">Tight entries, low risk per trade</div>
+              </div>
+              <div class="psych-card" data-zone="trend" tabindex="0" role="radio" aria-checked="false" aria-describedby="tooltip-trend">
+                <i class="bi bi-graph-up text-info"></i>
+                <div class="title">Trend Follower</div>
+                <div class="desc">Ride the waves</div>
+                <div class="tooltip" id="tooltip-trend">Ride the waves, hold through pullbacks</div>
+              </div>
+              <div class="psych-card" data-zone="reversal" tabindex="0" role="radio" aria-checked="false" aria-describedby="tooltip-reversal">
+                <i class="bi bi-arrow-counterclockwise text-danger"></i>
+                <div class="title">Reversal Spotter</div>
+                <div class="desc">Catch turns</div>
+                <div class="tooltip" id="tooltip-reversal">Catch turns, quick profits on fades</div>
+              </div>
+            </div>
+            <textarea class="notes-textarea form-control" placeholder="Optional notes (e.g., 'I get FOMO in London session')" maxlength="200" aria-label="Additional notes"></textarea>
+            <div class="char-count" id="charCount">0/200</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Step 3: Strategy -->
+      <section class="step-content" data-step="3" role="region" aria-label="Strategy Input">
+        <div class="onboarding-card">
+          <div>
+            <h2>Your go-to strategy</h2>
+            <p class="text-muted mb-4">We'll refine this from your trades.</p>
+            <div class="strategy-dropdown">
+              <input type="text" class="strategy-input form-control" id="strategyInput" placeholder="Select or type (e.g., Scalping)" readonly aria-label="Strategy selection">
+              <div class="strategy-options" id="strategyOptions" role="listbox" aria-label="Strategy options">
+                <div class="strategy-option" data-strat="scalping" role="option">Scalping</div>
+                <div class="strategy-option" data-strat="swing" role="option">Swing Trading</div>
+                <div class="strategy-option" data-strat="breakout" role="option">Breakout</div>
+                <div class="strategy-option" data-strat="rsi" role="option">RSI Divergence</div>
+                <div class="strategy-option" data-strat="custom" role="option">Custom...</div>
+              </div>
+            </div>
+            <textarea class="custom-desc form-control" id="strategyDesc" placeholder="Describe your strategy or key parameters (e.g., 'EMA Crossover on 1h charts')" aria-label="Strategy description"></textarea>
+            <div class="params-chips" id="paramsChips" role="group" aria-label="Strategy parameters">
+              <!-- Chips added dynamically -->
+            </div>
+          
+          </div>
+        </div>
+      </section>
+
+      <!-- Step 4: Risk Management -->
+      <section class="step-content" data-step="4" role="region" aria-label="Risk Management">
+        <div class="onboarding-card">
+          <div>
+            <h2>Risk rules</h2>
+            <p class="text-muted mb-4">Set your guardrails. Preview for a $10k initial deposit.</p>
+            <input type="number" class="initial-deposit form-control" id="initialDeposit" value="10000" min="1000" placeholder="Initial deposit estimate" aria-label="Initial deposit">
+            <div class="risk-sliders">
+              <div class="risk-item">
+                <label class="form-label" for="riskPerTrade">Max risk per trade (%)</label>
+                <div class="slider-container">
+                  <input type="range" class="form-range" id="riskPerTrade" min="0.5" max="5" value="1" step="0.5" aria-label="Max risk per trade">
+                  <span class="slider-value" id="riskPerTradeVal">1%</span>
+                </div>
+              </div>
+              <div class="risk-item">
+                <label class="form-label" for="dailyLoss">Daily loss limit (%)</label>
+                <div class="slider-container">
+                  <input type="range" class="form-range" id="dailyLoss" min="2" max="10" value="5" step="1" aria-label="Daily loss limit">
+                  <span class="slider-value" id="dailyLossVal">5%</span>
+                </div>
+              </div>
+            </div>
+            <div class="checkbox-group">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="stopLoss" checked>
+                <label class="form-check-label" for="stopLoss">Always use stop-loss</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="noRevenge">
+                <label class="form-check-label" for="noRevenge">No revenge trading after losses</label>
+              </div>
+            </div>
+            <div class="preview-table">
+              <table class="table table-sm">
+                <thead>
+                  <tr>
+                    <th>Rule</th>
+                    <th>Application ($10k)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Per trade risk</td>
+                    <td id="previewRisk" class="safe">$100</td>
+                  </tr>
+                  <tr>
+                    <td>Daily limit</td>
+                    <td id="previewDaily" class="safe">$500</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Success Screen -->
+      <section class="step-content" data-step="5" role="region" aria-label="Onboarding Complete">
+        <div class="success-screen text-center">
+          <div class="confetti" id="confetti"></div>
+          <h2 class="text-success">Welcome aboard!</h2>
+          <p class="text-muted">Your AI is tuned and ready to spot your edge.</p>
+          <button class="btn btn-success w-100" id="goToDashboard">Go to Dashboard</button>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <button class="btn btn-outline-secondary" id="backBtn" style="display: none;" aria-label="Back">Back</button>
+      <button class="btn btn-primary" id="nextBtn" disabled aria-label="Next">Next</button>
+    </footer>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <script>
+    // Theme initialization
+    (function() {
+      try {
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        const html = document.documentElement;
+        html.setAttribute('data-theme', savedTheme);
+        html.setAttribute('data-bs-theme', savedTheme);
+        const themeCards = document.querySelectorAll('.theme-card');
+        themeCards.forEach(card => {
+          if (card.dataset.theme === savedTheme) {
+            card.classList.add('selected');
+            card.setAttribute('aria-checked', 'true');
+          } else {
+            card.setAttribute('aria-checked', 'false');
+          }
+        });
+        // Enable Next button since a default theme is always selected
+        document.getElementById('nextBtn').disabled = false;
+      } catch (e) {
+        console.warn('Theme init failed:', e);
+        // Fallback: Enable button anyway
+        document.getElementById('nextBtn').disabled = false;
+      }
+    })();
+
+    let currentStep = 1;
+    const totalSteps = 4;
+    let selectedZone = '';
+    let selectedStrategy = '';
+    let notes = '';
+    let strategyDesc = '';
+    let initialDeposit = 10000;
+    let riskPerTrade = 1;
+    let dailyLoss = 5;
+    let stopLoss = true;
+    let noRevenge = false;
+    let selectedTimeframes = [];
+
+    // Progress update
+    function updateProgress() {
+      const progress = ((currentStep - 1) / totalSteps) * 100;
+      document.getElementById('progressFill').style.width = progress + '%';
+      document.querySelectorAll('.step-dot').forEach((dot, index) => {
+        dot.classList.toggle('active', index + 1 === currentStep);
+      });
+      // Safe access for skipBtn (if it exists in future)
+      const skipBtn = document.getElementById('skipBtn');
+      if (skipBtn) {
+        skipBtn.disabled = false;
+      }
+      document.getElementById('backBtn').style.display = currentStep > 1 ? 'inline-block' : 'none';
+    }
+
+    // Step navigation
+    function nextStep(step) {
+      if (step > totalSteps + 1) return;
+      document.querySelectorAll('.step-content').forEach(s => s.classList.remove('active'));
+      document.querySelector(`[data-step="${step}"]`).classList.add('active');
+      currentStep = step;
+      updateProgress();
+      if (step === 5) {
+        confetti();
+      }
+      window.scrollTo(0, 0);
+    }
+
+    function prevStep(step) {
+      nextStep(step);
+    }
+
+    // Step 1: Theme Selection
+    document.querySelectorAll('.theme-card').forEach(card => {
+      card.addEventListener('click', () => {
+        document.querySelectorAll('.theme-card').forEach(c => {
+          c.classList.remove('selected');
+          c.setAttribute('aria-checked', 'false');
+        });
+        card.classList.add('selected');
+        card.setAttribute('aria-checked', 'true');
+        const selectedTheme = card.dataset.theme;
+        document.documentElement.setAttribute('data-theme', selectedTheme);
+        document.documentElement.setAttribute('data-bs-theme', selectedTheme);
+        localStorage.setItem('theme', selectedTheme);
+        document.getElementById('nextBtn').disabled = false;
+      });
+      card.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          card.click();
+        }
+      });
+    });
+
+    // Step 2: Psychology
+    document.querySelectorAll('.psych-card').forEach(card => {
+      card.addEventListener('click', () => {
+        document.querySelectorAll('.psych-card').forEach(c => {
+          c.classList.remove('selected');
+          c.setAttribute('aria-checked', 'false');
+        });
+        card.classList.add('selected');
+        card.setAttribute('aria-checked', 'true');
+        selectedZone = card.dataset.zone;
+        document.getElementById('nextBtn').disabled = false;
+      });
+      card.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          card.click();
+        }
+      });
+    });
+
+    const notesTextarea = document.querySelector('.notes-textarea');
+    if (notesTextarea) {
+      notesTextarea.addEventListener('input', (e) => {
+        notes = e.target.value;
+        document.getElementById('charCount').textContent = `${notes.length}/200`;
+      });
+    }
+
+    // Step 3: Strategy
+    const strategyInput = document.getElementById('strategyInput');
+    const strategyOptions = document.getElementById('strategyOptions');
+    if (strategyInput && strategyOptions) {
+      strategyInput.addEventListener('click', () => {
+        strategyOptions.style.display = strategyOptions.style.display === 'block' ? 'none' : 'block';
+      });
+
+      document.querySelectorAll('.strategy-option').forEach(option => {
+        option.addEventListener('click', () => {
+          selectedStrategy = option.dataset.strat;
+          strategyInput.value = selectedStrategy.charAt(0).toUpperCase() + selectedStrategy.slice(1);
+          strategyOptions.style.display = 'none';
+          document.querySelectorAll('.strategy-option').forEach(o => o.classList.remove('selected'));
+          option.classList.add('selected');
+          document.getElementById('nextBtn').disabled = false;
+        });
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!strategyInput.contains(e.target) && !strategyOptions.contains(e.target)) {
+          strategyOptions.style.display = 'none';
+        }
+      });
+
+      const strategyDescTextarea = document.getElementById('strategyDesc');
+      if (strategyDescTextarea) {
+        strategyDescTextarea.addEventListener('input', (e) => {
+          strategyDesc = e.target.value;
+        });
+      }
+    }
+
+    // Parameters chips (example timeframes)
+    const paramsChips = document.getElementById('paramsChips');
+    if (paramsChips) {
+      const timeframes = ['5m', '15m', '1h', '4h', '1d'];
+      timeframes.forEach(tf => {
+        const chip = document.createElement('div');
+        chip.className = 'chip';
+        chip.dataset.timeframe = tf;
+        chip.innerHTML = `<i class="bi bi-stopwatch"></i> ${tf}`;
+        chip.addEventListener('click', () => {
+          chip.classList.toggle('selected');
+          if (chip.classList.contains('selected')) {
+            selectedTimeframes.push(tf);
+          } else {
+            selectedTimeframes = selectedTimeframes.filter(t => t !== tf);
+          }
+        });
+        paramsChips.appendChild(chip);
+      });
+    }
+
+    // Step 4: Risk
+    const initialDepositInput = document.getElementById('initialDeposit');
+    if (initialDepositInput) {
+      initialDepositInput.addEventListener('input', (e) => {
+        initialDeposit = parseFloat(e.target.value) || 10000;
+        updatePreview();
+      });
+    }
+
+    const riskPerTradeSlider = document.getElementById('riskPerTrade');
+    if (riskPerTradeSlider) {
+      riskPerTradeSlider.addEventListener('input', (e) => {
+        riskPerTrade = parseFloat(e.target.value);
+        document.getElementById('riskPerTradeVal').textContent = `${riskPerTrade}%`;
+        updatePreview();
+      });
+    }
+
+    const dailyLossSlider = document.getElementById('dailyLoss');
+    if (dailyLossSlider) {
+      dailyLossSlider.addEventListener('input', (e) => {
+        dailyLoss = parseFloat(e.target.value);
+        document.getElementById('dailyLossVal').textContent = `${dailyLoss}%`;
+        updatePreview();
+      });
+    }
+
+    const stopLossCheckbox = document.getElementById('stopLoss');
+    if (stopLossCheckbox) {
+      stopLossCheckbox.addEventListener('change', (e) => {
+        stopLoss = e.target.checked;
+      });
+    }
+
+    const noRevengeCheckbox = document.getElementById('noRevenge');
+    if (noRevengeCheckbox) {
+      noRevengeCheckbox.addEventListener('change', (e) => {
+        noRevenge = e.target.checked;
+      });
+    }
+
+    function updatePreview() {
+      const perTradeRisk = (initialDeposit * (riskPerTrade / 100)).toFixed(0);
+      const dailyLimit = (initialDeposit * (dailyLoss / 100)).toFixed(0);
+      document.getElementById('previewRisk').textContent = `$${perTradeRisk}`;
+      document.getElementById('previewDaily').textContent = `$${dailyLimit}`;
+      // Add safe/risky class based on thresholds, e.g.
+      const riskClass = riskPerTrade > 2 ? 'risky' : 'safe';
+      document.getElementById('previewRisk').className = riskClass;
+      document.getElementById('previewDaily').className = dailyLoss > 7 ? 'risky' : 'safe';
+    }
+
+    // Navigation buttons
+    const backBtn = document.getElementById('backBtn');
+    if (backBtn) {
+      backBtn.addEventListener('click', () => prevStep(currentStep - 1));
+    }
+    const nextBtn = document.getElementById('nextBtn');
+    if (nextBtn) {
+      nextBtn.addEventListener('click', () => {
+        if (currentStep === 1) {
+          // Theme always selected on load or click
+          nextStep(currentStep + 1);
+          return;
+        }
+        if (currentStep === 2 && !selectedZone) return;
+        if (currentStep === 3 && !selectedStrategy) return;
+        if (currentStep === 4) {
+          // All validated by default in step 4
+          completeOnboarding();
+          return;
+        }
+        nextStep(currentStep + 1);
+      });
+    }
+
+    const goToDashboardBtn = document.getElementById('goToDashboard');
+    if (goToDashboardBtn) {
+      goToDashboardBtn.addEventListener('click', () => {
+        window.location.href = '/dashboard';
+      });
+    }
+
+    async function completeOnboarding() {
+      const dailyLossLimit = initialDeposit * (dailyLoss / 100);
+      const data = {
+        psychZone: selectedZone,
+        strategy: selectedStrategy,
+        strategyDesc: strategyDesc,
+        initialDeposit: initialDeposit,
+        accountBalance: initialDeposit,
+        riskPerTrade: riskPerTrade,
+        dailyLoss: dailyLoss,
+        dailyLossLimit: dailyLossLimit,
+        stopLoss: stopLoss,
+        noRevenge: noRevenge,
+        notes: notes,
+        timeframes: selectedTimeframes
+      };
+      try {
+        const res = await fetch('/api/profile/onboard', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        if (!res.ok) {
+          const errorText = await res.text();
+          throw new Error(errorText || 'Unknown error');
+        }
+        nextStep(5);
+      } catch (err) {
+        console.error('Onboarding error:', err);
+        let msg = 'Unknown error';
+        if (err.name === 'TypeError' && err.message.includes('null')) {
+          msg = 'Page setup issue—refresh and try again.';
+        } else if (err instanceof TypeError && err.message.includes('fetch')) {
+          msg = 'Save failed—check connection.';
+        } else {
+          msg = err.message;
+        }
+        alert(`Error saving profile: ${msg}. Check console for details.`);
+      }
+    }
+
+    // Haptic feedback (for supported devices)
+    function hapticFeedback() {
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
+    }
+
+    // Add haptics to selections
+    document.querySelectorAll('.theme-card, .psych-card, .strategy-option, .chip, .form-check-input').forEach(el => {
+      el.addEventListener('click', hapticFeedback);
+    });
+
+    // Initial updates
+    updateProgress();
+    updatePreview();
+  </script>
+</body>
+</html>

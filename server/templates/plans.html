@@ -1,0 +1,440 @@
+<!-- templates/plans.html -->
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>iTrade Journal — Plans</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+
+  <style>
+    :root {
+      --brand-500: #2F6BFF;
+      --brand-600: #1F55E0;
+      --accent-cyan: #06B6D4;
+      --success: #22C55E;
+      --danger: #EF4444;
+      --gold: #FCD34D;
+      --bg: #F8FAFC;
+      --surface: #FFFFFF;
+      --text: #0F1724;
+      --muted: #64748B;
+      --border: #E6EEF8;
+      --radius: 16px;
+      --shadow: 0 20px 40px rgba(15,23,42,0.08);
+      --shadow-lg: 0 25px 50px -12px rgba(0,0,0,0.15);
+    }
+
+    [data-theme="dark"] {
+      --bg: #0B0F16;
+      --surface: #1A1F2B;
+      --text: #E5E7EB;
+      --muted: #94A3B8;
+      --border: rgba(148,163,184,0.18);
+      --shadow: 0 20px 40px rgba(0,0,0,0.5);
+      --shadow-lg: 0 25px 50px -12px rgba(0,0,0,0.25);
+      color-scheme: dark;
+    }
+
+    [data-theme="dark"] .text-muted { color: var(--muted) !important; }
+    [data-theme="dark"] .btn-outline-primary { color: var(--brand-500); border-color: var(--brand-500); }
+    [data-theme="dark"] .btn-outline-primary:hover { background-color: var(--brand-500); color: white; }
+    [data-theme="dark"] .btn-primary { background-color: var(--brand-500); border-color: var(--brand-500); }
+    [data-theme="dark"] .plan-card.border-primary { border-color: var(--brand-500); }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+      transition: background 0.3s ease, color 0.3s ease;
+    }
+
+    nav.navbar { background: transparent; padding: 20px 0; }
+    .brand { font-weight: 700; color: var(--brand-500); font-size: 1.125rem; display: flex; align-items: center; gap: 10px; }
+    main { padding: 60px 20px; }
+    .plans-header { text-align: center; margin-bottom: 50px; }
+    .plans-header h1 { font-size: 32px; font-weight: 700; }
+    .plans-header p { color: var(--muted); font-size: 1.05rem; }
+    .plan-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 32px 24px; display: flex; flex-direction: column; justify-content: space-between; height: 100%; transition: transform .2s ease, box-shadow .2s ease; }
+    [data-theme="dark"] .plan-card { border-color: var(--border); }
+    .plan-card:hover { transform: translateY(-6px); box-shadow: 0 14px 36px rgba(15,23,42,0.12); }
+    [data-theme="dark"] .plan-card:hover { box-shadow: 0 14px 36px rgba(0,0,0,0.3); }
+    .plan-title { font-size: 1.25rem; font-weight: 700; margin-bottom: 10px; color: var(--text); }
+    .plan-price { font-size: 2rem; font-weight: 700; color: var(--brand-500); margin-bottom: 20px; }
+    .plan-features { list-style: none; padding: 0; margin: 0 0 24px 0; }
+    .plan-features li { display: flex; align-items: center; gap: 10px; color: var(--text); margin-bottom: 12px; font-size: .95rem; }
+    .plan-features li i { color: var(--brand-500); font-size: 1rem; }
+    .badge-popular { display: inline-block; background: rgba(47,107,255,0.1); color: var(--brand-500); font-size: .75rem; font-weight: 600; border-radius: 8px; padding: 4px 8px; margin-bottom: 10px; }
+    [data-theme="dark"] .badge-popular { background: rgba(47,107,255,0.2); }
+    footer { padding: 30px 0; text-align: center; color: var(--muted); font-size: .9rem; }
+    .annual-note { font-size: .8rem; color: var(--muted); margin-top: -10px; margin-bottom: 20px; }
+    .interval-toggle { display: flex; gap: 8px; margin-bottom: 16px; justify-content: center; }
+    .interval-btn { padding: 6px 12px; border: 1px solid var(--border); background: var(--surface); border-radius: 6px; font-size: 0.85rem; transition: all 0.2s ease; }
+    .interval-btn.active { background: var(--brand-500); color: white; border-color: var(--brand-500); }
+    .plan-cta { margin-top: 12px; }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .current-plan { background: var(--success); color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; margin-left: 8px; }
+    .processing-modal .modal-content { border: none; border-radius: var(--radius); box-shadow: var(--shadow-lg); background: linear-gradient(145deg, var(--surface), rgba(255,255,255,0.8)); backdrop-filter: blur(10px); }
+    [data-theme="dark"] .processing-modal .modal-content { background: linear-gradient(145deg, var(--surface), rgba(0,0,0,0.2)); }
+    .processing-spinner { width: 50px; height: 50px; border: 4px solid var(--border); border-top: 4px solid var(--brand-500); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .progress-step { display: flex; align-items: center; margin-bottom: 15px; padding: 8px 0; border-left: 3px solid var(--brand-500); padding-left: 12px; }
+    .progress-step i { color: var(--brand-500); font-size: 1.2rem; margin-right: 10px; }
+    .checkout-modal .modal-content { border: none; border-radius: var(--radius); box-shadow: var(--shadow-lg); background: var(--surface); overflow: hidden; position: relative; max-width: 500px; margin: 1.75rem auto; }
+    [data-theme="dark"] .checkout-modal .modal-content { background: var(--surface); }
+    .checkout-modal .modal-content::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, var(--brand-500), var(--gold)); }
+    .modal-header { border-bottom: none; padding: 2rem 2rem 1rem; text-align: center; position: relative; z-index: 1; }
+    .modal-title { color: var(--text); font-weight: 700; font-size: 1.5rem; letter-spacing: -0.02em; margin-bottom: 0.5rem; }
+    .modal-subtitle { color: var(--muted); font-size: 0.95rem; margin: 0; }
+    .modal-body { color: var(--text); padding: 0 2rem 2rem; }
+    .modal-body .text-muted { color: var(--muted); }
+    .modal-footer { border-top: 1px solid var(--border); padding: 1.5rem 2rem 2rem; margin-top: auto; }
+    .email-highlight { background: linear-gradient(135deg, rgba(47,107,255,0.1), rgba(252,211,77,0.1)); padding: 4px 8px; border-radius: 6px; font-family: 'SF Mono', monospace; color: var(--brand-500); font-weight: 600; }
+    [data-theme="dark"] .email-highlight { background: linear-gradient(135deg, rgba(47,107,255,0.2), rgba(252,211,77,0.2)); }
+    .step-icon { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--brand-500), var(--brand-600)); color: white; display: inline-flex; align-items: center; justify-content: center; margin-right: 12px; font-size: 1rem; font-weight: 700; box-shadow: 0 2px 8px rgba(47,107,255,0.2); flex-shrink: 0; }
+    .premium-badge { background: linear-gradient(135deg, var(--gold), #FBBF24); color: #B45309; padding: 4px 8px; border-radius: 16px; font-size: 0.75rem; font-weight: 700; box-shadow: 0 2px 8px rgba(252,211,77,0.2); }
+    .order-summary { background: var(--bg); border: 1px solid var(--border); border-radius: calc(var(--radius) - 4px); padding: 1.25rem; margin: 1.5rem 0; position: relative; overflow: hidden; }
+    .order-summary::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 2px; background: linear-gradient(90deg, var(--success), var(--gold)); }
+    .order-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; font-size: 0.9rem; }
+    .order-item:last-child { font-weight: 700; font-size: 1.125rem; border-top: 1px solid var(--border); padding-top: 0.75rem; color: var(--brand-500); margin-top: 0.5rem; }
+    .discount { color: var(--success); font-weight: 600; }
+    .security-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(34,197,94,0.1); color: var(--success); padding: 8px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; margin-bottom: 1rem; justify-content: center; }
+    [data-theme="dark"] .security-badge { background: rgba(34,197,94,0.2); }
+    .btn-premium { background: linear-gradient(135deg, var(--brand-500), var(--brand-600)); border: none; border-radius: calc(var(--radius) - 4px); padding: 12px 24px; font-weight: 600; font-size: 0.95rem; box-shadow: 0 4px 12px rgba(47,107,255,0.2); transition: all 0.3s ease; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .btn-premium:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(47,107,255,0.3); }
+    .btn-secondary-premium { background: transparent; border: 1px solid var(--border); color: var(--text); border-radius: calc(var(--radius) - 4px); padding: 12px 24px; font-weight: 500; transition: all 0.3s ease; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .btn-secondary-premium:hover { background: var(--brand-500); color: white; border-color: var(--brand-500); }
+    .step-card { display: flex; align-items: flex-start; gap: 12px; padding: 1rem; background: var(--bg); border: 1px solid var(--border); border-radius: calc(var(--radius) - 4px); margin-bottom: 1rem; }
+    .step-text { flex: 1; }
+    .step-title { margin: 0 0 0.25rem; font-weight: 600; font-size: 0.95rem; }
+    .step-desc { margin: 0; color: var(--muted); font-size: 0.85rem; }
+    .vip-alert { background: linear-gradient(135deg, rgba(252,211,77,0.08), rgba(245,158,11,0.08)); border: 1px solid rgba(252,211,77,0.2); border-radius: calc(var(--radius) - 4px); padding: 1rem; margin: 1rem 0; display: flex; align-items: center; gap: 8px; }
+    .email-alert { background: linear-gradient(135deg, rgba(6,182,212,0.08), rgba(47,107,255,0.08)); border: 1px solid rgba(6,182,212,0.2); border-radius: calc(var(--radius) - 4px); padding: 1rem; margin-bottom: 1rem; }
+    .email-details { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem; }
+    .email-details strong { color: var(--text); }
+    .email-details .text-muted { color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="page-container">
+    <nav class="navbar container">
+      <a class="brand" href="/"><i class="bi bi-graph-up-arrow fs-3"></i> iTrade</a>
+    </nav>
+
+    <main class="container" id="plans-section">
+      <div class="plans-header">
+        <h1>Choose your plan</h1>
+        <p>Start simple, scale as you go. {% if effective_discount > 0 %}{{ "%.0f"|format(effective_discount) }}% off first month on Pro & Elite.{% else %}Upgrade anytime.{% endif %}</p>
+      </div>
+
+      <div class="row g-4 justify-content-center">
+        <div class="col-md-4">
+          <div class="plan-card">
+            <div>
+              <div class="plan-title">Free<span class="current-plan" style="display: {% if current_user.plan == 'starter' %}inline{% else %}none{% endif %};">Current</span></div>
+              <div class="plan-price">$0</div>
+              <ul class="plan-features">
+                <li><i class="bi bi-check-circle-fill"></i> 3 uploads/month</li>
+                <li><i class="bi bi-check-circle-fill"></i> 1 basic AI insight</li>
+                <li><i class="bi bi-check-circle-fill"></i> Referral rewards</li>
+              </ul>
+            </div>
+            <button class="btn btn-outline-primary w-100" onclick="window.location.href='/'">Get Started</button>
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="plan-card border-primary" style="border-width:2px">
+            <div>
+              <div class="badge-popular">Most Popular</div>
+              <div class="plan-title">Pro<span class="current-plan" style="display: {% if 'pro' in current_user.plan %}inline{% else %}none{% endif %};">Current</span></div>
+              <div class="interval-toggle">
+                <button class="interval-btn active" data-interval="monthly" data-plan="pro">Monthly (${{ "%.2f"|format(pricing.pro_monthly) }})</button>
+                <button class="interval-btn" data-interval="yearly" data-plan="pro">Annual (${{ "%.2f"|format(pricing.pro_yearly) }})</button>
+              </div>
+              <ul class="plan-features">
+                <li><i class="bi bi-check-circle-fill"></i> Everything in Free</li>
+                <li><i class="bi bi-check-circle-fill"></i> Unlimited uploads & AI insights</li>
+                <li><i class="bi bi-check-circle-fill"></i> Advanced analytics</li>
+                <li><i class="bi bi-check-circle-fill"></i> 1,000 API calls/month</li>
+                <li><i class="bi bi-check-circle-fill"></i> Priority support</li>
+              </ul>
+            </div>
+            <div class="plan-cta">
+              <button id="pro-btn" class="btn btn-primary w-100">Choose Pro</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="plan-card">
+            <div>
+              <div class="plan-title">Elite<span class="current-plan" style="display: {% if 'elite' in current_user.plan %}inline{% else %}none{% endif %};">Current</span></div>
+              <div class="interval-toggle">
+                <button class="interval-btn active" data-interval="monthly" data-plan="elite">Monthly (${{ "%.2f"|format(pricing.elite_monthly) }})</button>
+                <button class="interval-btn" data-interval="yearly" data-plan="elite">Annual (${{ "%.2f"|format(pricing.elite_yearly) }})</button>
+              </div>
+              <ul class="plan-features">
+                <li><i class="bi bi-check-circle-fill"></i> Everything in Pro</li>
+                <li><i class="bi bi-check-circle-fill"></i> Unlimited API calls & webhooks</li>
+                <li><i class="bi bi-check-circle-fill"></i> Multi-account tracking</li>
+                <li><i class="bi bi-check-circle-fill"></i> Custom integrations</li>
+                <li><i class="bi bi-check-circle-fill"></i> Early feature access</li>
+              </ul>
+            </div>
+            <div class="plan-cta">
+              <button id="elite-btn" class="btn btn-outline-primary w-100">Choose Elite</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <div class="modal fade processing-modal" id="processingModal" tabindex="-1" aria-labelledby="processingModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-body text-center p-5">
+            <div class="processing-spinner"></div>
+            <h2 class="mb-3 fw-bold" id="processingModalLabel">Securing Your Upgrade</h2>
+            <p class="text-muted mb-4">Preparing your premium <span id="processingPlanName" class="fw-semibold text-primary"></span> access...</p>
+            <div class="progress-step">
+              <i class="bi bi-check-lg text-success"></i>
+              <span class="fw-medium">Verifying your selection</span>
+            </div>
+            <div class="progress-step">
+              <i class="bi bi-shield-check text-primary"></i>
+              <span class="fw-medium">Generating encrypted payment link</span>
+            </div>
+            <div class="progress-step">
+              <i class="bi bi-envelope-heart text-info"></i>
+              <span class="fw-medium">Delivering to your inbox</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade checkout-modal" id="confirmationModal" tabindex="-1" aria-labelledby="confirmationModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <i class="bi bi-gem text-primary fs-2 mb-3 d-block" style="filter: drop-shadow(0 2px 4px rgba(47,107,255,0.1));"></i>
+            <h1 class="modal-title" id="confirmationModalLabel">Premium Awaits</h1>
+            <p class="modal-subtitle">Secure <span id="selectedPlanName" class="fw-semibold text-primary"></span> access – instant, borderless.</p>
+          </div>
+          <div class="modal-body">
+            <div class="security-badge w-100">
+              <i class="bi bi-shield-lock-fill"></i>
+              <span>Crypto Checkout • Secure • Privacy-First</span>
+            </div>
+            <div class="order-summary">
+              <h6 class="fw-bold mb-3 text-uppercase text-muted small">Order Summary</h6>
+              <div class="order-item">
+                <span class="fw-medium"><span id="selectedPlanNameSum"></span> Plan</span>
+                <span class="text-primary fw-semibold" id="billingCycle"></span>
+              </div>
+              <div class="order-item" id="discountRow" style="display: {% if effective_discount > 0 %}flex{% else %}none{% endif %};">
+                <span class="text-muted">Launch Discount</span>
+                <span id="discountText" class="discount fw-bold">-{{"%.0f"|format(effective_discount)}}% First Month</span>
+              </div>
+              <div class="order-item">
+                <span class="fw-bold text-dark">Total</span>
+                <span id="totalAmount" class="text-success fw-bold"></span>
+              </div>
+            </div>
+            <div class="email-alert">
+              <i class="bi bi-envelope-check-fill text-info fs-5 float-end"></i>
+              <div class="email-details">
+                <p class="mb-0"><strong>From:</strong> noreply@nowpayments.io</p>
+                <p class="mb-0"><strong>To:</strong> <span class="email-highlight" id="userEmail"></span></p>
+                <p class="mb-1"><strong>Subject:</strong> Secure Your iTrade Premium</p>
+                <p class="text-muted small mb-0">Check Spam if needed.</p>
+              </div>
+            </div>
+            <h6 class="fw-bold mb-2 text-uppercase text-muted small">Next Steps</h6>
+            <div class="step-card">
+              <div class="step-icon"><i class="bi bi-1-circle"></i></div>
+              <div class="step-text">
+                <p class="step-title">Open Invite</p>
+                <p class="step-desc">Click link – expires in 24h for security.</p>
+              </div>
+            </div>
+            <div class="step-card">
+              <div class="step-icon"><i class="bi bi-2-circle"></i></div>
+              <div class="step-text">
+                <p class="step-title">Pay with Crypto</p>
+                <p class="step-desc">BTC, ETH, USDT + 100+ options. Instant.</p>
+              </div>
+            </div>
+            <div class="step-card">
+              <div class="step-icon"><i class="bi bi-3-circle"></i></div>
+              <div class="step-text">
+                <p class="step-title">Unlock Access</p>
+                <p class="step-desc">Premium activates immediately.</p>
+              </div>
+            </div>
+            <div class="vip-alert" {% if effective_discount > 0 %}style="display:flex;"{% else %}style="display:none;"{% endif %}>
+              <i class="bi bi-star-fill text-warning"></i>
+              <span class="premium-badge">VIP</span>
+              <span class="fw-semibold flex-grow-1">{{ "%.0f"|format(effective_discount) }}% off first month included.</span>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <div class="d-grid gap-2">
+              <button class="btn btn-premium" id="openEmailBtn">
+                <i class="bi bi-envelope-open-heart"></i>
+                Open Email & Pay
+              </button>
+              <button class="btn btn-secondary-premium" id="dashboardBtn">
+                <i class="bi bi-house-door"></i>
+                Back to Dashboard
+              </button>
+            </div>
+            <small class="text-muted text-center mt-3 d-block">
+              Powered by NowPayments. Cancel anytime. <a href="mailto:contact@itradex.xyz" class="text-primary fw-semibold">Support</a>.
+            </small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <div class="container">Secure crypto payments via NowPayments. Cancel anytime.</div>
+    </footer>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    (function() {
+      const savedTheme = localStorage.getItem('theme') || 'light';
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    })();
+
+    const nestedPricing = {{ nested_pricing | tojson }};
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const intervalButtons = document.querySelectorAll('.interval-btn');
+      const proBtn = document.getElementById('pro-btn');
+      const eliteBtn = document.getElementById('elite-btn');
+      const processingModal = new bootstrap.Modal(document.getElementById('processingModal'), {backdrop: 'static', keyboard: false});
+      const confirmationModal = new bootstrap.Modal(document.getElementById('confirmationModal'), {backdrop: 'static', keyboard: false});
+      const userEmailSpan = document.getElementById('userEmail');
+      const selectedPlanNameSpan = document.getElementById('selectedPlanName');
+      const selectedPlanNameSubSpan = document.getElementById('selectedPlanNameSub');
+      const selectedPlanNameSumSpan = document.getElementById('selectedPlanNameSum');
+      const processingPlanNameSpan = document.getElementById('processingPlanName');
+      const billingCycleSpan = document.getElementById('billingCycle');
+      const totalAmountSpan = document.getElementById('totalAmount');
+      const openEmailBtn = document.getElementById('openEmailBtn');
+      const dashboardBtn = document.getElementById('dashboardBtn');
+
+      let selectedPlan = 'pro';
+      let selectedInterval = 'monthly';
+
+      function safeSetText(element, value) {
+        if (element) {
+          element.textContent = value;
+        } else {
+          console.error(`Element not found for text update: ${value}`);
+        }
+      }
+
+      intervalButtons.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const plan = e.target.dataset.plan;
+          const interval = e.target.dataset.interval;
+          document.querySelectorAll(`[data-plan="${plan}"]`).forEach(b => b.classList.remove('active'));
+          e.target.classList.add('active');
+          selectedPlan = plan;
+          selectedInterval = interval;
+        });
+      });
+
+      function handleCheckout(plan, interval) {
+        const btn = plan === 'pro' ? proBtn : eliteBtn;
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        const planName = plan.charAt(0).toUpperCase() + plan.slice(1);
+        safeSetText(processingPlanNameSpan, planName);
+        processingModal.show();
+
+        fetch('/payments/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ plan, interval })
+        })
+        .then(res => {
+          if (!res.ok) {
+            return res.json().then(err => { throw new Error(err.detail || 'Failed to create subscription'); });
+          }
+          return res.json();
+        })
+        .then(data => {
+          console.log('Checkout data:', data);
+          processingModal.hide();
+          confirmationModal.show();
+          safeSetText(userEmailSpan, data.email || 'your email');
+          safeSetText(selectedPlanNameSpan, planName);
+          safeSetText(selectedPlanNameSubSpan, planName);
+          safeSetText(selectedPlanNameSumSpan, planName);
+          safeSetText(billingCycleSpan, interval.charAt(0).toUpperCase() + interval.slice(1));
+          
+          const basePrice = nestedPricing[plan][interval];
+          const monthlyEquiv = nestedPricing[plan].monthly;
+          const discountPerc = {{ effective_discount }};
+          
+          let discountedTotal = basePrice;
+          if (discountPerc > 0) {
+            const discount = monthlyEquiv * (discountPerc / 100);
+            discountedTotal = basePrice - discount;
+            const discountRow = document.getElementById('discountRow');
+            const discountText = document.getElementById('discountText');
+            if (discountRow && discountText) {
+              discountText.textContent = `-${discountPerc.toFixed(0)}% First Month`;
+              discountRow.style.display = 'flex';
+            }
+          }
+          safeSetText(totalAmountSpan, `$${Math.max(discountedTotal, 0.01).toFixed(2)}`);
+          
+          const emailProviders = {
+            'gmail.com': 'https://mail.google.com',
+            'outlook.com': 'https://outlook.live.com',
+            'hotmail.com': 'https://outlook.live.com',
+            'yahoo.com': 'https://mail.yahoo.com',
+            'icloud.com': 'https://www.icloud.com/mail'
+          };
+          const emailDomain = (data.email || '').split('@')[1];
+          const emailUrl = emailProviders[emailDomain] || 'mailto:';
+          openEmailBtn.onclick = () => { window.open(emailUrl, '_blank'); };
+          dashboardBtn.onclick = () => {
+            confirmationModal.hide();
+            window.location.href = '/dashboard';
+          };
+        })
+        .catch(err => {
+          console.error('Checkout error:', err);
+          processingModal.hide();
+          alert('Checkout setup failed: ' + err.message + '\n\nPlease try again or contact support.');
+        })
+        .finally(() => {
+          setTimeout(() => {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+          }, 2000);
+        });
+      }
+
+      proBtn.addEventListener('click', () => handleCheckout('pro', selectedInterval));
+      eliteBtn.addEventListener('click', () => handleCheckout('elite', selectedInterval));
+
+      const proMonthly = document.querySelector('[data-plan="pro"][data-interval="monthly"]');
+      const eliteMonthly = document.querySelector('[data-plan="elite"][data-interval="monthly"]');
+      if (proMonthly) proMonthly.click();
+    });
+  </script>
+</body>
+</html>

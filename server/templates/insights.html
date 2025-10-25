@@ -1,0 +1,828 @@
+{% extends "base.html" %}
+{% block title %}Insights{% endblock %}
+{% block content %}<main class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+      <h4 class="fw-bold mb-1">Your Trading Insights</h4>
+      <p class="small-muted mb-0" id="insights-subtitle"></p>
+    </div>
+    <div class="d-flex gap-2 align-items-center flex-wrap">
+      <div id="generations-display" class="d-none"></div>
+      <button class="btn btn-primary btn-sm" id="actionBtn">Loading...</button>
+      <div id="export-group" class="d-flex gap-2 d-none">
+        <button class="btn btn-outline-secondary btn-sm" onclick="exportInsights('pdf')" data-bs-toggle="tooltip" data-bs-placement="top" title="Export insights as PDF"><i class="bi bi-file-earmark-pdf me-1"></i> PDF</button>
+        <button class="btn btn-outline-secondary btn-sm" onclick="exportInsights('csv')" data-bs-toggle="tooltip" data-bs-placement="top" title="Export insights as CSV"><i class="bi bi-file-earmark-spreadsheet me-1"></i> CSV</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card-radius p-0" id="insights-container">
+    <!-- Dynamic content injected via JS -->
+  </div>
+</main>
+
+<!-- Regenerate Modal -->
+<div class="modal fade" id="regenerateModal" tabindex="-1" aria-labelledby="regenerateModalLabel">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="regenerateModalLabel">Regenerate Insights</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label">Custom Focus Prompt</label>
+        <input id="regeneratePrompt" class="form-control" placeholder="e.g., Focus on psych biases">
+        <div id="credit-warning" class="alert alert-warning mt-2 d-none" role="alert">
+          <i class="bi bi-exclamation-triangle me-2"></i> No generations left! Upgrade to Pro for unlimited regenerations.
+          <button class="btn btn-warning btn-sm ms-2" onclick="window.location.href='/plans'">Upgrade Now</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="confirmRegenerate">Regenerate</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Upgrade Modal -->
+<div class="modal fade" id="upgradeModal" tabindex="-1" aria-labelledby="upgradeModalLabel">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="upgradeModalLabel">Upgrade to Pro</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>Unlock unlimited AI insights generations and more features!</p>
+        <ul class="list-unstyled">
+          <li><i class="bi bi-check-circle text-success me-2"></i>Unlimited regenerations</li>
+          <li><i class="bi bi-check-circle text-success me-2"></i>Unlimited exports</li>
+          <li><i class="bi bi-check-circle text-success me-2"></i>Priority support</li>
+        </ul>
+        <button class="btn btn-warning w-100" onclick="upgradeToPro()">Upgrade Now</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+  /* Insights-specific styles */
+  .session-toggle {
+    background: rgba(47,107,255,0.08);
+    border: 1px solid var(--border);
+    color: var(--brand);
+    transition: all 0.2s ease;
+  }
+  .session-toggle:hover,
+  .session-toggle.active {
+    background: var(--brand);
+    color: white;
+  }
+  .ai-annotation {
+    background: rgba(34,197,94,0.08);
+    border-left: 3px solid var(--success);
+    padding: 12px;
+    margin-top: 16px;
+    border-radius: 0 8px 8px 0;
+  }
+  .risk-alert {
+    background: rgba(239,68,68,0.08);
+    border-left: 3px solid var(--danger);
+    padding: 12px;
+    border-radius: 0 8px 8px 0;
+  }
+  .upgrade-prompt {
+    background: rgba(250,204,21,0.08);
+    border-left: 3px solid var(--warning);
+    padding: 12px;
+    border-radius: 0 8px 8px 0;
+    margin-top: 16px;
+  }
+  .strategy-pie {
+    max-width: 300px;
+    margin: 0 auto;
+  }
+  .tab-content {
+    transition: opacity .2s ease;
+  }
+  .tab-pane {
+    opacity: 0;
+  }
+  .tab-pane.show {
+    opacity: 1;
+  }
+  .skeleton {
+    background: var(--border);
+    border-radius: 4px;
+    animation: pulse 1.5s infinite ease-in-out;
+  }
+  @keyframes pulse {
+    0% { opacity: 0.6; }
+    50% { opacity: 1; }
+    100% { opacity: 0.6; }
+  }
+  .chart-skeleton {
+    height: 250px;
+    margin-bottom: 16px;
+  }
+  .table-skeleton tbody tr td {
+    height: 40px;
+  }
+  .nav-tabs .nav-link {
+    border: none;
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .nav-tabs .nav-link::after {
+    display: none;
+  }
+  .nav-tabs .nav-link.active {
+    color: var(--brand);
+    background: none;
+    border-bottom: 2px solid var(--brand);
+  }
+  .nav-tabs {
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0;
+  }
+  canvas {
+    max-height: 250px;
+  }
+  @media (max-width: 768px) {
+    .btn-group-sm .btn {
+      font-size: 0.75rem;
+      padding: 0.25rem 0.5rem;
+    }
+    .session-toggle {
+      min-width: 60px;
+    }
+    .d-flex.flex-wrap { flex-direction: column; align-items: stretch; }
+    .d-flex.flex-wrap .btn { width: 100%; margin-bottom: 0.5rem; }
+  }
+  .btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  .credit-badge {
+    font-size: 0.75rem;
+    padding: 4px 8px;
+  }
+  .upgrade-btn {
+    background: var(--warning);
+    border-color: var(--warning);
+    color: white;
+  }
+  .upgrade-btn:hover {
+    background: #D97706;
+    border-color: #D97706;
+  }
+  .fade-in {
+    animation: fadeIn 0.5s ease-in;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
+
+<script>
+  let equityChart, pieChart;
+  let insightsData = null;
+  let hasInsights = false;
+
+  // Injected initial data from backend via Jinja
+  const initialInsightsData = {{ insights | default({}) | tojson | safe }};
+  let userCredits = initialInsightsData.credits || {{ current_user.insights_credits | default(0) }};
+  const currentPlan = '{{ current_user.plan }}';
+  const isUnlimited = ['pro', 'elite'].includes(currentPlan);
+
+  // Insights-specific chat override
+  document.addEventListener('DOMContentLoaded', () => {
+    // Add insights-specific suggestion to chat
+    const newBtn = document.createElement('button');
+    newBtn.className = 'suggestion-btn';
+    newBtn.textContent = 'Generate insights';
+    newBtn.onclick = () => sendSuggestion('Generate new trading insights from my data');
+    const suggestions = document.querySelector('.quick-suggestions');
+    if (suggestions) suggestions.appendChild(newBtn);
+  });
+
+  function updateGenerationsDisplay() {
+    const displayEl = document.getElementById('generations-display');
+    if (displayEl) {
+      displayEl.classList.remove('d-none');
+      if (isUnlimited) {
+        displayEl.innerHTML = '<span class="badge bg-success credit-badge">Unlimited</span>';
+      } else {
+        displayEl.innerHTML = `<span class="badge bg-info credit-badge">${userCredits} generations left</span>`;
+      }
+    }
+  }
+
+  function setUIState(has) {
+    hasInsights = has;
+    const actionBtn = document.getElementById('actionBtn');
+    const exportGroup = document.getElementById('export-group');
+    if (actionBtn && exportGroup) {
+      if (has) {
+        actionBtn.innerHTML = 'Regenerate';
+        actionBtn.classList.remove('btn-lg');
+        actionBtn.onclick = () => {
+          const modalEl = document.getElementById('regenerateModal');
+          const modal = new bootstrap.Modal(modalEl);
+          modal.show();
+        };
+        exportGroup.classList.remove('d-none');
+      } else {
+        actionBtn.innerHTML = 'Generate Insights';
+        actionBtn.onclick = generateFirstInsights;
+        exportGroup.classList.add('d-none');
+        if (insightsData && insightsData.total_trades > 0) {
+          actionBtn.classList.add('btn-lg');
+        }
+      }
+    }
+  }
+
+  function renderNotGenerated(tradesCount) {
+    const container = document.getElementById('insights-container');
+    if (container) {
+      container.innerHTML = `
+        <div class="card-radius p-4 text-center fade-in">
+          <i class="bi bi-lightbulb display-3" style="color: var(--brand);"></i>
+          <h5 class="fw-bold mb-3 mt-3">Unlock AI-Powered Trading Insights</h5>
+          <p class="text-muted mb-4">Dive deep into your ${tradesCount} trades to reveal patterns, strengths, and tailored recommendations for better trading.</p>
+          <div class="row g-3 mb-4 justify-content-center">
+            <div class="col-4">
+              <i class="bi bi-graph-up display-6 text-primary mb-2 d-block"></i>
+              <small class="text-muted">Equity Growth</small>
+            </div>
+            <div class="col-4">
+              <i class="bi bi-bar-chart display-6 text-success mb-2 d-block"></i>
+              <small class="text-muted">Session Breakdown</small>
+            </div>
+            <div class="col-4">
+              <i class="bi bi-lightbulb display-6 text-warning mb-2 d-block"></i>
+              <small class="text-muted">Actionable Tips</small>
+            </div>
+          </div>
+          <p class="text-muted small">
+            <i class="bi bi-info-circle me-2"></i>Your generations are tracked at the top. Pro & Elite plans offer unlimited access.
+          </p>
+        </div>
+      `;
+    }
+  }
+
+  function renderNoTrades() {
+    const container = document.getElementById('insights-container');
+    if (container) {
+      container.innerHTML = `
+        <div class="card-radius p-4 text-center fade-in">
+          <i class="bi bi-cloud-upload display-3 text-muted mb-3"></i>
+          <h5 class="fw-bold mb-3">No Trades Yet</h5>
+          <p class="text-muted mb-4">Record your first trade in the Journal to start generating powerful AI insights.</p>
+          <div class="row g-3 mb-4 justify-content-center">
+            <div class="col-12">
+              <i class="bi bi-journal-text display-6 text-info mb-2 d-block"></i>
+              <small class="text-muted">Begin logging trades</small>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    const actionBtn = document.getElementById('actionBtn');
+    if (actionBtn) {
+      actionBtn.innerHTML = '<i class="bi bi-plus-circle me-1"></i> Add First Trade';
+      actionBtn.onclick = () => { window.location.href = '/upload'; };
+      actionBtn.classList.add('btn-primary');
+    }
+  }
+
+  function showSkeletons() {
+    const container = document.getElementById('insights-container');
+    if (container) {
+      container.innerHTML = `
+        <ul class="nav nav-tabs">
+          <li class="nav-item"><div class="skeleton" style="height:40px;width:120px;"></div></li>
+          <li class="nav-item"><div class="skeleton" style="height:40px;width:120px;"></div></li>
+          <li class="nav-item"><div class="skeleton" style="height:40px;width:120px;"></div></li>
+        </ul>
+        <div class="p-4">
+          <div class="skeleton chart-skeleton mb-3"></div>
+          <div class="skeleton" style="height:20px;width:100%;margin-bottom:10px;"></div>
+          <div class="skeleton" style="height:20px;width:80%;"></div>
+        </div>
+      `;
+    }
+  }
+
+  // Render initial data
+  function renderInitialInsights() {
+    const data = initialInsightsData;
+    if (data.credits !== undefined) userCredits = data.credits;
+    const subtitle = document.getElementById('insights-subtitle');
+    if (data.total_trades === 0) {
+      renderNoTrades();
+      if (subtitle) subtitle.textContent = 'Start your trading journey';
+    } else if (!data.ai_insights || Object.keys(data.ai_insights).length === 0) {
+      renderNotGenerated(data.total_trades);
+      if (subtitle) subtitle.textContent = 'Ready to generate your first insights';
+      setUIState(false);
+      updateGenerationsDisplay();
+    } else {
+      insightsData = data;
+      renderInsights(data);
+      const basedOn = data.insights_based_on || data.total_trades;
+      if (subtitle) subtitle.textContent = `(Based on ${basedOn} trades across sessions)`;
+      setUIState(true);
+      updateGenerationsDisplay();
+    }
+  }
+
+  async function loadInsights(prompt = null, force = false) {
+    showSkeletons();
+    let url = '/insights/data';
+    const params = new URLSearchParams();
+    if (prompt) params.append('prompt', prompt);
+    if (force) params.append('force', 'true');
+    if (params.toString()) url += '?' + params.toString();
+    try {
+      const res = await fetch(url);
+      console.log('Insights fetch response:', res.status, res.statusText);  // Debug log
+      if (!res.ok) {
+        const errorText = await res.text();  // Get server error details
+        throw new Error(`Failed to load insights: ${res.status} - ${errorText}`);
+      }
+      const newData = await res.json();
+      if (newData.credits !== undefined) userCredits = newData.credits;
+      insightsData = newData;
+      renderInsights(newData);
+      const basedOn = newData.insights_based_on || newData.total_trades;
+      const subtitle = document.getElementById('insights-subtitle');
+      if (subtitle) subtitle.textContent = `(Based on ${basedOn} trades across sessions)`;
+      setUIState(true);
+      updateGenerationsDisplay();
+    } catch (err) {
+      console.error('Full fetch error:', err);  // Debug in browser console
+      showErrorToast(err.message);  // Shows detailed error in toast
+      // Optionally revert to previous content
+      if (insightsData) renderInsights(insightsData);
+    }
+  }
+
+  function renderInsights(data) {
+    try {
+      const isFallback = data.ai_insights?.recommendations?.includes('upgrade') || false;
+      const aiAnnotation = isFallback ? '' : `
+        <div class="ai-annotation">
+          <i class="bi bi-info-circle"></i> <strong>AI Note:</strong> Steady growth observed—consider scaling positions in high-win sessions.
+        </div>
+      `;
+      const upgradePrompts = isFallback ? `
+        <div class="upgrade-prompt">
+          <i class="bi bi-star"></i> <strong>Upgrade Tip:</strong> Pro users get advanced equity projections.
+        </div>
+        <div class="upgrade-prompt mt-3">
+          <i class="bi bi-lightbulb"></i> <strong>Pro Feature:</strong> Unlock detailed strategy breakdowns with Pro.
+          <button class="btn btn-sm upgrade-btn mt-2" data-bs-toggle="modal" data-bs-target="#upgradeModal">Upgrade Now</button>
+        </div>
+        <div class="upgrade-prompt mt-3">
+          <i class="bi bi-crown"></i> <strong>Go Pro:</strong> Get full AI recommendations and unlimited access.
+          <button class="btn btn-sm upgrade-btn ms-2" data-bs-toggle="modal" data-bs-target="#upgradeModal">Learn More</button>
+        </div>
+      ` : '';
+      
+      // New: Outdated note if insights_based_on != total_trades
+      let outdatedNote = '';
+      if (data.insights_based_on !== undefined && data.insights_based_on !== data.total_trades && data.total_trades > 0) {
+        const diff = data.total_trades - data.insights_based_on;
+        outdatedNote = `
+          <div class="upgrade-prompt" style="border-left-color: var(--info);">
+            <i class="bi bi-info-circle"></i> <strong>Update Available:</strong> These insights are based on your previous analysis of ${data.insights_based_on} trades. You've recorded ${diff} more since then. 
+            <button class="btn btn-sm btn-primary ms-2" onclick="loadInsights(null, true)">Regenerate for Latest</button>
+          </div>
+        `;
+      }
+
+      // Balance note with initial_deposit vs account_balance distinction
+      let balanceNote = '';
+      if (data.ai_insights && data.ai_insights.initial_deposit && data.ai_insights.current_balance) {
+        const init = data.ai_insights.initial_deposit;
+        const curr = data.ai_insights.current_balance;
+        const growth = ((curr - init) / init * 100).toFixed(1);
+        balanceNote = `
+          <div class="text-muted small mt-2">
+            <i class="bi bi-info-circle me-1"></i>Growth from $${init.toLocaleString()} initial deposit (+${growth}% to current $${curr.toLocaleString()}).
+            <a href="/profile" class="ms-2 text-decoration-none">Edit initial deposit</a>
+          </div>
+        `;
+      }
+
+      const container = document.getElementById('insights-container');
+      if (container) {
+        container.innerHTML = `
+          <ul class="nav nav-tabs card-radius-top" id="insightsTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active" id="equity-tab" data-bs-toggle="tab" data-bs-target="#equity" type="button" role="tab" aria-selected="true">Equity Curve</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="analysis-tab" data-bs-toggle="tab" data-bs-target="#analysis" type="button" role="tab" aria-selected="false">Trade Analysis</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="recs-tab" data-bs-toggle="tab" data-bs-target="#recs" type="button" role="tab" aria-selected="false">Recommendations</button>
+            </li>
+          </ul>
+
+          <div class="tab-content card-radius-bottom p-4" id="insightsTabContent">
+            <!-- Equity Curve Tab -->
+            <div class="tab-pane fade show active" id="equity" role="tabpanel">
+              <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                <h6 class="fw-semibold mb-0">Account Growth Over Time</h6>
+                <div class="btn-group btn-group-sm" role="group">
+                  <button type="button" class="btn session-toggle active" data-session="all" aria-pressed="true">All Sessions</button>
+                  <button type="button" class="btn session-toggle" data-session="sydney" aria-pressed="false">Sydney</button>
+                  <button type="button" class="btn session-toggle" data-session="tokyo" aria-pressed="false">Tokyo</button>
+                  <button type="button" class="btn session-toggle" data-session="london" aria-pressed="false">London</button>
+                  <button type="button" class="btn session-toggle" data-session="newyork" aria-pressed="false">New York</button>
+                </div>
+              </div>
+              <div style="position: relative; height: 250px;">
+                <canvas id="equityChart"></canvas>
+              </div>
+              ${balanceNote}
+              ${aiAnnotation}
+              ${outdatedNote}
+              ${isFallback ? `
+                <div class="upgrade-prompt">
+                  <i class="bi bi-exclamation-triangle"></i> <strong>Alert:</strong> Upgrade required for full AI analysis.
+                </div>
+              ` : ''}
+            </div>
+
+            <!-- Trade Analysis Tab -->
+            <div class="tab-pane fade" id="analysis" role="tabpanel">
+              <h6 class="fw-semibold mb-3">Session Breakdown</h6>
+              <div class="table-responsive mb-4">
+                <table class="table table-hover">
+                  <thead>
+                    <tr>
+                      <th scope="col">Session</th>
+                      <th scope="col">Win Rate</th>
+                      <th scope="col">Avg P&L</th>
+                      <th scope="col">Strategy Fit</th>
+                      <th scope="col">AI Insight</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${data.ai_insights && data.ai_insights.session_data ? data.ai_insights.session_data.map(session => `
+                      <tr onclick="drillToJournal('${session.session.replace(/'/g, "\\'")}')" style="cursor: pointer;">
+                        <td><span class="badge bg-primary">${session.session}</span></td>
+                        <td>${session.win_rate}%</td>
+                        <td class="${session.avg_pnl > 0 ? 'text-success' : 'text-danger'} fw-semibold">${session.avg_pnl}%</td>
+                        <td><span class="badge ${session.strategy_fit === 'High' ? 'bg-success' : session.strategy_fit === 'Medium' ? 'bg-warning' : 'bg-danger'}">${session.strategy_fit}</span></td>
+                        <td class="small-muted">${session.insight.replace(/'/g, "\\'")}</td>
+                      </tr>
+                    `).join('') : '<tr><td colspan="5" class="text-center text-muted">No session data available</td></tr>'}
+                  </tbody>
+                </table>
+              </div>
+              <h6 class="fw-semibold mb-3">Strategy Distribution</h6>
+              <div class="strategy-pie">
+                <div style="position: relative; height: 250px;">
+                  <canvas id="pieChart"></canvas>
+                </div>
+              </div>
+              ${data.ai_insights && data.ai_insights.alerts ? data.ai_insights.alerts.map(alert => `
+                <div class="risk-alert mt-3">
+                  <i class="bi bi-exclamation-triangle"></i> <strong>Alert:</strong> ${alert}
+                </div>
+              `).join('') : ''}
+              ${outdatedNote}
+              ${upgradePrompts}
+            </div>
+
+            <!-- Recommendations Tab -->
+            <div class="tab-pane fade" id="recs" role="tabpanel">
+              <h6 class="fw-semibold mb-3">Personalized AI Recommendations</h6>
+              ${data.ai_insights && data.ai_insights.strengths ? data.ai_insights.strengths.map(s => `
+                <div class="insight-item">
+                  <div class="insight-icon icon-edge"><i class="bi bi-graph-up-arrow"></i></div>
+                  <div>
+                    <div class="small-muted">${s}</div>
+                  </div>
+                </div>
+              `).join('') : '<div class="text-muted">No strengths identified</div>'}
+              ${data.ai_insights && data.ai_insights.weaknesses ? data.ai_insights.weaknesses.map(w => `
+                <div class="insight-item">
+                  <div class="insight-icon icon-risk"><i class="bi bi-exclamation-triangle"></i></div>
+                  <div>
+                    <div class="small-muted">${w}</div>
+                  </div>
+                </div>
+              `).join('') : '<div class="text-muted">No weaknesses identified</div>'}
+              ${data.ai_insights && data.ai_insights.actions ? data.ai_insights.actions.map(a => `
+                <div class="insight-item">
+                  <div class="insight-icon icon-action"><i class="bi bi-lightbulb-fill"></i></div>
+                  <div>
+                    <div class="small-muted">${a}</div>
+                  </div>
+                </div>
+              `).join('') : '<div class="text-muted">No actions recommended</div>'}
+              <div class="mt-4 p-3 border rounded" style="background: rgba(47,107,255,0.08);border-color:var(--border);">
+                <strong>Overall:</strong> ${data.ai_insights ? data.ai_insights.recommendations || 'No overall recommendations available.' : 'No overall recommendations available.'}
+              </div>
+              <div class="mt-3">
+                <ul class="mb-0">
+                  ${data.ai_insights && data.ai_insights.bullets ? data.ai_insights.bullets.map(b => `<li class="small-muted">${b}</li>`).join('') : '<li class="text-muted">No actions</li>'}
+                </ul>
+              </div>
+              <button class="btn btn-primary mt-3" onclick="applyToProfile()">Apply to Profile</button>
+              ${outdatedNote}
+              ${upgradePrompts}
+            </div>
+          </div>
+        `;
+      }
+
+      if (data.ai_insights && data.ai_insights.equity_curve) initEquityChart(data.ai_insights.equity_curve);
+      if (data.ai_insights && data.ai_insights.strategy_distribution) initPieChart(data.ai_insights.strategy_distribution);
+
+      // Session toggle
+      document.querySelectorAll('.session-toggle').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          document.querySelectorAll('.session-toggle').forEach(b => b.classList.remove('active'));
+          document.querySelectorAll('.session-toggle').forEach(b => b.setAttribute('aria-pressed', 'false'));
+          e.target.classList.add('active');
+          e.target.setAttribute('aria-pressed', 'true');
+          const currentSessionFilter = e.target.dataset.session;
+          updateEquityChart(currentSessionFilter);
+        });
+      });
+
+      // Tab switch handlers
+      const tabTriggers = document.querySelectorAll('#insightsTabs button[data-bs-toggle="tab"]');
+      tabTriggers.forEach(tab => {
+        tab.addEventListener('shown.bs.tab', (e) => {
+          if (e.target.id === 'equity-tab' && equityChart) equityChart.resize();
+          if (e.target.id === 'analysis-tab' && pieChart) pieChart.resize();
+        });
+      });
+    } catch (renderErr) {
+      console.error('Render insights error:', renderErr);
+      showErrorToast('Error rendering insights: ' + renderErr.message);
+    }
+  }
+
+  function initEquityChart(data) {
+    const ctx = document.getElementById('equityChart')?.getContext('2d');
+    if (!ctx) return;
+    equityChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: data.labels || [],
+        datasets: [{
+          label: 'Account Balance ($)',
+          data: data.datasets ? data.datasets.all?.data || [] : [],
+          borderColor: 'var(--brand)',
+          backgroundColor: 'rgba(47,107,255,0.1)',
+          tension: 0.4,
+          fill: true,
+          pointBackgroundColor: 'var(--brand)',
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2,
+          pointRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            title: { display: true, text: 'Date' },
+            grid: { color: 'rgba(148,163,184,0.2)' }
+          },
+          y: { 
+            title: { display: true, text: 'Balance ($)' },
+            beginAtZero: false,
+            grid: { color: 'rgba(148,163,184,0.2)' }
+          }
+        },
+        interaction: {
+          mode: 'index',
+          intersect: false
+        },
+        plugins: {
+          tooltip: {
+            callbacks: {
+              afterLabel: () => 'AI: Strong upward momentum—consider compounding.'
+            }
+          },
+          legend: {
+            display: false
+          }
+        },
+        animation: {
+          duration: 1000,
+          easing: 'easeInOutQuart'
+        }
+      }
+    });
+  }
+
+  let currentSessionFilter = 'all';
+  function updateEquityChart(session) {
+    currentSessionFilter = session;
+    if (!equityChart || !insightsData) return;
+    const data = insightsData.ai_insights.equity_curve;
+    if (!data || !data.datasets) return;
+    const sessionKey = session;
+    const sessionData = data.datasets[sessionKey] ? data.datasets[sessionKey].data : data.datasets.all?.data || [];
+    equityChart.data.datasets[0].data = sessionData;
+    equityChart.update('active', 500);
+  }
+
+  function initPieChart(distribution) {
+    const ctx = document.getElementById('pieChart')?.getContext('2d');
+    if (!ctx) return;
+    pieChart = new Chart(ctx, {
+      type: 'pie',
+      data: {
+        labels: distribution.map(d => d.name),
+        datasets: [{
+          data: distribution.map(d => d.value),
+          backgroundColor: distribution.map(d => d.color),
+          borderWidth: 2,
+          borderColor: '#fff'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          tooltip: {
+            callbacks: {
+              label: (ctx) => `${ctx.label}: ${ctx.raw}%`
+            }
+          },
+          legend: {
+            position: 'bottom'
+          }
+        },
+        animation: {
+          animateRotate: true,
+          duration: 1000
+        }
+      }
+    });
+  }
+
+  function generateFirstInsights() {
+    if (!isUnlimited && userCredits <= 0) {
+      window.location.href = '/plans';
+      return;
+    }
+    showSkeletons();
+    loadInsights(null, true);
+  }
+
+  function performRegenerate() {
+    const prompt = document.getElementById('regeneratePrompt').value.trim();
+    const modalEl = document.getElementById('regenerateModal');
+    if (modalEl) bootstrap.Modal.getInstance(modalEl).hide();
+    const saveToast = new bootstrap.Toast(document.getElementById('saveToast'), { delay: 2000 });
+    saveToast.show();
+    showSkeletons();
+    setTimeout(() => {
+      loadInsights(prompt || null, true);
+    }, 2000);
+  }
+
+  // Handle regenerate button click with credit check
+  const confirmRegenerateBtn = document.getElementById('confirmRegenerate');
+  if (confirmRegenerateBtn) {
+    confirmRegenerateBtn.addEventListener('click', () => {
+      if (!isUnlimited && userCredits <= 0) {
+        window.location.href = '/plans';
+        return;
+      }
+      performRegenerate();
+    });
+  }
+
+  // Show credit warning in modal if low
+  const regenerateModal = document.getElementById('regenerateModal');
+  if (regenerateModal) {
+    regenerateModal.addEventListener('shown.bs.modal', () => {
+      const warning = document.getElementById('credit-warning');
+      if (warning) {
+        if (!isUnlimited && userCredits <= 0) {
+          warning.classList.remove('d-none');
+        } else {
+          warning.classList.add('d-none');
+        }
+      }
+    });
+  }
+
+  function upgradeToPro() {
+    // Placeholder: Redirect to Stripe or payment page
+    window.location.href = '/profile/upgrade';
+  }
+
+  // Real export implementation
+  async function exportInsights(format) {
+    if (!insightsData || !hasInsights) {
+      showErrorToast('No insights to export.');
+      return;
+    }
+
+    const saveToastEl = document.getElementById('saveToast');
+    const toastBody = saveToastEl.querySelector('.toast-body');
+    toastBody.innerHTML = `<i class="bi bi-check-circle-fill"></i> Insights exported as ${format.toUpperCase()} successfully!`;
+    const saveToast = new bootstrap.Toast(saveToastEl, { delay: 2000 });
+
+    try {
+      if (format === 'csv') {
+        // Fetch CSV from backend
+        const response = await fetch(`/insights/export?format=csv&include_insights=true`);
+        if (!response.ok) throw new Error('Export failed');
+        const csvContent = await response.text();
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `itrade-insights-${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } else if (format === 'pdf') {
+        // Client-side PDF with jsPDF + html2canvas (captures charts/tabs)
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF();
+        const container = document.getElementById('insights-container');
+        if (!container) throw new Error('Container not found');
+
+        // Capture active tab content
+        await html2canvas(container, { scale: 0.5, useCORS: true }).then(canvas => {
+          const imgData = canvas.toDataURL('image/png');
+          const imgWidth = 210;
+          const pageHeight = 295;
+          const imgHeight = (canvas.height * imgWidth) / canvas.width;
+          let heightLeft = imgHeight;
+          let position = 0;
+
+          pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+          heightLeft -= pageHeight;
+
+          while (heightLeft >= 0) {
+            position = heightLeft - imgHeight;
+            pdf.addPage();
+            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+            heightLeft -= pageHeight;
+          }
+
+          pdf.save(`itrade-insights-${new Date().toISOString().split('T')[0]}.pdf`);
+        });
+      }
+      saveToast.show();
+    } catch (err) {
+      console.error('Export error:', err);
+      const errorToastEl = document.getElementById('errorToast');
+      const errorToastBody = errorToastEl.querySelector('.toast-body');
+      errorToastBody.innerHTML = `<i class="bi bi-x-circle-fill me-2"></i>Error exporting ${format.toUpperCase()}: ${err.message}`;
+      new bootstrap.Toast(errorToastEl).show();
+    }
+  }
+
+  function drillToJournal(session) {
+    alert(`Drill down to Journal for ${session} trades`);
+  }
+
+  function applyToProfile() {
+    alert('Applying recommendations to profile...');
+  }
+
+  function showErrorToast(message) {
+    const errorToastEl = document.getElementById('errorToast');
+    if (errorToastEl) {
+      const errorToast = new bootstrap.Toast(errorToastEl);
+      const toastBody = errorToastEl.querySelector('.toast-body');
+      if (toastBody) toastBody.innerHTML = `<i class="bi bi-x-circle-fill me-2"></i>${message}`;
+      errorToast.show();
+    }
+  }
+
+  // Initialize tooltips
+  document.addEventListener('DOMContentLoaded', () => {
+    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+    [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
+    renderInitialInsights();
+  });
+</script>
+{% endblock %}

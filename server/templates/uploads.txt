@@ -1,0 +1,1017 @@
+{% extends "base.html" %}
+{% block title %}Log a Trade{% endblock %}
+{% block extra_styles %}
+<style>
+  :root {
+    --brand-rgb: 47, 107, 255;
+    --success-rgb: 34, 197, 94;
+    --danger-rgb: 239, 68, 68;
+    --warning-rgb: 245, 158, 11;
+    --info-rgb: 6, 182, 212;
+    --text-rgb: 30, 4158;
+    --dragzone-bg-opacity: 0.05;
+  }
+  [data-theme="dark"] {
+    --dragzone-bg-opacity: 0.08;
+    --bs-primary: var(--brand);
+    --bs-secondary: var(--muted);
+    --bs-success: var(--success);
+    --bs-info: var(--info);
+    --bs-warning: var(--warning);
+    --bs-danger: var(--danger);
+    --bs-light: var(--text);
+    --bs-dark: var(--bg);
+    --bs-body-bg: var(--bg);
+    --bs-body-color: var(--text);
+    --bs-border-color: var(--border);
+    --bs-border-color-translucent: rgba(148,163,184,0.175);
+    --bs-border-radius: var(--radius);
+    --bs-box-shadow: var(--shadow);
+    --bs-box-shadow-sm: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+    --bs-box-shadow-lg: 0 8px 24px rgba(0,0,0,0.4);
+    --bs-form-control-bg: var(--surface);
+    --bs-form-control-color: var(--text);
+    --bs-form-control-border-color: var(--border);
+    --bs-form-select-bg: var(--surface);
+    --bs-form-select-color: var(--text);
+    --bs-table-color: var(--text);
+    --bs-table-bg: var(--surface);
+    --bs-table-border-color: var(--border);
+    --bs-modal-bg: var(--surface);
+    --bs-modal-border-color: var(--border);
+    --bs-modal-header-border-color: var(--border);
+    --bs-modal-footer-border-color: var(--border);
+    --bs-modal-box-shadow-xs: var(--shadow);
+    --bs-offcanvas-bg: var(--surface);
+    --bs-offcanvas-border-color: var(--border);
+    --bs-offcanvas-box-shadow: var(--shadow);
+    --bs-dropdown-bg: var(--surface);
+    --bs-dropdown-border-color: var(--border);
+    --bs-dropdown-box-shadow: var(--shadow);
+    --bs-dropdown-link-color: var(--text);
+    --bs-dropdown-link-hover-bg: rgba(var(--brand-rgb), 0.15);
+    --bs-dropdown-link-hover-color: var(--brand);
+    --bs-dropdown-divider-bg: var(--border);
+    --bs-navbar-bg: var(--surface);
+    --bs-navbar-color: var(--text);
+    --bs-navbar-hover-color: var(--brand);
+    --bs-alert-border: var(--border);
+    --bs-alert-color: var(--text);
+    --bs-badge-color: var(--text);
+  }
+  [data-theme="dark"] .btn-close,
+  [data-theme="dark"] .navbar-toggler-icon {
+    filter: brightness(0) invert(1);
+  }
+  [data-theme="dark"] .alert-warning {
+    background-color: rgba(var(--warning-rgb), 0.15);
+    border-color: var(--warning);
+    color: var(--text);
+  }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .card-radius {
+    transition: all 0.3s ease;
+  }
+  .card-radius:hover {
+    box-shadow: 0 20px 40px rgba(15,23,42,0.15);
+  }
+  .dropzone {
+    border: 2px dashed rgba(var(--brand-rgb), 0.32);
+    border-radius: 12px;
+    padding: 60px 36px;
+    cursor: pointer;
+    text-align: center;
+    min-height: 300px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+  }
+  .dropzone.dragover {
+    border-color: var(--brand);
+    background: rgba(var(--brand-rgb), var(--dragzone-bg-opacity));
+    transform: scale(1.02);
+  }
+  .thumbnails {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 20px;
+  }
+  .thumbnail {
+    position: relative;
+    width: Monto: 100px;
+    height: 100px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    transition: transform 0.2s ease;
+  }
+  .thumbnail:hover {
+    transform: scale(1.05);
+  }
+  .thumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .delete-thumb {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: rgba(0,0,0,0.5);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+  .thumbnail:hover .delete-thumb {
+    opacity: 1;
+  }
+  .quick-inputs {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+  }
+  .analyze-btn {
+    margin-top: 20px;
+    width: 100%;
+    border-radius: var(--radius);
+    font-weight: 600;
+    transition: all 0.3s ease;
+  }
+  .analyze-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(var(--brand-rgb), 0.15);
+  }
+  .analyze-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  .progress-bar {
+    margin-top: 10px;
+    display: none;
+  }
+  .parsing {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .fun-fact {
+    font-style: italic;
+    color: var(--muted);
+    margin-top: 10px;
+  }
+  @media (max-width: 991px) {
+    #mobileUploadBtn {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90%;
+      max-width: 420px;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      z-index: 1050;
+    }
+  }
+  .nav-link { 
+    position: relative; 
+    color: var(--muted); 
+    font-weight: 600;
+    padding-bottom: 8px;
+    transition: color 0.3s ease; 
+  }
+  .nav-link:hover,
+  .nav-link.active { 
+    color: var(--brand); 
+    transform: translateY(-1px);
+  }
+  .nav-link::after {
+    content: '';
+    position: absolute;
+    left: 50%; 
+    bottom: 0;
+    transform: translateX(-50%) scaleX(0);
+    transform-origin: center;
+    width: 70%;
+    height: 3px;
+    background: var(--gradient);
+    border-radius: 3px;
+    transition: transform 0.3s ease;
+  }
+  .nav-link:hover::after,
+  .nav-link.active::after {
+    transform: translateX(-50%) scaleX(1);
+  }
+  .notif-dot {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 10px;
+    height: 10px;
+    background: var(--danger);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(239,68,68,0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(239,68,68,0); }
+    100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+  }
+  .user-avatar {
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  .user-avatar:hover {
+    transform: scale(1.15) rotate(5deg);
+    box-shadow: 0 4px 12px rgba(var(--brand-rgb), 0.3);
+  }
+  .offcanvas-body .nav-link {
+    position: relative;
+    padding: 10px 0;
+    color: var(--muted);
+    font-weight: 500;
+    transition: color .25s ease;
+  }
+  .offcanvas-body .nav-link::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: 2px;
+    background: var(--brand);
+    border-radius: 2px;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform .3s ease;
+  }
+  .offcanvas-body .nav-link:hover,
+  .offcanvas-body .nav-link.active {
+    color: var(--brand);
+  }
+  .offcanvas-body .nav-link:hover::after,
+  .offcanvas-body .nav-link.active::after {
+    transform: scaleX(1);
+  }
+  .offcanvas-body .navbar-nav { gap: 12px; }
+  .upload-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  #processingOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255,255,255,0.9);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+  }
+  [data-theme="dark"] #processingOverlay {
+    background: rgba(0,0,0,0.9);
+  }
+  #processingOverlay .spinner-border {
+    width: 3rem;
+    height: 3rem;
+  }
+  #processingOverlay .thinking-text {
+    margin-top: 20px;
+    font-weight: 600;
+    color: var(--brand);
+  }
+  #processingOverlay .fun-fact {
+    margin-top: 10px;
+    font-style: italic;
+    color: var(--muted);
+    animation: fadeInOut 3s infinite;
+  }
+  @keyframes fadeInOut {
+    0%, 100% { opacity: 0.7; }
+    50% { opacity: 1; }
+  }
+  .invalid-image-modal .modal-body {
+    text-align: center;
+  }
+  .invalid-image-modal .modal-body img {
+    max-width: 200px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+  }
+  .btn {
+    border-radius: 16px;
+    font-weight: 600;
+    padding: 12px 24px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+  }
+  .btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s;
+  }
+  .btn:hover::before {
+    left: 100%;
+  }
+  .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+  }
+  .btn-primary {
+    background: var(--gradient);
+    border: none;
+  }
+  .btn-outline-secondary:hover {
+    background: var(--gradient);
+    color: white;
+    border-color: transparent;
+  }
+  .plan-badge {
+    font-size: 0.85rem;
+    padding: 6px 12px;
+  }
+  .upgrade-modal .modal-body {
+    text-align: center;
+  }
+  .upgrade-modal .modal-body ul {
+    text-align: left;
+  }
+  .upgrade-modal .btn-warning {
+    background: var(--warning);
+    border-color: var(--warning);
+    color: white;
+  }
+  .upgrade-modal .btn-warning:hover {
+    background: #D97706;
+    border-color: #D97706;
+  }
+  #uploadLimitInfo {
+    background: rgba(var(--warning-rgb), 0.1);
+    border-left: 3px solid var(--warning);
+    padding: 12px;
+    border-radius: 0 8px 8px 0;
+    margin-top: 16px;
+  }
+  .edit-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow);
+  }
+  .edit-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .edit-card-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin: 0;
+  }
+  .pl-display {
+    font-size: 1.4rem;
+    font-weight: 700;
+    padding: 12px;
+    border-radius: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    text-align: center;
+  }
+  .pl-positive { color: var(--success); }
+  .pl-negative { color: var(--danger); }
+  .pl-zero { color: var(--muted); }
+  .session-badge {
+    font-size: .75rem;
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-weight: 600;
+  }
+  .session-london { background: rgba(139,92,246,0.12); color: #8B5CF6; }
+  .session-new-york { background: rgba(34,197,94,0.12); color: #22C55E; }
+  .session-tokyo { background: rgba(245,158,11,0.12); color: #F59E0B; }
+  .session-sydney { background: rgba(239,68,68,0.12); color: #EF4444; }
+  .session-utc { background: rgba(6,182,212,0.12); color: #06B6D4; }
+  .insight-box {
+    background: rgba(var(--brand-rgb), 0.05);
+    padding: 12px;
+    border-radius: 8px;
+    margin-top: 12px;
+    font-style: italic;
+    border-left: 3px solid var(--brand);
+    font-size: 0.9rem;
+  }
+  .chart-preview {
+    max-width: 100%;
+    border-radius: 8px;
+    margin-top: 12px;
+    border: 1px solid var(--border);
+  }
+  .chart-preview-placeholder {
+    background: var(--surface);
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    color: var(--muted);
+    margin-top: 12px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<main class="container py-5 flex-grow-1">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      <div class="upload-header">
+        <h4 class="fw-bold d-flex align-items-center gap-2">Log a Trade</h4>
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge plan-badge bg-secondary">Plan: {{ current_user.plan.title() }}</span>
+          <span id="uploadCountBadge" class="badge bg-info">Loading...</span>
+        </div>
+      </div>
+      <div id="uploadLimitInfo" class="d-none"></div>
+      <div id="dropZone" class="card-radius dropzone" tabindex="0">
+        <div>Upload</div>
+        <p class="mt-2 mb-1 fw-semibold">Drag screenshot here</p>
+        <p class="text-muted small mb-3">Accepts images. Max 10 MB per file.</p>
+        <div>
+          <span id="chooseBtn" class="btn btn-outline-primary btn-sm" role="button" tabindex="0">Browse Files</span>
+        </div>
+        <input id="fileInput" type="file" accept="image/*" hidden multiple />
+      </div>
+      <div id="thumbnails" class="thumbnails"></div>
+      <div class="quick-inputs">
+        <select class="form-select" id="sessionSelect">
+          <option>Session: Auto-detect</option>
+          <option>London</option>
+          <option>New York</option>
+          <option>Tokyo</option>
+          <option>Sydney</option>
+        </select>
+        <select class="form-select" id="strategySelect">
+          <option>Strategy: From profile</option>
+          <option>Breakout</option>
+          <option>Scalp</option>
+          <option>Reversal</option>
+          <option>RSI Divergence</option>
+          <option>Swing Trading</option>
+        </select>
+      </div>
+      <button id="analyzeBtn" class="btn btn-primary analyze-btn" disabled>Let AI Analyze</button>
+      <div class="progress progress-bar" id="uploadProgress">
+        <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width: 0%;"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Processing Overlay -->
+<div id="processingOverlay">
+  <div class="spinner-border text-primary" role="status"></div>
+  <p class="mt-3 fw-semibold thinking-text">AI thinking...</p>
+  <p class="fun-fact">Analyzing chart patterns...</p>
+</div>
+
+<!-- Invalid Image Modal -->
+<div class="modal fade invalid-image-modal" id="invalidImageModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title text-danger">Image Not Recognized</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <img id="invalidImagePreview" src="" alt="Uploaded image" class="img-fluid mx-auto d-block">
+        <p class="mt-3">This doesn't look like a trading chart or screenshot with clear details. Try a screenshot with entry/exit prices or annotations. Image saved for manual entry if possible.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Try Another</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Upgrade Modal -->
+<div class="modal fade upgrade-modal" id="upgradeModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Upgrade for More Uploads</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p id="upgradeMessage">You've reached your monthly upload limit on the {{ current_user.plan.title() }} plan ({{ upload_limit }} uploads). Upgrade to Pro for unlimited uploads and AI insights!</p>
+        <ul class="list-unstyled mb-3">
+          <li>Unlimited uploads & AI analyses</li>
+          <li>Advanced analytics</li>
+          <li>50% off first month ($4.99)</li>
+        </ul>
+        <a href="/plans" class="btn btn-warning w-100">Upgrade Now</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Inline Review Section -->
+<div id="reviewSection" class="mt-5" style="display: none;">
+  <div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h5 class="fw-bold mb-0">Review & Edit AI Extractions</h5>
+      <div>
+        <button id="cancelEditBtn" class="btn btn-outline-secondary me-2">Cancel</button>
+        <button id="saveTradeBtn" class="btn btn-primary">Save All Trades</button>
+      </div>
+    </div>
+    <div id="tradesContainer"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Plan-based limits
+const PLAN_LIMITS = {
+  'free': 3,
+  'starter': 3,
+  'pro': Infinity,
+  'elite': Infinity
+};
+const BATCH_LIMITS = {
+  'free': 3,
+  'starter': 3,
+  'pro': 10,
+  'elite': 10
+};
+const currentPlan = '{{ current_user.plan }}';
+const uploadLimit = PLAN_LIMITS[currentPlan.toLowerCase()] || 3;
+const batchLimit = BATCH_LIMITS[currentPlan.toLowerCase()] || 3;
+let monthlyUploads = 0;
+
+const fileInput = document.getElementById('fileInput');
+const dropZone = document.getElementById('dropZone');
+const thumbnailsContainer = document.getElementById('thumbnails');
+const analyzeBtn = document.getElementById('analyzeBtn');
+const uploadProgress = document.getElementById('uploadProgress');
+const processingOverlay = document.getElementById('processingOverlay');
+const funFactEl = processingOverlay.querySelector('.fun-fact');
+const invalidImageModal = document.getElementById('invalidImageModal');
+const invalidImagePreview = document.getElementById('invalidImagePreview');
+const reviewSection = document.getElementById('reviewSection');
+const tradesContainer = document.getElementById('tradesContainer');
+const sessionSelect = document.getElementById('sessionSelect');
+const strategySelect = document.getElementById('strategySelect');
+const uploadCountBadge = document.getElementById('uploadCountBadge');
+const uploadLimitInfo = document.getElementById('uploadLimitInfo');
+const funFacts = [
+  'Analyzing chart patterns...',
+  'Detecting entry/exit points...',
+  'Inferring strategy from visuals...',
+  'Cross-checking with your profile...',
+  'Calculating risk/reward ratios...'
+];
+let files = [];
+let factIndex = 0;
+let extractedData = [];
+
+// Fetch monthly uploads on load
+async function fetchMonthlyUploads() {
+  try {
+    const res = await fetch('/upload/monthly_uploads', { credentials: 'include' });
+    if (res.ok) {
+      const data = await res.json();
+      monthlyUploads = data.count || 0;
+      updateUploadBadge();
+    } else {
+      monthlyUploads = 0;
+      updateUploadBadge();
+    }
+  } catch (err) {
+    console.error('Failed to fetch uploads:', err);
+    monthlyUploads = 0;
+    updateUploadBadge();
+  }
+}
+
+async function getProfileStrategy() {
+  try {
+    const res = await fetch('/api/profile', { credentials: 'include' });
+    if (res.ok) {
+      const data = await res.json();
+      return data.strategy || 'Manual';
+    }
+  } catch (err) {
+    console.error('Failed to fetch profile strategy:', err);
+  }
+  return 'Manual';
+}
+
+function updateUploadBadge() {
+  const remaining = uploadLimit === Infinity ? Infinity : uploadLimit - monthlyUploads;
+  if (uploadLimit === Infinity) {
+    uploadCountBadge.innerHTML = 'Unlimited';
+    uploadCountBadge.className = 'badge bg-success';
+  } else {
+    uploadCountBadge.textContent = `${monthlyUploads}/${uploadLimit}`;
+    uploadCountBadge.className = remaining <= 1 ? 'badge bg-warning' : 'badge bg-info';
+  }
+  checkUploadLimit();
+}
+
+function checkUploadLimit() {
+  const remaining = uploadLimit === Infinity ? Infinity : uploadLimit - monthlyUploads;
+  if (remaining <= 0) {
+    analyzeBtn.disabled = true;
+    analyzeBtn.title = 'Upload limit reached. Upgrade to continue.';
+    uploadLimitInfo.innerHTML = `
+      Monthly limit reached (${uploadLimit} uploads). 
+      <a href="/plans" class="text-warning">Upgrade to Pro</a> for unlimited uploads.
+    `;
+    uploadLimitInfo.classList.remove('d-none');
+    document.getElementById('upgradeMessage').innerHTML = `You've reached your monthly upload limit on the ${currentPlan.charAt(0).toUpperCase() + currentPlan.slice(1)} plan (${uploadLimit} uploads). Upgrade to Pro for unlimited uploads and AI insights!`;
+    const upgradeModal = new bootstrap.Modal(document.getElementById('upgradeModal'));
+    upgradeModal.show();
+  } else {
+    analyzeBtn.disabled = files.length === 0;
+    uploadLimitInfo.classList.add('d-none');
+  }
+}
+
+// Drag and drop
+dropZone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  dropZone.classList.add('dragover');
+});
+dropZone.addEventListener('dragleave', () => {
+  dropZone.classList.remove('dragover');
+});
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  handleFiles(e.dataTransfer.files);
+});
+
+document.getElementById('chooseBtn').addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+function handleFiles(newFiles) {
+  if (newFiles.length === 0) return;
+
+  const remainingMonthly = uploadLimit === Infinity ? Infinity : uploadLimit - monthlyUploads;
+  const effectiveLimit = Math.min(batchLimit, remainingMonthly);
+  if (files.length >= effectiveLimit) {
+    showErrorToast(`You have reached the maximum of ${effectiveLimit} images for this upload.`);
+    return;
+  }
+
+  const availableSlots = effectiveLimit - files.length;
+  const toAdd = Array.from(newFiles).slice(0, availableSlots);
+
+  files = [...files, ...toAdd];
+
+  if (toAdd.length < newFiles.length) {
+    showErrorToast(`Only ${toAdd.length} images added. Maximum ${effectiveLimit} for this upload.`);
+  }
+
+  renderThumbnails();
+  checkUploadLimit();
+}
+
+function renderThumbnails() {
+  thumbnailsContainer.innerHTML = '';
+  files.forEach((file, index) => {
+    const thumb = document.createElement('div');
+    thumb.className = 'thumbnail';
+    const img = document.createElement('img');
+    img.src = URL.createObjectURL(file);
+    thumb.appendChild(img);
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'delete-thumb';
+    deleteBtn.innerHTML = '×';
+    deleteBtn.onclick = () => {
+      files.splice(index, 1);
+      renderThumbnails();
+      checkUploadLimit();
+    };
+    thumb.appendChild(deleteBtn);
+    thumbnailsContainer.appendChild(thumb);
+  });
+}
+
+// Analyze
+analyzeBtn.addEventListener('click', async () => {
+  if (files.length === 0) return;
+  if (uploadLimit !== Infinity && monthlyUploads >= uploadLimit) {
+    const upgradeModal = new bootstrap.Modal(document.getElementById('upgradeModal'));
+    upgradeModal.show();
+    return;
+  }
+  if (uploadLimit !== Infinity && monthlyUploads + files.length > uploadLimit) {
+    showErrorToast(`This upload would exceed your monthly limit. You can upload up to ${uploadLimit - monthlyUploads} more.`);
+    return;
+  }
+  const formData = new FormData();
+  files.forEach(file => formData.append('files', file));
+
+  processingOverlay.style.display = 'flex';
+  uploadProgress.style.display = 'block';
+  uploadProgress.querySelector('.progress-bar').style.width = '0%';
+  let progress = 0;
+  const interval = setInterval(() => {
+    progress += 10;
+    uploadProgress.querySelector('.progress-bar').style.width = `${progress}%`;
+    if (progress >= 100) clearInterval(interval);
+  }, 200);
+  factIndex = 0;
+  const factInterval = setInterval(() => {
+    funFactEl.textContent = funFacts[factIndex % funFacts.length];
+    factIndex++;
+  }, 2000);
+
+  try {
+    const res = await fetch('/upload/extract_batch', {
+      method: 'POST',
+      body: formData,
+      credentials: 'include'
+    });
+    clearInterval(factInterval);
+    processingOverlay.style.display = 'none';
+    uploadProgress.style.display = 'none';
+
+    if (!res.ok) {
+      if (res.status === 422) {
+        if (files.length > 0) {
+          invalidImagePreview.src = URL.createObjectURL(files[0]);
+        }
+        const invalidModal = new bootstrap.Modal(invalidImageModal);
+        invalidModal.show();
+        return;
+      }
+      throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    }
+
+    extractedData = await res.json();
+    
+    const selectedSession = sessionSelect.value;
+    const selectedStrategy = strategySelect.value;
+    let profileStrategy = 'Manual';
+    if (selectedStrategy === 'Strategy: From profile') {
+      profileStrategy = await getProfileStrategy();
+    }
+    extractedData.forEach(trade => {
+      trade._user_overridden = false;
+      if (selectedSession !== 'Session: Auto-detect') {
+        trade.session = selectedSession.replace('Session: ', '');
+        trade._user_overridden = true;
+      }
+      if (selectedStrategy === 'Strategy: From profile') {
+        trade.strategy = profileStrategy;
+        trade._user_overridden = true;
+      } else if (selectedStrategy !== 'Strategy: From profile') {
+        trade.strategy = selectedStrategy.replace('Strategy: ', '');
+        trade._user_overridden = true;
+      }
+    });
+
+    showReviewSection();
+  } catch (err) {
+    clearInterval(factInterval);
+    processingOverlay.style.display = 'none';
+    uploadProgress.style.display = 'none';
+    showErrorToast(err.message || 'Extraction failed');
+  }
+});
+
+function showReviewSection() {
+  document.querySelector('main').style.display = 'none';
+  reviewSection.style.display = 'block';
+  tradesContainer.innerHTML = '';
+  extractedData.forEach((data, i) => tradesContainer.appendChild(createTradeEditCard(data, i)));
+}
+
+function createTradeEditCard(data, index) {
+  const div = document.createElement('div');
+  div.className = 'edit-card';
+  const pl = data.pnl !== null ? data.pnl : 0;
+  const plClass = pl > 0 ? 'pl-positive' : pl < 0 ? 'pl-negative' : 'pl-zero';
+  const plText = pl !== null ? `${pl >= 0 ? '+' : ''}${pl.toFixed(2)}%` : 'N/A';
+
+  div.innerHTML = `
+    <div class="edit-card-header">
+      <h6 class="edit-card-title">Trade ${index + 1} ${data._is_partial ? '<span class="badge bg-warning ms-2">Partial</span>' : ''}</h6>
+      <span class="session-badge session-${(data.session || 'utc').toLowerCase().replace(' ', '-')}">${data.session || 'UTC'}</span>
+    </div>
+    ${data.chart_url ? `<img src="${data.chart_url}" class="chart-preview" onerror="this.style.display='none';">` : '<div class="chart-preview-placeholder">No chart available</div>'}
+    <div class="row g-3 mt-3">
+      <div class="col-sm-6">
+        <label class="form-label">Date & Time (UTC)</label>
+        <input type="datetime-local" class="form-control" value="${data.trade_date ? new Date(data.trade_date).toISOString().slice(0,16) : ''}" data-field="date" data-index="${index}">
+      </div>
+      <div class="col-sm-6">
+        <label class="form-label">Symbol</label>
+        <input type="text" class="form-control" value="${data.symbol || ''}" data-field="symbol" data-index="${index}">
+      </div>
+      <div class="col-sm-6">
+        <label class="form-label">Asset Type</label>
+        <select class="form-select" data-field="asset_type" data-index="${index}">
+          <option value="forex" ${data.asset_type === 'forex' ? 'selected' : ''}>Forex</option>
+          <option value="crypto" ${data.asset_type === 'crypto' ? 'selected' : ''}>Crypto</option>
+        </select>
+      </div>
+      <div class="col-sm-6">
+        <label class="form-label">Session</label>
+        <select class="form-select" data-field="session" data-index="${index}">
+          <option value="London" ${data.session === 'London' ? 'selected' : ''}>London</option>
+          <option value="New York" ${data.session === 'New York' ? 'selected' : ''}>New York</option>
+          <option value="Tokyo" ${data.session === 'Tokyo' ? 'selected' : ''}>Tokyo</option>
+          <option value="Sydney" ${data.session === 'Sydney' ? 'selected' : ''}>Sydney</option>
+          <option value="UTC" ${data.session === 'UTC' || !data.session ? 'selected' : ''}>UTC</option>
+        </select>
+      </div>
+      <div class="col-sm-6">
+        <label class="form-label">Strategy</label>
+        <select class="form-select" data-field="strategy" data-index="${index}">
+          <option value="Breakout" ${data.strategy === 'Breakout' ? 'selected' : ''}>Breakout</option>
+          <option value="Scalp" ${data.strategy === 'Scalp' ? 'selected' : ''}>Scalp</option>
+          <option value="Reversal" ${data.strategy === 'Reversal' ? 'selected' : ''}>Reversal</option>
+          <option value="RSI Divergence" ${data.strategy === 'RSI Divergence' ? 'selected' : ''}>RSI Divergence</option>
+          <option value="Swing Trading" ${data.strategy === 'Swing Trading' ? 'selected' : ''}>Swing Trading</option>
+        </select>
+      </div>
+      <div class="col-sm-6">
+        <label class="form-label">Direction</label>
+        <select class="form-select" data-field="direction" data-index="${index}">
+          <option value="LONG" ${data.direction === 'LONG' ? 'selected' : ''}>Long</option>
+          <option value="SHORT" ${data.direction === 'SHORT' ? 'selected' : ''}>Short</option>
+        </select>
+      </div>
+      <div class="col-sm-6">
+        <label class="form-label">Entry Price</label>
+        <input type="number" step="0.0001" class="form-control" value="${data.entry_price || ''}" data-field="entry_price" data-index="${index}">
+      </div>
+      <div class="col-sm-6">
+        <label class="form-label">Exit Price</label>
+        <input type="number" step="0.0001" class="form-control" value="${data.exit_price || ''}" data-field="exit_price" data-index="${index}">
+      </div>
+      <div class="col-sm-6">
+        <label class="form-label">Position Size</label>
+        <input type="number" step="0.0001" class="form-control" value="${data.position_size || ''}" data-field="position_size" data-index="${index}">
+      </div>
+      <div class="col-sm-6">
+        <label class="form-label">Risk %</label>
+        <input type="number" step="0.01" min="0" max="100" class="form-control" value="${data.risk_percentage || ''}" data-field="risk_percentage" data-index="${index}">
+      </div>
+      <div class="col-sm-6">
+        <label class="form-label">Stop Loss</label>
+        <input type="number" step="0.0001" class="form-control" value="${data.sl_price || ''}" data-field="sl_price" data-index="${index}">
+      </div>
+      <div class="col-sm-6">
+        <label class="form-label">Take Profit</label>
+        <input type="number" step="0.0001" class="form-control" value="${data.tp_price || ''}" data-field="tp_price" data-index="${index}">
+      </div>
+      <div class="col-sm-6">
+        <label class="form-label">Leverage</label>
+        <input type="number" min="1" max="100" step="0.1" class="form-control" value="${data.leverage || ''}" data-field="leverage" data-index="${index}">
+      </div>
+      <div class="col-sm-6">
+        <label class="form-label">Risk Amount ($)</label>
+        <input type="number" step="0.01" class="form-control" value="${data.risk_amount || ''}" data-field="risk_amount" data-index="${index}">
+      </div>
+      <div class="col-sm-6">
+        <label class="form-label">Reward Amount ($)</label>
+        <input type="number" step="0.01" class="form-control" value="${data.reward_amount || ''}" data-field="reward_amount" data-index="${index}">
+      </div>
+      <div class="col-sm-6">
+        <label class="form-label">R:R Ratio</label>
+        <input type="number" step="0.01" class="form-control" value="${data.r_r_ratio || ''}" data-field="r_r_ratio" data-index="${index}">
+      </div>
+      <div class="col-12">
+        <label class="form-label">P/L</label>
+        <div class="pl-display ${plClass}">${plText}</div>
+      </div>
+      <div class="col-12">
+        <label class="form-label">Notes</label>
+        <textarea class="form-control" rows="3" data-field="notes" data-index="${index}">${data.notes || ''}</textarea>
+      </div>
+      <div class="col-12">
+        <label class="form-label">AI Suggestion</label>
+        <div class="insight-box">${data.suggestion || 'No suggestion available.'}</div>
+      </div>
+    </div>
+  `;
+
+  div.querySelectorAll('input, select, textarea').forEach(el => {
+    el.addEventListener('change', () => {
+      const field = el.dataset.field;
+      const idx = el.dataset.index;
+      let value = el.value;
+      if (el.type === 'number') value = parseFloat(value) || null;
+      if (field === 'date') value = new Date(value).toISOString();
+      extractedData[idx][field] = value;
+      if (['entry_price', 'exit_price'].includes(field)) {
+        recalculatePL(idx);
+      }
+    });
+  });
+
+  return div;
+}
+
+function recalculatePL(idx) {
+  const t = extractedData[idx];
+  if (t.entry_price && t.exit_price) {
+    const pnl = ((t.exit_price - t.entry_price) / t.entry_price) * 100;
+    t.pnl = parseFloat(pnl.toFixed(2));
+    const plEl = document.querySelectorAll('.pl-display')[idx];
+    if (plEl) {
+      plEl.textContent = `${t.pnl >= 0 ? '+' : ''}${t.pnl}%`;
+      plEl.className = `pl-display ${t.pnl > 0 ? 'pl-positive' : t.pnl < 0 ? 'pl-negative' : 'pl-zero'}`;
+    }
+  }
+}
+
+document.getElementById('cancelEditBtn').addEventListener('click', () => {
+  reviewSection.style.display = 'none';
+  document.querySelector('main').style.display = 'block';
+  files = []; extractedData = []; renderThumbnails(); checkUploadLimit();
+});
+
+document.getElementById('saveTradeBtn').addEventListener('click', async () => {
+  try {
+    const res = await fetch('/upload/save_batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(extractedData.map(t => ({ ...t, asset_type: t.asset_type?.toLowerCase() }))),
+      credentials: 'include'
+    });
+    if (!res.ok) throw new Error('Save failed');
+    showSuccessToast(`${extractedData.length} trades saved!`);
+    setTimeout(() => { location.href = '/journal'; }, 1500);
+  } catch (err) { showErrorToast('Save failed'); }
+});
+
+function showSuccessToast(msg) {
+  const toast = new bootstrap.Toast(document.getElementById('saveToast'));
+  document.getElementById('saveToast').querySelector('.toast-body').innerHTML = `${msg}`;
+  toast.show();
+}
+
+function showErrorToast(msg) {
+  const toast = new bootstrap.Toast(document.getElementById('errorToast'));
+  document.getElementById('errorToast').querySelector('.toast-body').innerHTML = `${msg}`;
+  toast.show();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  fetchMonthlyUploads();
+});
+</script>
+
+<!-- Toast Containers -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1100">
+  <div id="saveToast" class="toast align-items-center text-white bg-success border-0" role="alert">
+    <div class="d-flex">
+      <div class="toast-body"></div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+  <div id="errorToast" class="toast align-items-center text-white bg-danger border-0" role="alert">
+    <div class="d-flex">
+      <div class="toast-body"></div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>iTradeX — Join Waitlist</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<style>
+:root {
+  --brand-500:#2F6BFF;
+  --brand-600:#1F55E0;
+  --bg:#F8FAFC;
+  --surface:#fff;
+  --text:#0F172A;
+  --muted:#64748B;
+  --border:#E6EEF8;
+  --radius:16px;
+  --shadow:0 10px 30px rgba(15,23,42,0.08);
+}
+body {
+  font-family:Inter,sans-serif;
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+}
+nav.navbar {
+  padding:20px 0;
+  background:transparent;
+  border-bottom:0;
+}
+.brand {
+  font-weight:700;
+  color:var(--brand-500);
+  font-size:1.25rem;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  text-decoration:none;
+}
+.panel {
+  background:linear-gradient(180deg, rgba(47,107,255,0.08), transparent 45%);
+  border-radius:16px;
+  padding:32px;
+  border:1px solid var(--border);
+  box-shadow:var(--shadow);
+  transition:transform .25s ease,box-shadow .25s ease,opacity .3s ease;
+}
+.card-radius {
+  background:var(--surface);
+  border-radius:var(--radius);
+  padding:28px;
+  border:1px solid var(--border);
+  box-shadow:var(--shadow);
+}
+.btn-primary {
+  background:var(--brand-500);
+  border:none;
+  border-radius:10px;
+  height:46px;
+  font-weight:600;
+  transition:.2s;
+}
+.btn-primary:hover { background:var(--brand-600); }
+.form-control {
+  border-radius:10px;
+  height:46px;
+  border:1px solid var(--border);
+  padding:.625rem .75rem;
+}
+.hidden { display:none; }
+.fade-in { animation: fadeIn .4s ease forwards; }
+@keyframes fadeIn {
+  from {opacity:0; transform:translateY(8px);}
+  to {opacity:1; transform:translateY(0);}
+}
+
+/* Code input boxes */
+.code-inputs {
+  display:flex;
+  gap:10px;
+  justify-content:center;
+}
+.code-inputs input {
+  width:46px;
+  height:56px;
+  font-size:1.5rem;
+  text-align:center;
+  border:1px solid var(--border);
+  border-radius:10px;
+}
+</style>
+</head>
+<body>
+
+<nav class="navbar container">
+  <a class="brand" href="#"><i class="bi bi-graph-up-arrow fs-3"></i> iTradeX</a>
+</nav>
+
+<main class="container py-5 d-flex justify-content-center">
+  <div class="w-100" style="max-width:480px;">
+    
+    <!-- Step 1 -->
+    <div class="panel" id="step1">
+      <h2 class="fw-bold mb-3 text-center">Join the iTradeX Waitlist</h2>
+      <p class="text-center text-muted mb-4">Follow us on Twitter, retweet, paste your retweet link below to continue.</p>
+      <div class="card-radius mb-3 text-center">
+        <button class="btn btn-primary w-100 mb-3" id="btnFollowRetweet">Follow & Retweet</button>
+        <input type="url" class="form-control mb-3" placeholder="Paste retweet link here" id="retweetLink"/>
+        <button class="btn btn-primary w-100" id="btnContinue">Continue</button>
+      </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="panel hidden" id="step2">
+      <h2 class="fw-bold mb-3 text-center">Complete Your Entry</h2>
+      <p class="text-center text-muted mb-4">Fill in your details to secure your waitlist spot.</p>
+      <div class="card-radius mb-3">
+        <input type="text" class="form-control mb-3" placeholder="Twitter Username (@handle)" id="username"/>
+        <input type="email" class="form-control mb-3" placeholder="Email Address" id="email"/>
+        <input type="text" class="form-control mb-3" placeholder="Wallet Address (optional)" id="wallet"/>
+        <button class="btn btn-primary w-100" id="btnJoinWaitlist">Continue</button>
+      </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="panel hidden" id="step3">
+      <h2 class="fw-bold mb-3 text-center">Verify Your Email</h2>
+      <p class="text-center text-muted mb-4">
+        We’ve sent a 6-digit code to <span id="verifyEmailText"></span>. Enter it below.
+      </p>
+      <div class="card-radius mb-3">
+        <div class="code-inputs mb-3">
+          <input type="text" maxlength="1" class="code" />
+          <input type="text" maxlength="1" class="code" />
+          <input type="text" maxlength="1" class="code" />
+          <input type="text" maxlength="1" class="code" />
+          <input type="text" maxlength="1" class="code" />
+          <input type="text" maxlength="1" class="code" />
+        </div>
+        <button class="btn btn-primary w-100" id="btnVerify">Verify & Continue</button>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+// Step 1
+document.getElementById('btnFollowRetweet').addEventListener('click',()=>{
+  window.open('https://twitter.com/intent/follow?screen_name=iTradeX', '_blank');
+});
+document.getElementById('btnContinue').addEventListener('click',()=>{
+  const link=document.getElementById('retweetLink').value.trim();
+  if(link){
+    document.getElementById('step1').classList.add('hidden');
+    const step2=document.getElementById('step2');
+    step2.classList.remove('hidden'); step2.classList.add('fade-in');
+  } else { alert('Please paste your retweet link first.'); }
+});
+
+// Step 2
+document.getElementById('btnJoinWaitlist').addEventListener('click',()=>{
+  const username=document.getElementById('username').value.trim();
+  const email=document.getElementById('email').value.trim();
+  if(username && email){
+    document.getElementById('step2').classList.add('hidden');
+    const step3=document.getElementById('step3');
+    step3.classList.remove('hidden'); step3.classList.add('fade-in');
+    document.getElementById('verifyEmailText').innerText=email;
+    console.log("Send verification code to:", email); // placeholder backend
+  } else { alert('Twitter username and email are required.'); }
+});
+
+// Step 3: code handling
+const codeInputs = document.querySelectorAll('.code-inputs .code');
+
+  // Auto-focus and paste handling
+  codeInputs.forEach((input, idx) => {
+    input.addEventListener('input', () => {
+      if(input.value.length && idx < codeInputs.length - 1){
+        codeInputs[idx+1].focus();
+      }
+    });
+
+    input.addEventListener('paste', (e)=>{
+      e.preventDefault();
+      const paste = (e.clipboardData || window.clipboardData).getData('text').trim().slice(0,6);
+      paste.split('').forEach((char, i)=>{
+        if(codeInputs[i]) codeInputs[i].value = char;
+      }); 
+    });
+  });
+
+document.getElementById('btnVerify').addEventListener('click',()=>{
+  let code='';
+  inputs.forEach(i=>code+=i.value.trim());
+  if(code.length===6){
+    console.log("Verify code:",code); // backend placeholder
+    window.location.href='leaderboard.html';
+  } else { alert('Please enter all 6 digits.'); }
+});
+</script>
+</body>
+</html>

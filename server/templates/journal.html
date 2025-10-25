@@ -1,0 +1,911 @@
+{% extends "base.html" %}
+{% block title %}Journal{% endblock %}
+{% block content %}<main class="container py-4">
+  <!-- Stats -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-4">
+      <div class="stat-card">
+        <div class="accent" style="background: var(--brand)"></div>
+        <div class="text-muted">Win Rate</div>
+        <div class="stat-value" id="statWin">--%</div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="stat-card">
+        <div class="accent" style="background:#6366F1"></div>
+        <div class="text-muted">Avg P/L</div>
+        <div class="stat-value" id="statAvg">--</div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="stat-card">
+        <div class="accent" style="background:#06B6D4"></div>
+        <div class="text-muted">Total Trades</div>
+        <div class="stat-value" id="statTotal">--</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="d-flex filter-bar mb-3 flex-wrap align-items-center">
+    <input id="searchInput" type="text" class="form-control" placeholder="Search trades..." style="max-width:200px;">
+    <select id="filterType" class="form-select" style="max-width:160px;">
+      <option value="all">Type: All</option>
+      <option value="win">Wins</option>
+      <option value="loss">Losses</option>
+    </select>
+    <select id="assetTypeFilter" class="form-select" style="max-width:160px;">
+      <option value="all">Asset Type: All</option>
+      <option value="forex">Forex</option>
+      <option value="crypto">Crypto</option>
+    </select>
+    <select id="sessionFilter" class="form-select" style="max-width:160px;">
+      <option value="all">Session: All</option>
+      <option value="London">London</option>
+      <option value="New York">New York</option>
+      <option value="Tokyo">Tokyo</option>
+      <option value="Sydney">Sydney</option>
+      <option value="UTC">UTC</option>
+    </select>
+    <select id="strategyFilter" class="form-select" style="max-width:160px;">
+      <option value="all">Strategy: All</option>
+      <option value="Breakout">Breakout</option>
+      <option value="Scalp">Scalp</option>
+      <option value="Reversal">Reversal</option>
+      <option value="RSI Divergence">RSI Divergence</option>
+      <option value="Swing Trading">Swing Trading</option>
+    </select>
+    <input id="dateStart" type="date" class="form-control" style="max-width:150px;">
+    <input id="dateEnd" type="date" class="form-control" style="max-width:150px;">
+    <select id="sortSelect" class="form-select" style="max-width:160px;">
+      <option value="dateDesc">Sort: Date ↓</option>
+      <option value="plHigh">P/L ↓ (highest first)</option>
+      <option value="plLow">P/L ↑ (lowest first)</option>
+      <option value="symbol">Symbol A-Z</option>
+    </select>
+    <select id="pageSize" class="form-select" style="max-width:100px;">
+      <option value="10">10/trades</option>
+      <option value="20">20</option>
+      <option value="50">50</option>
+    </select>
+    <button id="clearFilters" class="btn btn-outline-secondary btn-sm">Clear</button>
+    <div class="ms-auto">
+      <span id="tradeCountBadge" class="badge bg-primary" style="display:none;"></span>
+    </div>
+  </div>
+
+  <!-- Trade list (infinite scroll container) -->
+  <div id="tradesList" style="position: relative;"></div>
+  <div id="loadingMore" class="text-center py-3" style="display:none;">Loading more...</div>
+  <div id="emptyState" class="empty-state" style="display:none;">
+    <i class="bi bi-journal-text empty-icon"></i>
+    <p>Your journal's a blank canvas—log a trade to begin!</p>
+    <a href="/upload" class="btn btn-primary">Upload Trade</a>
+  </div>
+  <div class="footer-text">Powered by your AI co-pilot</div>
+</main>
+
+<!-- Trade Detail Modal (for edit-like review) -->
+<div class="modal fade" id="tradeModal" tabindex="-1">
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content card-radius">
+      <div class="modal-header">
+        <h5 class="modal-title">Trade Details & Edit</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-sm-6">
+            <label for="mDate" class="form-label"><strong>Date & Time</strong> <small class="text-muted">(YYYY-MM-DD HH:MM, UTC)</small></label>
+            <input id="mDate" class="form-control" type="datetime-local" placeholder="Select date and time of trade entry">
+          </div>
+          <div class="col-sm-6">
+            <label for="mSymbol" class="form-label"><strong>Symbol</strong> <small class="text-muted">(e.g., EURUSD, BTCUSD)</small></label>
+            <input id="mSymbol" class="form-control" type="text" placeholder="Enter trading pair symbol">
+          </div>
+          <div class="col-sm-6">
+            <label for="mAssetType" class="form-label"><strong>Asset Type</strong></label>
+            <select id="mAssetType" class="form-select">
+              <option value="forex">Forex</option>
+              <option value="crypto">Crypto</option>
+            </select>
+          </div>
+          <div class="col-sm-6">
+            <label for="mSession" class="form-label"><strong>Session</strong> <small class="text-muted">(Trading session)</small></label>
+            <select id="mSession" class="form-select">
+              <option value="">Select session</option>
+              <option value="London">London</option>
+              <option value="New York">New York</option>
+              <option value="Tokyo">Tokyo</option>
+              <option value="Sydney">Sydney</option>
+              <option value="UTC">UTC</option>
+            </select>
+          </div>
+          <div class="col-sm-6">
+            <label for="mStrategy" class="form-label"><strong>Strategy</strong> <small class="text-muted">(Trading approach used)</small></label>
+            <select id="mStrategy" class="form-select">
+              <option value="">Unknown</option>
+              <option value="Breakout">Breakout</option>
+              <option value="Scalp">Scalp</option>
+              <option value="Reversal">Reversal</option>
+              <option value="RSI Divergence">RSI Divergence</option>
+              <option value="Swing Trading">Swing Trading</option>
+            </select>
+          </div>
+          <div class="col-sm-6">
+            <label for="mDirection" class="form-label"><strong>Direction</strong></label>
+            <select id="mDirection" class="form-select">
+              <option value="LONG">Long</option>
+              <option value="SHORT">Short</option>
+            </select>
+          </div>
+          <div class="col-sm-6">
+            <label for="mEntry" class="form-label"><strong>Entry Price</strong> <small class="text-muted">(Price at which you entered the trade)</small></label>
+            <input id="mEntry" class="form-control" type="number" step="0.0001" placeholder="e.g., 1.0850">
+          </div>
+          <div class="col-sm-6">
+            <label for="mExit" class="form-label"><strong>Exit Price</strong> <small class="text-muted">(Price at which you exited the trade)</small></label>
+            <input id="mExit" class="form-control" type="number" step="0.0001" placeholder="e.g., 1.0900">
+          </div>
+          <div class="col-sm-6">
+            <label for="mSize" class="form-label"><strong>Position Size</strong> <small class="text-muted">(Trade volume, e.g., lots or units)</small></label>
+            <input id="mSize" class="form-control" type="number" step="0.0001" placeholder="e.g., 0.1 (for 0.1 lot)">
+          </div>
+          <div class="col-sm-6">
+            <label for="mRisk" class="form-label"><strong>Risk %</strong> <small class="text-muted">(Percentage of account risked, 0-100)</small></label>
+            <input id="mRisk" class="form-control" type="number" step="0.01" min="0" max="100" placeholder="e.g., 1.0">
+          </div>
+          <div class="col-sm-6">
+            <label for="mSL" class="form-label"><strong>Stop Loss (SL)</strong> <small class="text-muted">(Price level for stop loss)</small></label>
+            <input id="mSL" class="form-control" type="number" step="0.0001" placeholder="e.g., 1.0800">
+          </div>
+          <div class="col-sm-6">
+            <label for="mTP" class="form-label"><strong>Take Profit (TP)</strong> <small class="text-muted">(Price level for take profit)</small></label>
+            <input id="mTP" class="form-control" type="number" step="0.0001" placeholder="e.g., 1.0950">
+          </div>
+          <div class="col-sm-6">
+            <label for="mLeverage" class="form-label"><strong>Leverage</strong> <small class="text-muted">(Multiplier, 1-100, e.g., 10 for 10x)</small></label>
+            <input id="mLeverage" class="form-control" type="number" min="1" max="100" step="0.1" placeholder="e.g., 10">
+          </div>
+          <div class="col-sm-6">
+            <label for="mRiskAmount" class="form-label"><strong>Risk Amount ($)</strong> <small class="text-muted">(Absolute risk in USD)</small></label>
+            <input id="mRiskAmount" class="form-control" type="number" step="0.01" min="0" placeholder="e.g., 50.00">
+          </div>
+          <div class="col-sm-6">
+            <label for="mRewardAmount" class="form-label"><strong>Reward Amount ($)</strong> <small class="text-muted">(Expected or realized reward in USD)</small></label>
+            <input id="mRewardAmount" class="form-control" type="number" step="0.01" min="0" placeholder="e.g., 100.00">
+          </div>
+          <div class="col-sm-6">
+            <label for="mRRRatio" class="form-label"><strong>R:R Ratio</strong> <small class="text-muted">(Risk:Reward ratio, e.g., 1:2)</small></label>
+            <input id="mRRRatio" class="form-control" type="number" step="0.01" min="0" placeholder="e.g., 2.0">
+          </div>
+          <div class="col-12">
+            <label class="form-label"><strong>P/L</strong> <small class="text-muted">(Profit/Loss - auto-calculated on save)</small></label>
+            <div id="mPL" class="fw-bold p-2 rounded" style="background: var(--surface); border: 1px solid var(--border);">N/A</div>
+          </div>
+          <div class="col-12">
+            <label for="mNotes" class="form-label"><strong>Notes</strong> <small class="text-muted">(Any additional thoughts or lessons learned)</small></label>
+            <textarea id="mNotes" class="form-control" rows="3" placeholder="Enter notes about this trade..."></textarea>
+          </div>
+          <div class="col-12">
+            <label class="form-label"><strong>AI Suggestion</strong></label>
+            <div id="mSuggestion" class="insight-box">Loading...</div>
+          </div>
+          <div class="col-12">
+            <label class="form-label"><strong>Chart</strong> <small class="text-muted">(Screenshot of the trade setup)</small></label>
+            <img id="mChart" src="" alt="Trade Chart" class="img-fluid chart-preview" style="display:none;" onerror="this.style.display='none'; document.getElementById('mChartPlaceholder').style.display='block';">
+            <div id="mChartPlaceholder" class="chart-preview-placeholder">No chart available</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="saveEdit" class="btn btn-primary">Save Changes</button>
+        <button id="deleteTrade" class="btn btn-danger">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<style>
+  /* Journal-specific styles (unchanged for brevity) */
+  .stat-card { padding:16px; border-radius:var(--radius); background:var(--surface); box-shadow:var(--shadow); position: relative; overflow:hidden; }
+  .stat-card .accent { position:absolute; top:0; left:0; height:6px; width:44px; border-bottom-right-radius:8px; }
+  .stat-value { font-size:1.4rem; font-weight:700; margin-top:6px; }
+  .filter-bar { gap:10px; }
+  .trade-card {
+    height: auto;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    transition: all .2s ease;
+    cursor: pointer;
+    margin-bottom: 16px;
+    position: relative;
+  }
+  .trade-card:hover { box-shadow: var(--shadow-lg); }
+  .trade-card .session-badge {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    font-size: .75rem;
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-weight: 600;
+    z-index: 2;
+  }
+  .session-london { background: rgba(139,92,246,0.12); color: var(--violet); }
+  .session-new-york { background: rgba(var(--success-rgb), 0.12); color: var(--success); }
+  .session-tokyo { background: rgba(var(--warning-rgb), 0.12); color: var(--warning); }
+  .session-sydney { background: rgba(var(--danger-rgb), 0.12); color: var(--danger); }
+  .session-utc { background: rgba(75, 192, 192, 0.12); color: #36A2EB; }
+  .trade-card .actions {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity .2s ease;
+    z-index: 2;
+  }
+  .trade-card:hover .actions { opacity: 1; }
+  .actions button {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: .9rem;
+    padding: 4px;
+  }
+  .trade-card .content-wrapper {
+    padding-top: 32px;
+    flex: 1;
+  }
+  .trade-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+  }
+  .trade-symbol {
+    font-weight: 600;
+    font-size: 1.1rem;
+    margin: 0;
+  }
+  .trade-date {
+    font-size: .85rem;
+    color: var(--muted);
+    margin: 0;
+  }
+  .center {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 8px;
+  }
+  .chart-thumb {
+    width: 80px;
+    height: 60px;
+    border-radius: 4px;
+    object-fit: cover;
+    background: var(--border);
+    flex-shrink: 0;
+  }
+  .chart-thumb-placeholder {
+    width: 80px;
+    height: 60px;
+    border-radius: 4px;
+    background: var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+  .metrics-row {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .pl-bar {
+    height: 8px;
+    background: var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .pl-fill {
+    height: 100%;
+    width: 0%;
+    transition: width .3s ease;
+  }
+  .pl-positive-fill { background: var(--success); }
+  .pl-negative-fill { background: var(--danger); }
+  .win-loss-icon { font-size: 1.2rem; }
+  .trade-entry-exit {
+    font-size: .9rem;
+    color: var(--text);
+  }
+  .bottom {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: auto;
+  }
+  .ai-snippet {
+    font-size: .85rem;
+    color: var(--muted);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .tags {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .tag-chip {
+    font-size: .75rem;
+    padding: 2px 6px;
+    background: rgba(var(--muted-rgb), 0.12);
+    color: var(--muted);
+    border-radius: 4px;
+  }
+  .empty-state {
+    text-align: center;
+    padding: 40px;
+    color: var(--muted);
+  }
+  .empty-state button {
+    margin-top: 16px;
+  }
+  .footer-text {
+    text-align: center;
+    font-size: .8rem;
+    color: var(--muted);
+    margin-top: 40px;
+  }
+  .insight-box {
+    background: rgba(var(--brand-rgb), 0.05);
+    padding: 12px;
+    border-radius: 8px;
+    margin-top: 20px;
+    font-style: italic;
+    border-left: 3px solid var(--brand);
+  }
+  .chart-preview {
+    height: auto;
+    max-height: 500px;
+    width: 100%;
+    object-fit: contain;
+    border-radius: 8px;
+  }
+  .chart-preview-placeholder {
+    height: 200px;
+    background: var(--border);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-style: italic;
+  }
+  [data-theme="dark"] .form-select,
+  [data-theme="dark"] .form-control {
+    background-color: var(--surface) !important;
+    border-color: var(--border) !important;
+    color: var(--text) !important;
+  }
+  [data-theme="dark"] .form-select option {
+    background-color: var(--surface) !important;
+    color: var(--text) !important;
+  }
+  [data-theme="dark"] .form-control::placeholder {
+    color: var(--muted) !important;
+  }
+  [data-theme="dark"] input[type="date"] {
+    background-color: var(--surface) !important;
+    color: var(--text) !important;
+  }
+  [data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+  }
+</style>
+
+<script>
+  let page = 1;
+  let loading = false;
+  let isRefreshing = false; // High: Prevent races during refreshes
+  let hasMore = true;
+  let currentFilters = {
+    search: '',
+    filter_type: 'all',
+    asset_type: '',
+    session: '',
+    strategy: '',
+    date_from: '',
+    date_to: '',
+    sort: 'dateDesc',
+    page_size: 10, // Low: Default page size
+  };
+  let debounceTimer; // Medium: For debounced search
+
+  let currentTradeData = null;
+
+  async function loadTrades(append = true) {
+    if (loading || !hasMore || (isRefreshing && append)) return; // High: Skip append during refresh
+    loading = true;
+    try {
+      const params = new URLSearchParams({
+        ...currentFilters,
+        page,
+        page_size: currentFilters.page_size,
+      });
+      const res = await fetch(`/journal/trades?${params}`);
+      if (!res.ok) throw new Error('Failed to fetch trades');
+      const data = await res.json();
+      if (!append) {
+        document.getElementById('tradesList').innerHTML = '';
+      }
+      data.trades.forEach(t => {
+        renderTradeCard(t);
+      });
+      page++;
+      hasMore = data.trades.length === currentFilters.page_size;
+      updateStatsFromData(data);
+      document.getElementById('tradeCountBadge').textContent = `${data.total} trades`;
+      document.getElementById('tradeCountBadge').style.display = 'inline-block';
+      toggleEmptyState(data.total === 0);
+    } catch (err) {
+      showErrorToast('Failed to load trades');
+    } finally {
+      loading = false;
+      isRefreshing = false;
+    }
+  }
+
+  function renderTradeCard(t) {
+    const pl = t.pnl || 0;
+    const plPercent = Math.min(Math.abs(pl) / 100 * 100, 100);
+    const sessionDisplay = t.session || 'N/A';
+    const sessionLower = t.session ? t.session.toLowerCase().replace(/ /g, '-') : 'unknown';
+    const sessionClass = `session-${sessionLower}`;
+    const dateStr = t.trade_date ? new Date(t.trade_date).toLocaleDateString() : 'N/A';
+    const entryExitStr = t.entry_price && t.exit_price ? `${t.entry_price.toFixed(4)} → ${t.exit_price.toFixed(4)}` : 'N/A';
+    const hasChart = t.chart_url && t.chart_url !== '';
+    const assetTypeStr = t.asset_type ? t.asset_type.charAt(0).toUpperCase() + t.asset_type.slice(1) : 'N/A';
+    const leverageStr = t.leverage ? `${t.leverage.toFixed(1)}x` : 'N/A';
+    const card = document.createElement('div');
+    card.className = 'trade-card';
+    card.dataset.id = t.id;
+    card.innerHTML = `
+      <span class="session-badge ${sessionClass}">${sessionDisplay}</span>
+      <div class="actions">
+        <button onclick="editTrade(${t.id})"><i class="bi bi-pencil"></i></button>
+        <button onclick="deleteTrade(${t.id})"><i class="bi bi-trash"></i></button>
+      </div>
+      <div class="content-wrapper">
+        <div class="trade-header">
+          <div class="trade-symbol">${t.symbol || 'N/A'}</div>
+          <div class="trade-date">${dateStr}</div>
+        </div>
+        <div class="center">
+          ${hasChart ? `<img class="chart-thumb" src="${t.chart_url}" alt="Trade Chart" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">` : '<div class="chart-thumb-placeholder">No Chart</div>'}
+          <div class="metrics-row">
+            <div class="d-flex align-items-center gap-2">
+              <div class="pl-bar flex-fill"><div class="pl-fill ${pl >= 0 ? 'pl-positive-fill' : 'pl-negative-fill'}" style="width: ${plPercent}%"></div></div>
+              <i class="bi ${pl >= 0 ? 'bi-trophy text-success' : 'bi-x-circle text-danger'} win-loss-icon"></i>
+            </div>
+            <div class="fw-bold ${pl >= 0 ? 'text-success' : 'text-danger'}">${pl >= 0 ? '+' : ''}$${pl.toFixed(2)}</div>
+            <div class="trade-entry-exit">${entryExitStr}</div>
+          </div>
+        </div>
+        <div class="bottom">
+          <div class="ai-snippet">${t.suggestion || 'No suggestion available'}</div>
+          <div class="tags">
+            <span class="tag-chip">${assetTypeStr}</span>
+            <span class="tag-chip">${t.strategy || 'Manual'}</span>
+            ${t.position_size ? `<span class="tag-chip">Size: ${t.position_size.toFixed(4)}</span>` : ''}
+            <span class="tag-chip">${leverageStr}</span>
+          </div>
+        </div>
+      </div>
+    `;
+    document.getElementById('tradesList').appendChild(card);
+  }
+
+  // Critical: New helpers for in-place updates
+  function updateTradeCardInList(id, updatedData) {
+    const card = document.querySelector(`[data-id="${id}"]`);
+    if (card) {
+      card.remove();
+      renderTradeCard(updatedData);
+    }
+    // If off-page, do nothing (or partial refresh if needed)
+  }
+
+  function removeTradeCardFromList(id) {
+    const card = document.querySelector(`[data-id="${id}"]`);
+    if (card) card.remove();
+  }
+
+  async function updateStatsAfterChange() {
+    const params = new URLSearchParams(currentFilters);
+    params.append('page', '1');
+    params.append('page_size', '1');
+    const res = await fetch(`/journal/trades?${params}`);
+    const data = await res.json();
+    updateStatsFromData(data);
+    document.getElementById('tradeCountBadge').textContent = `${data.total} trades`;
+    document.getElementById('tradeCountBadge').style.display = 'inline-block';
+  }
+
+  function updateStatsFromData(data) {
+    const winRate = (data.win_rate || 0).toFixed(1);
+    const avgPL = data.avg_pl || 0;
+    document.getElementById('statWin').textContent = `${winRate}%`;
+    document.getElementById('statAvg').textContent = `$${avgPL.toFixed(2)}`;
+    document.getElementById('statTotal').textContent = data.total;
+  }
+
+  function toggleEmptyState(empty) {
+    document.getElementById('emptyState').style.display = empty ? 'block' : 'none';
+  }
+
+  function applyFilters(resetPage = true) {
+    if (resetPage) {
+      page = 1;
+      isRefreshing = true; // High: Set refresh flag
+    }
+    hasMore = true;
+    loadTrades(!resetPage);
+  }
+
+  // Medium: Debounced search
+  document.getElementById('searchInput').addEventListener('input', (e) => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      currentFilters.search = e.target.value;
+      applyFilters();
+    }, 300);
+  });
+
+  // Low: Page size listener
+  document.getElementById('pageSize').addEventListener('change', (e) => {
+    currentFilters.page_size = parseInt(e.target.value);
+    applyFilters(true);
+  });
+
+  // Other filter listeners
+  document.getElementById('filterType').addEventListener('change', (e) => { 
+    currentFilters.filter_type = e.target.value; 
+    applyFilters(); 
+  });
+  document.getElementById('assetTypeFilter').addEventListener('change', (e) => { 
+    currentFilters.asset_type = e.target.value === 'all' ? '' : e.target.value; 
+    applyFilters(); 
+  });
+  document.getElementById('sessionFilter').addEventListener('change', (e) => { 
+    currentFilters.session = e.target.value === 'all' ? '' : e.target.value; 
+    applyFilters(); 
+  });
+  document.getElementById('strategyFilter').addEventListener('change', (e) => { 
+    currentFilters.strategy = e.target.value === 'all' ? '' : e.target.value; 
+    applyFilters(); 
+  });
+  document.getElementById('dateStart').addEventListener('change', (e) => { 
+    currentFilters.date_from = e.target.value; 
+    applyFilters(); 
+  });
+  document.getElementById('dateEnd').addEventListener('change', (e) => { 
+    currentFilters.date_to = e.target.value; 
+    applyFilters(); 
+  });
+  document.getElementById('sortSelect').addEventListener('change', (e) => { 
+    currentFilters.sort = e.target.value; 
+    applyFilters(); 
+  });
+  document.getElementById('clearFilters').addEventListener('click', () => {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('filterType').value = 'all';
+    document.getElementById('assetTypeFilter').value = 'all';
+    document.getElementById('sessionFilter').value = 'all';
+    document.getElementById('strategyFilter').value = 'all';
+    document.getElementById('dateStart').value = '';
+    document.getElementById('dateEnd').value = '';
+    document.getElementById('sortSelect').value = 'dateDesc';
+    document.getElementById('pageSize').value = '10';
+    currentFilters = { 
+      search: '', 
+      filter_type: 'all', 
+      asset_type: '', 
+      session: '', 
+      strategy: '', 
+      date_from: '', 
+      date_to: '', 
+      sort: 'dateDesc',
+      page_size: 10
+    };
+    applyFilters();
+  });
+
+  // Infinite scroll with race guard
+  window.addEventListener('scroll', () => {
+    if (loading || !hasMore || isRefreshing) return;
+    if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 200) {
+      document.getElementById('loadingMore').style.display = 'block';
+      loadTrades(true).then(() => document.getElementById('loadingMore').style.display = 'none');
+    }
+  });
+
+  // FIXED: populateModal with lowercase asset_type for select matching
+  function populateModal(t) {
+    // Date: UTC handling
+    const utcDate = t.trade_date ? new Date(t.trade_date + 'Z').toISOString().slice(0, 16) : '';
+    document.getElementById('mDate').value = utcDate;
+    
+    // Latest: Normalize symbol on load
+    document.getElementById('mSymbol').value = (t.symbol || '').toUpperCase().trim();
+    
+    // FIXED: Lowercase asset_type to match select options (forex/crypto)
+    document.getElementById('mAssetType').value = (t.asset_type || 'forex').toLowerCase();
+    
+    document.getElementById('mSession').value = t.session || '';
+    document.getElementById('mStrategy').value = t.strategy || '';
+    document.getElementById('mDirection').value = t.direction || 'LONG';
+    document.getElementById('mEntry').value = t.entry_price || '';
+    document.getElementById('mExit').value = t.exit_price || '';
+    document.getElementById('mSize').value = t.position_size || '';
+    document.getElementById('mRisk').value = t.risk_percentage || '';
+    document.getElementById('mSL').value = t.sl_price || '';
+    document.getElementById('mTP').value = t.tp_price || '';
+    const levValue = t.leverage && t.leverage >= 1 && t.leverage <= 100 ? t.leverage : '';
+    document.getElementById('mLeverage').value = levValue;
+    document.getElementById('mRiskAmount').value = t.risk_amount || '';
+    document.getElementById('mRewardAmount').value = t.reward_amount || '';
+    document.getElementById('mRRRatio').value = t.r_r_ratio || '';
+    document.getElementById('mPL').innerHTML = t.pnl ? `<span class="${t.pnl >= 0 ? 'text-success' : 'text-danger'}">${t.pnl >= 0 ? '+' : ''}$${t.pnl.toFixed(2)}</span>` : 'N/A';
+    document.getElementById('mNotes').value = t.notes || '';
+    
+    // Medium: Enhanced suggestion handling
+    const suggestionEl = document.getElementById('mSuggestion');
+    if (t.suggestion && t.suggestion.trim()) {
+      suggestionEl.textContent = t.suggestion;
+    } else {
+      suggestionEl.innerHTML = '<em>No AI suggestion available yet.</em> <button class="btn btn-sm btn-outline-brand ms-2" onclick="generateSuggestion(' + t.id + ')">Generate Now</button>';
+    }
+    
+    // Chart with onerror (Low)
+    const chartEl = document.getElementById('mChart');
+    const placeholderEl = document.getElementById('mChartPlaceholder');
+    if (t.chart_url && t.chart_url !== '') {
+      chartEl.src = t.chart_url;
+      chartEl.style.display = 'block';
+      placeholderEl.style.display = 'none';
+    } else {
+      chartEl.style.display = 'none';
+      placeholderEl.style.display = 'block';
+    }
+  }
+
+  async function generateSuggestion(tradeId) {
+    try {
+      const suggestionEl = document.getElementById('mSuggestion');
+      suggestionEl.innerHTML = '<div class="spinner-border spinner-border-sm me-2" role="status"></div>Generating...';
+      // TODO: Replace with real endpoint /journal/trades/{id}/generate-suggestion
+      setTimeout(() => {
+        suggestionEl.innerHTML = 'AI Suggestion: Consider reviewing your risk management for this setup. (Generated - integrate backend for real LLM)';
+      }, 2000);
+    } catch (err) {
+      showErrorToast('Failed to generate suggestion');
+    }
+  }
+
+  // Critical: Fixed editTrade with onclick, in-place updates, TZ send, and latest symbol fix
+  async function editTrade(id) {
+    try {
+      const res = await fetch(`/journal/trades/${id}`);
+      if (!res.ok) throw new Error(`Failed to fetch trade: ${res.status}`);
+      const t = await res.json();
+      currentTradeData = t;
+
+      const modalEl = document.getElementById('tradeModal');
+      const modal = new bootstrap.Modal(modalEl);
+      
+      modalEl.addEventListener('shown.bs.modal', function populateOnShow() {
+        populateModal(t);
+        modalEl.removeEventListener('shown.bs.modal', populateOnShow);
+      }, { once: true });
+
+      // Critical: Use onclick to overwrite handlers (no multiples)
+      const saveBtn = document.getElementById('saveEdit');
+      saveBtn.onclick = async (e) => {
+        e.preventDefault();
+        // Latest: Full client-side validation with symbol normalization
+        const entry = parseFloat(document.getElementById('mEntry').value);
+        const sl = parseFloat(document.getElementById('mSL').value);
+        const tp = parseFloat(document.getElementById('mTP').value);
+        const dir = document.getElementById('mDirection').value;
+        const rawSymbol = document.getElementById('mSymbol').value.trim();
+        const symbol = rawSymbol.toUpperCase();  // Normalize casing
+        const asset = document.getElementById('mAssetType').value;
+        const risk = parseFloat(document.getElementById('mRisk').value);
+        const leverageValue = parseFloat(document.getElementById('mLeverage').value);
+
+        if (risk && (risk < 0 || risk > 100)) {
+          showErrorToast('Risk % must be between 0 and 100.');
+          return;
+        }
+        if (!isNaN(leverageValue) && (leverageValue < 1 || leverageValue > 100)) {
+          showErrorToast('Leverage must be between 1 and 100.');
+          return;
+        }
+        if (entry && sl && ((dir === 'LONG' && entry < sl) || (dir === 'SHORT' && entry > sl))) {
+          showErrorToast(`Invalid SL: For ${dir}, SL should be ${dir === 'LONG' ? 'below' : 'above'} entry price.`);
+          return;
+        }
+        if (entry && tp && ((dir === 'LONG' && entry > tp) || (dir === 'SHORT' && entry < tp))) {
+          showErrorToast(`Invalid TP: For ${dir}, TP should be ${dir === 'LONG' ? 'above' : 'below'} entry price.`);
+          return;
+        }
+        // Updated regex: Allows optional /, flexible lengths for forex/crypto (e.g., EURUSD, EUR/USD, BTCUSDT, BTC/USDT)
+        const symbolRegex = /^[A-Z]{3,}\/?[A-Z]{3,}$/;
+        if (asset === 'forex' && (!symbol || !symbolRegex.test(symbol))) {
+          showErrorToast(`Invalid forex symbol: "${rawSymbol}". Use e.g., EURUSD or EUR/USD (uppercase, no extras).`);
+          return;
+        }
+        if (asset === 'crypto' && (!symbol || !symbolRegex.test(symbol))) {
+          showErrorToast(`Invalid crypto symbol: "${rawSymbol}". Use e.g., BTCUSD or BTC/USDT (uppercase, no extras).`);
+          return;
+        }
+
+        // High: Warn on nullifying core fields
+        if ((entry === null || document.getElementById('mEntry').value === '') && t.entry_price) {
+          if (!confirm('Clearing entry price will reset P/L. Continue?')) return;
+        }
+        // Similar for exit_price, etc. (add as needed)
+
+        // Preview P/L (match backend formula, simplified)
+        const exitVal = parseFloat(document.getElementById('mExit').value);
+        const size = parseFloat(document.getElementById('mSize').value);
+        if (entry && exitVal && size && !isNaN(entry) && !isNaN(exitVal) && !isNaN(size)) {
+          let delta = dir === 'LONG' ? (exitVal - entry) : (entry - exitVal);
+          const lev = leverageValue || 1;
+          let previewPL = delta * size * lev;
+          // Medium [Model Update]: Basic asset adjust (refine as needed)
+          if (asset === 'forex') {
+            const pipFactor = /JPY/.test(symbol) ? 100 : 10000;
+            previewPL = Math.round((Math.abs(delta) * pipFactor) * size * 10 * lev * 100) / 100; // Approx pip value for 0.1 lot
+          }
+          document.getElementById('mPL').innerHTML = `<span class="text-info">Preview: ${previewPL >= 0 ? '+' : ''}$${previewPL.toFixed(2)}</span>`;
+        }
+
+        const localStr = document.getElementById('mDate').value;
+        const updateData = {
+          trade_date: localStr ? new Date(localStr + ':00').toISOString() : null, // Critical: Send UTC
+          symbol: symbol,  // Use normalized
+          asset_type: asset,
+          session: document.getElementById('mSession').value || null,
+          strategy: document.getElementById('mStrategy').value || 'Manual',
+          direction: dir,
+          entry_price: entry || null,
+          exit_price: exitVal || null,
+          position_size: size || null,
+          risk_percentage: risk || null,
+          sl_price: sl || null,
+          tp_price: tp || null,
+          leverage: isNaN(leverageValue) ? null : leverageValue,
+          risk_amount: parseFloat(document.getElementById('mRiskAmount').value) || null,
+          reward_amount: parseFloat(document.getElementById('mRewardAmount').value) || null,
+          r_r_ratio: parseFloat(document.getElementById('mRRRatio').value) || null,
+          notes: document.getElementById('mNotes').value.trim(),
+        };
+
+        // Remove empty strings
+        Object.keys(updateData).forEach(key => {
+          if (updateData[key] === '') updateData[key] = null;
+        });
+
+        const updateRes = await fetch(`/journal/trades/${id}`, {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(updateData)
+        });
+
+        if (updateRes.ok) {
+          const updatedTrade = await updateRes.json();
+          // Critical: In-place update
+          updateTradeCardInList(id, updatedTrade);
+          updateStatsAfterChange();
+          document.getElementById('mPL').innerHTML = updatedTrade.pnl ? `<span class="${updatedTrade.pnl >= 0 ? 'text-success' : 'text-danger'}">${updatedTrade.pnl >= 0 ? '+' : ''}$${updatedTrade.pnl.toFixed(2)}</span>` : 'N/A';
+          showToast('Changes saved successfully. P/L updated.');
+          modal.hide();
+        } else {
+          let errorMsg = 'Failed to save changes. Please check your inputs.';
+          try {
+            const errorData = await updateRes.json();
+            if (errorData.detail) {
+              if (Array.isArray(errorData.detail)) {
+                errorMsg = 'Validation errors: ' + errorData.detail.map(e => `${e.loc}: ${e.msg}`).join('; ');
+              } else {
+                errorMsg = `Error: ${errorData.detail}`;
+              }
+            }
+          } catch {}
+          showErrorToast(errorMsg);
+        }
+      };
+
+      // Critical: onclick for delete
+      const deleteBtn = document.getElementById('deleteTrade');
+      deleteBtn.onclick = async (e) => {
+        e.preventDefault();
+        if (confirm('Delete this trade permanently? This cannot be undone.')) {
+          const deleteRes = await fetch(`/journal/trades/${id}`, { method: 'DELETE' });
+          if (deleteRes.ok) {
+            // Critical: In-place remove
+            removeTradeCardFromList(id);
+            updateStatsAfterChange();
+            showToast('Trade deleted.');
+            modal.hide();
+          } else {
+            showErrorToast('Failed to delete trade. Please try again.');
+          }
+        }
+      };
+
+      modal.show();
+    } catch (err) {
+      console.error('Edit trade error:', err);
+      showErrorToast(`Failed to load trade details: ${err.message}`);
+    }
+  }
+
+  async function deleteTrade(id) {
+    if (confirm('Delete this trade permanently? This cannot be undone.')) {
+      try {
+        const deleteRes = await fetch(`/journal/trades/${id}`, { method: 'DELETE' });
+        if (deleteRes.ok) {
+          removeTradeCardFromList(id);
+          updateStatsAfterChange();
+          showToast('Trade deleted.');
+        } else {
+          showErrorToast('Failed to delete trade. Please try again.');
+        }
+      } catch (err) {
+        showErrorToast('Failed to delete trade. Please try again.');
+      }
+    }
+  }
+
+  function showErrorToast(message) {
+    const errorToast = new bootstrap.Toast(document.getElementById('errorToast'));
+    document.getElementById('errorToast').querySelector('.toast-body').innerHTML = `<i class="bi bi-x-circle-fill me-2"></i>${message}`;
+    errorToast.show();
+  }
+
+  function showToast(message) {
+    const toast = new bootstrap.Toast(document.getElementById('saveToast'));
+    document.getElementById('saveToast').querySelector('.toast-body').innerHTML = `<i class="bi bi-check-circle-fill me-2"></i>${message}`;
+    toast.show();
+  }
+
+  // Override chat suggestions (unchanged)
+  document.addEventListener('DOMContentLoaded', () => {
+    const newBtn = document.createElement('button');
+    newBtn.className = 'suggestion-btn';
+    newBtn.textContent = 'Summarize journal';
+    newBtn.onclick = () => sendSuggestion('Summarize my recent journal entries');
+    const suggestions = document.querySelector('.quick-suggestions');
+    if (suggestions) suggestions.appendChild(newBtn);
+    loadTrades();
+  });
+</script>
+{% endblock %}

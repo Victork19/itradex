@@ -1,0 +1,1100 @@
+<!-- Updated profile.html -->
+{% extends "base.html" %}
+
+{% block title %}Profile{% endblock %}
+
+{% block extra_styles %}
+<style>
+  :root {
+    --bs-body-bg: var(--bg);
+    --bs-body-color: var(--text);
+    --bs-secondary-color: var(--muted);
+    --bs-border-color: var(--border);
+    --bs-primary: var(--brand);
+    --bs-success: var(--success);
+    --bs-danger: var(--danger);
+    --bs-warning: var(--warning);
+    --bs-info: var(--info);
+    --bs-link-color: var(--brand);
+    --bs-link-hover-color: var(--brand-dark);
+  }
+  [data-theme="dark"] {
+    --bs-body-bg: var(--bg);
+    --bs-body-color: var(--text);
+    --bs-secondary-color: var(--muted);
+    --bs-border-color: var(--border);
+    --bs-primary: var(--brand);
+    --bs-success: var(--success);
+    --bs-danger: var(--danger);
+    --bs-warning: var(--warning);
+    --bs-info: var(--info);
+    --bs-link-color: var(--brand);
+    --bs-link-hover-color: var(--brand-dark);
+    color-scheme: dark;
+  }
+  [data-theme="dark"] .text-muted {
+    color: var(--muted);
+  }
+  [data-theme="dark"] .text-black,
+  [data-theme="dark"] .text-dark {
+    color: var(--text) !important;
+  }
+  [data-theme="dark"] .modal {
+    color: var(--text);
+  }
+  [data-theme="dark"] .modal-content {
+    background-color: var(--surface);
+    border-color: var(--border);
+    color: var(--text);
+  }
+  [data-theme="dark"] .modal-header {
+    border-bottom: 1px solid var(--border);
+  }
+  [data-theme="dark"] .modal-footer {
+    border-top: 1px solid var(--border);
+  }
+  [data-theme="dark"] .form-control {
+    background-color: var(--surface);
+    border-color: var(--border);
+    color: var(--text);
+  }
+  [data-theme="dark"] .form-control:focus {
+    border-color: var(--brand);
+    box-shadow: 0 0 0 0.25rem rgba(47, 107, 255, 0.25);
+  }
+  [data-theme="dark"] .form-label {
+    color: var(--text);
+  }
+  [data-theme="dark"] .accordion-button {
+    background: var(--surface);
+    color: var(--text);
+  }
+  [data-theme="dark"] .accordion-button:not(.collapsed) {
+    background: linear-gradient(135deg, rgba(47,107,255,0.1) 0%, rgba(47,107,255,0.05) 100%);
+    color: var(--brand);
+  }
+  [data-theme="dark"] .dropdown-menu {
+    background-color: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text) !important;
+  }
+  [data-theme="dark"] .dropdown-item {
+    color: var(--text) !important;
+    padding: 0.5rem 1rem;
+  }
+  [data-theme="dark"] .dropdown-item:hover {
+    background-color: rgba(47, 107, 255, 0.1) !important;
+    color: var(--brand) !important;
+  }
+  [data-theme="dark"] .dropdown-divider {
+    border-top: 1px solid var(--border) !important;
+  }
+  [data-theme="dark"] .offcanvas .nav-link {
+    color: var(--muted) !important;
+  }
+  [data-theme="dark"] .offcanvas .nav-link:hover {
+    color: var(--brand) !important;
+  }
+  [data-theme="dark"] .tooltip .tooltip-inner {
+    color: var(--text);
+    background-color: var(--surface);
+  }
+  [data-theme="dark"] .tooltip.bs-tooltip-auto[data-popper-placement*="top"] .tooltip-arrow::before,
+  [data-theme="dark"] .tooltip.bs-tooltip-auto[data-popper-placement*="bottom"] .tooltip-arrow::before,
+  [data-theme="dark"] .tooltip.bs-tooltip-auto[data-popper-placement*="left"] .tooltip-arrow::before,
+  [data-theme="dark"] .tooltip.bs-tooltip-auto[data-popper-placement*="right"] .tooltip-arrow::before {
+    border-color: var(--border);
+  }
+  .hero-card {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 20px;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    background: linear-gradient(135deg, var(--surface) 0%, rgba(47,107,255,0.02) 100%);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 150px;
+    height: 150px;
+    background: radial-gradient(circle, rgba(47,107,255,0.1) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+  .hero-card img {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    border: 3px solid var(--brand);
+    box-shadow: 0 6px 15px rgba(47,107,255,0.2);
+    transition: transform 0.3s ease;
+    z-index: 1;
+  }
+  .hero-card:hover img {
+    transform: scale(1.05);
+  }
+  .hero-card .name {
+    font-size: 1.5rem;
+    font-weight: 800;
+    background: var(--gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 2px;
+  }
+  .hero-card .email {
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin-bottom: 4px;
+  }
+  .hero-card .stats {
+    display: flex;
+    gap: 16px;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .hero-card .stats .stat-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .hero-card .stats .stat-value {
+    font-weight: 600;
+    color: var(--text);
+  }
+  .stat-card {
+    padding: 24px;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    position: relative;
+    overflow: hidden;
+    transition: box-shadow 0.3s ease;
+  }
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--gradient);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: -1;
+  }
+  .stat-card:hover {
+    box-shadow: 0 20px 40px rgba(15,23,42,0.15);
+  }
+  .stat-card:hover::before {
+    opacity: 0.05;
+  }
+  .stat-card .accent {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 8px;
+    width: 60px;
+    border-top-left-radius: var(--radius);
+    border-bottom-right-radius: 16px;
+  }
+  .stat-value {
+    font-size: 1.6rem;
+    font-weight: 800;
+    margin-top: 12px;
+  }
+  .muted {
+    color: var(--muted);
+  }
+  .chart-wrapper {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16/9;
+    max-height: 360px;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: inset 0 2px 8px rgba(0,0,0,0.05);
+  }
+  .form-label {
+    font-weight: 600;
+    color: var(--text);
+  }
+  textarea.form-control, input.form-control {
+    border-radius: 16px;
+    border: 2px solid var(--border);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    padding: 12px 16px;
+  }
+  textarea.form-control:focus, input.form-control:focus {
+    border-color: var(--brand);
+    box-shadow: 0 0 0 0.2rem rgba(47,107,255,0.1);
+  }
+  .badge-pill {
+    border-radius: 25px;
+    padding: 0.4rem 1rem;
+    font-size: 0.9rem;
+    background: linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 100%);
+    color: var(--text);
+    transition: all 0.3s ease;
+    font-weight: 500;
+  }
+  .badge-pill:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+  [data-theme="dark"] .badge-pill {
+    background: linear-gradient(135deg, #252b3a 0%, #1f2937 100%);
+    color: #E5E7EB;
+  }
+  .danger-btns button {
+    border-radius: 16px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+  }
+  .danger-btns button:hover {
+    transform: translateY(-2px);
+  }
+  .accordion-button {
+    font-weight: 700;
+    background: var(--surface);
+    color: var(--text);
+    transition: all 0.3s ease;
+    border-radius: var(--radius) var(--radius) 0 0;
+    position: relative;
+  }
+  .accordion-button:not(.collapsed) {
+    background: linear-gradient(135deg, rgba(47,107,255,0.1) 0%, rgba(47,107,255,0.05) 100%);
+    color: var(--brand);
+    box-shadow: inset 0 -2px 4px rgba(47,107,255,0.1);
+  }
+  .accordion-button:hover {
+    background: linear-gradient(135deg, rgba(47,107,255,0.15) 0%, rgba(47,107,255,0.08) 100%);
+  }
+  .accordion-body {
+    padding: 2rem;
+    background: linear-gradient(180deg, var(--surface) 0%, rgba(248,250,252,0.5) 100%);
+  }
+  [data-theme="dark"] .accordion-body {
+    background: linear-gradient(180deg, var(--surface) 0%, rgba(26,31,43,0.5) 100%);
+  }
+  .slider {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 10px;
+    border-radius: 5px;
+    background: linear-gradient(90deg, var(--border) 0%, var(--brand) 50%, var(--border) 100%);
+    outline: none;
+    margin: 12px 0;
+    transition: background 0.3s ease;
+    cursor: pointer;
+  }
+  .slider:hover {
+    background: linear-gradient(90deg, rgba(47,107,255,0.3) 0%, var(--brand) 50%, rgba(47,107,255,0.3) 100%);
+  }
+  .slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--brand);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(47,107,255,0.3);
+  }
+  .slider::-webkit-slider-thumb:hover {
+    transform: scale(1.3);
+    box-shadow: 0 4px 12px rgba(47,107,255,0.4);
+  }
+  .zone-selector {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .zone-btn {
+    flex: 1;
+    min-width: 110px;
+    padding: 12px 16px;
+    border: 2px solid var(--border);
+    border-radius: 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    font-weight: 600;
+    position: relative;
+    overflow: hidden;
+  }
+  .zone-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s;
+  }
+  .zone-btn:hover::before {
+    left: 100%;
+  }
+  .zone-btn:hover {
+    border-color: var(--brand);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(47,107,255,0.15);
+  }
+  .zone-btn.selected {
+    background: var(--gradient);
+    color: white;
+    border-color: var(--brand);
+    box-shadow: 0 8px 20px rgba(47,107,255,0.3);
+  }
+  .modal-fullscreen .modal-dialog {
+    max-width: 100%;
+    margin: 0;
+  }
+  .modal-fullscreen .modal-content {
+    height: 100vh;
+    border-radius: 0;
+    border: none;
+    background: var(--bg);
+  }
+  .modal-header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+  .performance-summary {
+    text-align: center;
+    padding: 2rem;
+    background: linear-gradient(135deg, rgba(47,107,255,0.05) 0%, rgba(34,197,94,0.05) 100%);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+  }
+  .performance-summary .btn {
+    margin-top: 1rem;
+  }
+  .btn-outline-info {
+    border-color: var(--info);
+    color: var(--info);
+  }
+  .btn-outline-info:hover {
+    background: var(--info);
+    color: white;
+  }
+  .btn-outline-warning {
+    border-color: var(--warning);
+    color: var(--warning);
+  }
+  .btn-outline-warning:hover {
+    background: var(--warning);
+    color: white;
+  }
+  .btn-outline-danger {
+    border-color: var(--danger);
+    color: var(--danger);
+  }
+  .btn-outline-danger:hover {
+    background: var(--danger-gradient);
+    border-color: transparent;
+  }
+  .btn-danger {
+    background: var(--danger-gradient);
+    border: none;
+  }
+  .saving-indicator {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--border);
+    border-top: 2px solid var(--brand);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-left: 8px;
+  }
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  /* Mobile offcanvas nav optimization */
+  .offcanvas-body .nav-link {
+    position: relative;
+    padding: 10px 0;
+    color: var(--muted);
+    font-weight: 500;
+    transition: color .25s ease;
+  }
+  .offcanvas-body .nav-link::after {
+    content:'';
+    position:absolute;
+    left:0; bottom:0;
+    width:100%; height:2px;
+    background:var(--brand);
+    border-radius:2px;
+    transform: scaleX(0);
+    transform-origin:left;
+    transition: transform .3s ease;
+  }
+  .offcanvas-body .nav-link:hover,
+  .offcanvas-body .nav-link.active {
+    color: var(--brand);
+  }
+  .offcanvas-body .nav-link:hover::after,
+  .offcanvas-body .nav-link.active::after {
+    transform: scaleX(1);
+  }
+  .offcanvas-body .navbar-nav { gap: 12px; }
+  @media (max-width: 768px) {
+    .accordion-body {
+      padding: 1.5rem;
+    }
+    .modal-dialog {
+      margin: 0;
+    }
+    .hero-card {
+      flex-direction: column;
+      text-align: center;
+      gap: 12px;
+      padding: 16px;
+    }
+    .hero-card img {
+      width: 70px;
+      height: 70px;
+    }
+    .hero-card .name {
+      font-size: 1.3rem;
+    }
+    .hero-card .stats {
+      justify-content: center;
+      gap: 12px;
+    }
+    .stat-card {
+      padding: 20px;
+    }
+    .stat-value {
+      font-size: 1.4rem;
+    }
+    .chart-wrapper {
+      max-height: 300px;
+    }
+    .btn {
+      padding: 10px 20px;
+      font-size: 0.9rem;
+    }
+    .zone-selector {
+      gap: 8px;
+    }
+    .zone-btn {
+      min-width: 90px;
+      padding: 10px 12px;
+      font-size: 0.9rem;
+    }
+    .d-flex.flex-wrap.gap-3 .flex-fill {
+      flex: 1 1 45%;
+    }
+    .d-flex.flex-wrap.gap-3 .flex-fill:nth-child(1),
+    .d-flex.flex-wrap.gap-3 .flex-fill:nth-child(2) {
+      margin-bottom: 8px;
+    }
+  }
+  @media (max-width: 576px) {
+    .hero-card {
+      padding: 16px;
+    }
+    .hero-card .name {
+      font-size: 1.2rem;
+    }
+    .hero-card .stats {
+      flex-direction: column;
+      gap: 8px;
+    }
+    .stat-card {
+      padding: 16px;
+    }
+    .stat-value {
+      font-size: 1.3rem;
+    }
+    .card-radius.p-5 {
+      padding: 1.5rem !important;
+    }
+    .accordion-body {
+      padding: 1.25rem;
+    }
+    .d-flex.flex-wrap.gap-3 .flex-fill {
+      flex: 1 1 100%;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<main class="container py-5">
+  <!-- Hero -->
+  <div class="hero-card mb-4">
+    <img id="userAvatar" src="https://via.placeholder.com/80/2F6BFF/FFFFFF?text=👤" alt="avatar"/>
+    <div>
+      <div class="name" id="userName">User</div>
+      <div class="email" id="userEmail">user@example.com</div>
+      <div class="stats">
+        <div class="stat-item"><i class="bi bi-journal-text"></i><span class="stat-value" id="totalTrades">0</span> Trades</div>
+        <div class="stat-item"><i class="bi bi-calendar"></i><span class="stat-value" id="activeStreak">0</span> Day Streak</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats Grid -->
+  <div class="row g-4 mb-5">
+    <div class="col-6 col-md-3">
+      <div class="stat-card text-center">
+        <div class="accent" style="background:var(--gradient)"></div>
+        <div class="muted small d-flex align-items-center justify-content-center gap-1"><i class="bi bi-graph-up"></i> Lifetime P/L <i class="bi bi-info-circle" data-bs-toggle="tooltip" title="Summed from journal logs"></i></div>
+        <div class="stat-value text-success" id="lifetimePnl">$0.00</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="stat-card text-center">
+        <div class="accent" style="background:var(--gradient)"></div>
+        <div class="muted small d-flex align-items-center justify-content-center gap-1"><i class="bi bi-award"></i> Win Rate</div>
+        <div class="stat-value text-info" id="winRate">0%</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="stat-card text-center">
+        <div class="accent" style="background:var(--success-gradient)"></div>
+        <div class="muted small d-flex align-items-center justify-content-center gap-1"><i class="bi bi-trophy"></i> Best Trade</div>
+        <div class="stat-value text-success" id="bestTrade">N/A</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="stat-card text-center">
+        <div class="accent" style="background:var(--danger-gradient)"></div>
+        <div class="muted small d-flex align-items-center justify-content-center gap-1"><i class="bi bi-exclamation-triangle"></i> Worst Trade</div>
+        <div class="stat-value text-danger" id="worstTrade">N/A</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Performance Summary (Replacement for Chart - Links to Insights) -->
+  <div class="card-radius mb-5">
+    <div class="fw-bold mb-4 d-flex align-items-center gap-2" style="font-size:1.2rem; color:var(--brand);">
+      <i class="bi bi-bar-chart-line"></i> Performance Overview
+    </div>
+    <div class="performance-summary">
+      <i class="bi bi-graph-up-arrow display-4 text-brand mb-3 d-block"></i>
+      <h5 class="fw-bold mb-2">Lifetime Growth: <span id="growthSummary">$0 (+0%)</span></h5>
+      <p class="text-muted mb-4">Based on your journal trades. Customize your starting balance below for accurate projections.</p>
+      <a href="/insights" class="btn btn-primary"><i class="bi bi-arrow-right me-2"></i> View Full Equity Curve in Insights</a>
+    </div>
+  </div>
+
+  <!-- Onboarding Sections Accordion -->
+  <div class="accordion mb-5" id="profileAccordion">
+    <div class="accordion-item card-radius mb-3" style="border:none;overflow:hidden;">
+      <h2 class="accordion-header">
+        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#psychologySection">
+          <i class="bi bi-brain me-2"></i> Psychology
+        </button>
+      </h2>
+      <div id="psychologySection" class="accordion-collapse collapse show" data-bs-parent="#profileAccordion">
+        <div class="accordion-body">
+          <div class="mb-4">
+            <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-compass"></i> Trading Zones</label>
+            <div class="zone-selector" id="psychZoneSelector">
+              <div class="zone-btn" data-zone="aggressive"><i class="bi bi-lightning-charge text-warning me-1"></i>Aggressive Hunter</div>
+              <div class="zone-btn" data-zone="trend"><i class="bi bi-graph-up text-info me-1"></i>Trend Follower</div>
+              <div class="zone-btn" data-zone="cautious"><i class="bi bi-shield-check text-success me-1"></i>Cautious Scalper</div>
+              <div class="zone-btn" data-zone="reversal"><i class="bi bi-arrow-counterclockwise text-danger me-1"></i>Reversal Spotter</div>
+            </div>
+          </div>
+          <div class="mb-4">
+            <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-graph-down"></i> Risk Tolerance (1-10)</label>
+            <input type="range" class="slider" min="1" max="10" value="5" id="riskToleranceSlider">
+            <div class="text-center fw-bold" id="riskToleranceValue" style="font-size:1.2rem; color:var(--brand);">5</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="accordion-item card-radius mb-3" style="border:none;overflow:hidden;">
+      <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#strategySection">
+          <i class="bi bi-strategy me-2"></i> Strategy
+        </button>
+      </h2>
+      <div id="strategySection" class="accordion-collapse collapse" data-bs-parent="#profileAccordion">
+        <div class="accordion-body">
+          <div class="mb-4">
+            <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-list-task"></i> Preferred Strategies</label>
+            <textarea class="form-control" rows="3" id="strategies" placeholder="e.g., Momentum, Breakouts, Scalping">Momentum, Breakouts</textarea>
+          </div>
+          <div class="mb-4">
+            <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-clock"></i> Timeframes</label>
+            <div class="zone-selector" id="timeframeSelector">
+              <div class="zone-btn" data-timeframe="5m"><i class="bi bi-stopwatch me-1"></i>5m</div>
+              <div class="zone-btn" data-timeframe="15m"><i class="bi bi-stopwatch me-1"></i>15m</div>
+              <div class="zone-btn" data-timeframe="1h"><i class="bi bi-stopwatch me-1"></i>1h</div>
+              <div class="zone-btn" data-timeframe="4h"><i class="bi bi-stopwatch me-1"></i>4h</div>
+              <div class="zone-btn" data-timeframe="1d"><i class="bi bi-stopwatch me-1"></i>1d</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="accordion-item card-radius mb-3" style="border:none;overflow:hidden;">
+      <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#riskSection">
+          <i class="bi bi-shield-slash me-2"></i> Risk Rules
+        </button>
+      </h2>
+      <div id="riskSection" class="accordion-collapse collapse" data-bs-parent="#profileAccordion">
+        <div class="accordion-body">
+          <div class="mb-4">
+            <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-percent"></i> Max Risk per Trade (%)</label>
+            <input type="range" class="slider" min="0" max="5" step="0.5" value="1" id="maxRiskSlider">
+            <div class="text-center fw-bold" id="maxRiskValue" style="font-size:1.2rem; color:var(--brand);">1%</div>
+          </div>
+          <div class="mb-4">
+            <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-cash-stack"></i> Daily Loss Limit ($)</label>
+            <input type="number" class="form-control" value="500" id="dailyLoss" placeholder="Enter amount">
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="accordion-item card-radius mb-3" style="border:none;overflow:hidden;">
+      <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#accountSection">
+          <i class="bi bi-wallet2 me-2"></i> Account Settings
+        </button>
+      </h2>
+      <div id="accountSection" class="accordion-collapse collapse" data-bs-parent="#profileAccordion">
+        <div class="accordion-body">
+          <div class="mb-4">
+            <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-piggy-bank"></i> Initial Account Balance ($)</label>
+            <input type="number" class="form-control" id="initialBalance" min="0" step="100" placeholder="e.g., 10000" title="Used for equity curve projections in Insights">
+            <div class="form-text">This sets the starting capital for performance visualizations (default: $10,000).</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="accordion-item card-radius mb-3" style="border:none;overflow:hidden;">
+      <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#subscriptionSection">
+          <i class="bi bi-credit-card me-2"></i> Subscriptions
+        </button>
+      </h2>
+      <div id="subscriptionSection" class="accordion-collapse collapse" data-bs-parent="#profileAccordion">
+        <div class="accordion-body">
+          <div id="subscriptionInfo">
+            <p>Loading subscription details...</p>
+          </div>
+          <button class="btn btn-outline-danger mt-3" id="cancelSubscription" style="display:none;"><i class="bi bi-x-circle me-2"></i> Cancel Subscription</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="d-flex flex-wrap gap-3 mb-5">
+    <button class="btn btn-primary flex-fill d-flex align-items-center justify-content-center gap-2" id="saveChanges">
+      <i class="bi bi-save"></i> Save Changes
+    </button>
+    <button class="btn btn-outline-secondary flex-fill d-flex align-items-center justify-content-center gap-2" id="resetDefaults">
+      <i class="bi bi-arrow-clockwise"></i> Reset to Defaults
+    </button>
+    <button class="btn btn-outline-info flex-fill d-flex align-items-center justify-content-center gap-2" id="exportJournal">
+      <i class="bi bi-download"></i> Export Journal
+    </button>
+  </div>
+
+  <!-- Danger Zone -->
+  <div class="card-radius p-5 danger-btns">
+    <div class="fw-bold text-danger mb-4 d-flex align-items-center gap-2" style="font-size:1.2rem;">
+      <i class="bi bi-exclamation-triangle-fill"></i> Danger Zone
+    </div>
+    <button class="btn btn-outline-danger w-100 mb-3 d-flex align-items-center justify-content-center gap-2" id="logoutBtn2">
+      <i class="bi bi-box-arrow-right"></i> Log out
+    </button>
+    <button class="btn btn-danger w-100 d-flex align-items-center justify-content-center gap-2" id="deleteAccountBtn">
+      <i class="bi bi-trash-fill"></i> Delete Account
+    </button>
+  </div>
+</main>
+
+<!-- Edit Modal (mobile fullscreen) -->
+<div class="modal fade" id="editModal" tabindex="-1">
+  <div class="modal-dialog modal-fullscreen-md-down">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title d-flex align-items-center gap-2" id="modalTitle"><i class="bi bi-pencil-square"></i> Edit Section</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4" id="modalBody">
+        <!-- Dynamic content -->
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary d-flex align-items-center gap-2" id="modalSave">
+          <i class="bi bi-check-lg"></i> Save
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Modal for Delete -->
+<div class="modal fade" id="confirmModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title d-flex align-items-center gap-2 text-danger"><i class="bi bi-exclamation-triangle"></i> Confirm Delete</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-0">Are you sure you want to delete your account? This cannot be undone.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger d-flex align-items-center gap-2" id="confirmDelete">
+          <i class="bi bi-trash"></i> Delete
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Auto-save Toast -->
+<div class="position-fixed bottom-0 end-0 p-4" style="z-index:1080">
+  <div id="autoSaveToast" class="toast align-items-center text-white border-0 shadow-lg" role="alert">
+    <div class="d-flex" style="background:var(--success-gradient);border-radius:16px;padding:16px 20px">
+      <div class="toast-body d-flex align-items-center gap-2"><i class="bi bi-check-circle-fill"></i> Auto-saved changes.</div>
+      <button type="button" class="btn-close btn-close-white ms-3" data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  let saveTimeout;
+
+  // Debounced auto-save function
+  const debouncedSave = () => {
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(async () => {
+      await saveProfileData(true);  // true for auto-save
+    }, 1500);  // Save 1.5 seconds after last change
+  };
+
+  // Auto-save profile data to server
+  async function saveProfileData(isAutoSave = false) {
+    const psychZoneSelector = document.getElementById('psychZoneSelector');
+    const psychZone = psychZoneSelector ? psychZoneSelector.querySelector('.zone-btn.selected')?.dataset.zone : null;
+    const timeframeSelector = document.getElementById('timeframeSelector');
+    const selectedTimeframes = Array.from(timeframeSelector?.querySelectorAll('.zone-btn.selected') || []).map(btn => btn.dataset.timeframe);
+    const strategiesValue = document.getElementById('strategies').value || '';
+    const riskToleranceValue = parseInt(document.getElementById('riskToleranceSlider').value, 10);
+    const maxRiskValue = parseFloat(document.getElementById('maxRiskSlider').value);
+    const dailyLossValue = parseFloat(document.getElementById('dailyLoss').value) || 500;
+    let data = {
+      trading_zones: psychZone,
+      risk_tolerance: riskToleranceValue,
+      strategies: strategiesValue,
+      timeframes: selectedTimeframes,
+      max_risk_per_trade: maxRiskValue,
+      daily_loss_limit: dailyLossValue
+    };
+    const initialBalance = parseFloat(document.getElementById('initialBalance').value) || 10000;
+    if (initialBalance > 0) {
+      data.account_balance = initialBalance;
+    }
+    if (Object.keys(data).length === 0) return;  // Nothing to save
+    try {
+      const res = await fetch('/api/profile', {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (!res.ok) throw new Error('Failed to save profile');
+      const updatedData = await res.json();
+      profileData = updatedData;
+      populateGrowthSummary();
+      console.log('Saved profile data:', data);  // For debugging
+      if (isAutoSave) {
+        const autoSaveToast = new bootstrap.Toast(document.getElementById('autoSaveToast'), { delay: 1500 });
+        autoSaveToast.show();
+      }
+    } catch (err) {
+      console.error('Save failed:', err);
+      showErrorToast(err.message || 'Save failed');
+    }
+  }
+
+  // Fetch profile data on load
+  async function loadProfileData() {
+    try {
+      const res = await fetch('/api/profile', { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch profile');
+      profileData = await res.json();
+      populateProfile();
+      populateGrowthSummary();
+      console.log('Loaded profile data:', profileData);  // For debugging persistence
+    } catch (err) {
+      console.error('Failed to load profile:', err);
+      showErrorToast(err.message);
+    }
+  }
+
+  // Fetch and display subscription data
+  async function loadSubscription() {
+    try {
+      const res = await fetch('/api/profile/subscriptions/current', { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch subscription');
+      const sub = await res.json();
+      const infoDiv = document.getElementById('subscriptionInfo');
+      const cancelBtn = document.getElementById('cancelSubscription');
+      cancelBtn.style.display = 'none';
+
+      if (sub.status === 'free' || sub.plan === 'starter') {
+        infoDiv.innerHTML = `
+          <p>You are on the free Starter plan.</p>
+          <a href="/plans" class="btn btn-primary"><i class="bi bi-arrow-up-circle me-2"></i> Upgrade Now</a>
+        `;
+      } else {
+        const planName = sub.plan.charAt(0).toUpperCase() + sub.plan.slice(1);
+        const statusColor = sub.status === 'active' ? 'text-success' : 'text-warning';
+        infoDiv.innerHTML = `
+          <p><strong>Plan:</strong> ${planName} (${sub.interval})</p>
+          <p><strong>Status:</strong> <span class="${statusColor}">${sub.status.charAt(0).toUpperCase() + sub.status.slice(1)}</span></p>
+          <p><strong>Amount:</strong> $${sub.amount.toFixed(2)}</p>
+          <p><strong>Next Billing:</strong> ${sub.next_billing ? new Date(sub.next_billing).toLocaleDateString() : 'N/A'}</p>
+        `;
+        if (sub.status === 'active' && sub.subscription_id) {
+          cancelBtn.style.display = 'block';
+          cancelBtn.onclick = async () => {
+            const confirmModal = new bootstrap.Modal(document.getElementById('confirmModal'));
+            document.getElementById('confirmModal').querySelector('.modal-title').innerHTML = '<i class="bi bi-exclamation-triangle"></i> Confirm Cancellation';
+            document.getElementById('confirmModal').querySelector('.modal-body p').textContent = 'Are you sure you want to cancel your subscription? This cannot be undone.';
+            document.getElementById('confirmDelete').innerHTML = '<i class="bi bi-x-circle"></i> Cancel Subscription';
+            confirmModal.show();
+
+            // Override confirm button for cancellation
+            const originalConfirm = document.getElementById('confirmDelete').onclick;
+            document.getElementById('confirmDelete').onclick = async () => {
+              try {
+                const cancelRes = await fetch(`/api/profile/subscriptions/${sub.subscription_id}/cancel`, {
+                  method: 'POST',
+                  credentials: 'include'
+                });
+                if (!cancelRes.ok) throw new Error('Failed to cancel');
+                confirmModal.hide();
+                showSuccessToast('Subscription canceled successfully.');
+                loadSubscription();  // Refresh
+              } catch (err) {
+                showErrorToast('Failed to cancel subscription');
+              } finally {
+                document.getElementById('confirmDelete').onclick = originalConfirm;  // Restore
+              }
+            };
+          };
+        }
+      }
+    } catch (err) {
+      showErrorToast('Failed to load subscription details');
+    }
+  }
+
+  function populateProfile() {
+    // Hero section
+    document.getElementById('userName').textContent = profileData.full_name || 'User';
+    document.getElementById('userEmail').textContent = profileData.email;
+    const initials = (profileData.full_name || profileData.username || '').split(' ').map(n => n[0]).join('').toUpperCase().substring(0,2);
+    document.getElementById('userInitials').textContent = initials;
+    document.getElementById('userAvatar').src = `https://ui-avatars.com/api/?name=${encodeURIComponent(profileData.full_name || profileData.username || 'User')}&background=2F6BFF&color=fff&size=80`;
+    document.getElementById('totalTrades').textContent = profileData.total_trades || 0;
+    document.getElementById('activeStreak').textContent = profileData.active_streak || 0;
+
+    // Stats
+    const pnlEl = document.getElementById('lifetimePnl');
+    const pnl = parseFloat(profileData.lifetime_pnl) || 0;
+    pnlEl.textContent = `$${pnl.toFixed(2)}`;
+    pnlEl.className = `stat-value ${pnl >= 0 ? 'text-success' : 'text-danger'}`;
+    document.getElementById('winRate').textContent = `${profileData.win_rate ? parseFloat(profileData.win_rate).toFixed(1) : 0}%`;
+
+    if (profileData.best_trade) {
+      const bestPnl = parseFloat(profileData.best_trade.pnl);
+      const bestSign = bestPnl >= 0 ? '+' : '';
+      document.getElementById('bestTrade').innerHTML = `${bestSign}$${Math.abs(bestPnl).toFixed(2)} ${profileData.best_trade.symbol}`;
+    } else {
+      document.getElementById('bestTrade').textContent = 'N/A';
+    }
+    if (profileData.worst_trade) {
+      const worstPnl = parseFloat(profileData.worst_trade.pnl);
+      document.getElementById('worstTrade').textContent = `$${worstPnl.toFixed(2)} ${profileData.worst_trade.symbol}`;
+    } else {
+      document.getElementById('worstTrade').textContent = 'N/A';
+    }
+
+    // Psychology
+    const psychZone = profileData.psych_zone || '';
+    document.querySelectorAll('#psychZoneSelector .zone-btn').forEach(b => b.classList.remove('selected'));
+    if (psychZone) {
+      const psychBtn = document.querySelector(`#psychZoneSelector [data-zone="${psychZone}"]`);
+      if (psychBtn) psychBtn.classList.add('selected');
+    }
+    const riskTolerance = profileData.risk_tolerance || 5;
+    document.getElementById('riskToleranceSlider').value = riskTolerance;
+    document.getElementById('riskToleranceValue').textContent = riskTolerance;
+
+    // Strategy
+    document.getElementById('strategies').value = profileData.strategy_desc || profileData.strategy || 'Momentum, Breakouts';
+    document.querySelectorAll('#timeframeSelector .zone-btn').forEach(b => b.classList.remove('selected'));
+    const timeframes = profileData.preferred_timeframes || [];
+    timeframes.forEach(tf => {
+      const tfBtn = document.querySelector(`#timeframeSelector [data-timeframe="${tf}"]`);
+      if (tfBtn) tfBtn.classList.add('selected');
+    });
+
+    // Risk
+    const riskPerTrade = profileData.risk_per_trade || 1;
+    document.getElementById('maxRiskSlider').value = riskPerTrade;
+    document.getElementById('maxRiskValue').textContent = `${riskPerTrade}%`;
+    document.getElementById('dailyLoss').value = profileData.daily_loss_limit || 500;
+
+    // Account Settings
+    const balance = profileData.account_balance || 10000;
+    document.getElementById('initialBalance').value = balance > 0 ? balance : 10000;
+  }
+
+  // Populate growth summary
+  function populateGrowthSummary() {
+    const pnl = profileData.lifetime_pnl || 0;
+    const balance = profileData.account_balance || 10000;
+    const growthPct = (pnl / balance * 100).toFixed(1);
+    const summaryEl = document.getElementById('growthSummary');
+    summaryEl.textContent = `$${pnl.toFixed(2)} (+${growthPct}%)`;
+    summaryEl.className = `fw-bold ${pnl >= 0 ? 'text-success' : 'text-danger'}`;
+  }
+
+  function showErrorToast(message) {
+    const errorToast = document.getElementById('errorToast');
+    errorToast.querySelector('.toast-body').innerHTML = `<i class="bi bi-x-circle-fill me-2"></i>${message}`;
+    const toast = new bootstrap.Toast(errorToast);
+    toast.show();
+  }
+
+  function showSuccessToast(message) {
+    const successToast = document.getElementById('autoSaveToast');  // Reuse autoSaveToast for success
+    successToast.querySelector('.toast-body').innerHTML = `<i class="bi bi-check-circle-fill me-2"></i>${message}`;
+    const toast = new bootstrap.Toast(successToast, { delay: 3000 });
+    toast.show();
+  }
+
+  // Risk sliders update with auto-save
+  const riskToleranceSlider = document.getElementById('riskToleranceSlider');
+  const riskToleranceValue = document.getElementById('riskToleranceValue');
+  riskToleranceSlider.addEventListener('input', (e) => {
+    riskToleranceValue.textContent = e.target.value;
+    debouncedSave();
+  });
+
+  const maxRiskSlider = document.getElementById('maxRiskSlider');
+  const maxRiskValue = document.getElementById('maxRiskValue');
+  maxRiskSlider.addEventListener('input', (e) => {
+    maxRiskValue.textContent = e.target.value + '%';
+    debouncedSave();
+  });
+
+  // Daily loss input with auto-save
+  document.getElementById('dailyLoss').addEventListener('input', debouncedSave);
+
+  // Strategies textarea with auto-save on blur
+  document.getElementById('strategies').addEventListener('blur', debouncedSave);
+
+  // Initial balance with auto-save on blur
+  document.getElementById('initialBalance').addEventListener('blur', () => {
+    const val = parseFloat(document.getElementById('initialBalance').value) || 10000;
+    debouncedSave();
+  });
+
+  // Zone buttons - separate handlers for single vs multiple select with auto-save
+  // Psychology zone: single select
+  document.querySelectorAll('#psychZoneSelector .zone-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#psychZoneSelector .zone-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      debouncedSave();
+    });
+  });
+
+  // Timeframes: multiple select (toggle) with auto-save
+  document.querySelectorAll('#timeframeSelector .zone-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      btn.classList.toggle('selected');
+      debouncedSave();
+    });
+  });
+
+  // Manual save profile (immediate, with toast)
+  document.getElementById('saveChanges').addEventListener('click', async () => {
+    clearTimeout(saveTimeout);  // Cancel any pending auto-save
+    await saveProfileData(false);  // false for manual save
+    const saveToast = new bootstrap.Toast(document.getElementById('saveToast'), { delay: 2000 });
+    saveToast.show();
+    await loadProfileData();  // Refresh to ensure sync (e.g., stats)
+  });
+
+  // Logout for additional button
+  document.getElementById('logoutBtn2').addEventListener('click', async (e) => {
+    e.preventDefault();
+    try {
+      const res = await fetch('/api/profile/logout', {
+        method: 'POST',
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error('Failed to log out');
+      window.location.href = '/';
+    } catch (err) {
+      showErrorToast(err.message || 'Failed to log out');
+    }
+  });
+
+  // Delete account confirmation
+  document.getElementById('deleteAccountBtn').addEventListener('click', () => {
+    const confirmModal = new bootstrap.Modal(document.getElementById('confirmModal'));
+    confirmModal.show();
+  });
+
+  document.getElementById('confirmDelete').addEventListener('click', async () => {
+    try {
+      const res = await fetch('/api/profile', {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error('Failed to delete account');
+      bootstrap.Modal.getInstance(document.getElementById('confirmModal')).hide();
+      window.location.href = '/';
+    } catch (err) {
+      showErrorToast(err.message || 'Failed to delete account');
+    }
+  });
+
+  // Tooltips init
+  const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+  tooltipTriggerList.map(function (tooltipTriggerEl) {
+    return new bootstrap.Tooltip(tooltipTriggerEl);
+  });
+
+  // Initial load
+  document.addEventListener('DOMContentLoaded', () => {
+    loadProfileData().then(() => {
+      loadSubscription();
+    });
+  });
+</script>
+{% endblock %}

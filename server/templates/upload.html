@@ -1,0 +1,1302 @@
+{% extends "base.html" %}
+{% block title %}Log a Trade{% endblock %}
+{% block extra_styles %}
+<style>
+  :root {
+    --brand-rgb: 47, 107, 255;
+    --success-rgb: 34, 197, 94;
+    --danger-rgb: 239, 68, 68;
+    --warning-rgb: 245, 158, 11;
+    --info-rgb: 6, 182, 212;
+    --text-rgb: 30, 41, 59;
+    --dragzone-bg-opacity: 0.05;
+  }
+  [data-theme="dark"] {
+    --dragzone-bg-opacity: 0.08;
+    /* Bootstrap CSS variable overrides for dark mode consistency */
+    --bs-primary: var(--brand);
+    --bs-secondary: var(--muted);
+    --bs-success: var(--success);
+    --bs-info: var(--info);
+    --bs-warning: var(--warning);
+    --bs-danger: var(--danger);
+    --bs-light: var(--text);
+    --bs-dark: var(--bg);
+    --bs-body-bg: var(--bg);
+    --bs-body-color: var(--text);
+    --bs-border-color: var(--border);
+    --bs-border-color-translucent: rgba(148,163,184,0.175);
+    --bs-border-radius: var(--radius);
+    --bs-box-shadow: var(--shadow);
+    --bs-box-shadow-sm: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+    --bs-box-shadow-lg: 0 8px 24px rgba(0,0,0,0.4);
+    --bs-form-control-bg: var(--surface);
+    --bs-form-control-color: var(--text);
+    --bs-form-control-border-color: var(--border);
+    --bs-form-select-bg: var(--surface);
+    --bs-form-select-color: var(--text);
+    --bs-table-color: var(--text);
+    --bs-table-bg: var(--surface);
+    --bs-table-border-color: var(--border);
+    --bs-modal-bg: var(--surface);
+    --bs-modal-border-color: var(--border);
+    --bs-modal-header-border-color: var(--border);
+    --bs-modal-footer-border-color: var(--border);
+    --bs-modal-box-shadow-xs: var(--shadow);
+    --bs-offcanvas-bg: var(--surface);
+    --bs-offcanvas-border-color: var(--border);
+    --bs-offcanvas-box-shadow: var(--shadow);
+    --bs-dropdown-bg: var(--surface);
+    --bs-dropdown-border-color: var(--border);
+    --bs-dropdown-box-shadow: var(--shadow);
+    --bs-dropdown-link-color: var(--text);
+    --bs-dropdown-link-hover-bg: rgba(var(--brand-rgb), 0.15);
+    --bs-dropdown-link-hover-color: var(--brand);
+    --bs-dropdown-divider-bg: var(--border);
+    --bs-navbar-bg: var(--surface);
+    --bs-navbar-color: var(--text);
+    --bs-navbar-hover-color: var(--brand);
+    --bs-alert-border: var(--border);
+    --bs-alert-color: var(--text);
+    --bs-badge-color: var(--text);
+  }
+  [data-theme="dark"] .btn-close,
+  [data-theme="dark"] .navbar-toggler-icon {
+    filter: brightness(0) invert(1);
+  }
+  [data-theme="dark"] .alert-warning {
+    background-color: rgba(var(--warning-rgb), 0.15);
+    border-color: var(--warning);
+    color: var(--text);
+  }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .card-radius {
+    transition: all 0.3s ease;
+  }
+  .card-radius:hover {
+    box-shadow: 0 20px 40px rgba(15,23,42,0.15);
+  }
+  .dropzone {
+    border: 2px dashed rgba(var(--brand-rgb), 0.32);
+    border-radius: 12px;
+    padding: 60px 36px;
+    cursor: pointer;
+    text-align: center;
+    min-height: 300px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+  }
+  .dropzone.dragover {
+    border-color: var(--brand);
+    background: rgba(var(--brand-rgb), var(--dragzone-bg-opacity));
+    transform: scale(1.02);
+  }
+  .thumbnails {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 20px;
+  }
+  .thumbnail {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    transition: transform 0.2s ease;
+  }
+  .thumbnail:hover {
+    transform: scale(1.05);
+  }
+  .thumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .delete-thumb {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: rgba(0,0,0,0.5);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+  .thumbnail:hover .delete-thumb {
+    opacity: 1;
+  }
+  .quick-inputs {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+  }
+  .analyze-btn {
+    margin-top: 20px;
+    width: 100%;
+    border-radius: var(--radius);
+    font-weight: 600;
+    transition: all 0.3s ease;
+  }
+  .analyze-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(var(--brand-rgb), 0.15);
+  }
+  .analyze-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  .progress-bar {
+    margin-top: 10px;
+    display: none;
+  }
+  .parsing {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .fun-fact {
+    font-style: italic;
+    color: var(--muted);
+    margin-top: 10px;
+  }
+  @media (max-width: 991px) {
+    #mobileUploadBtn {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90%;
+      max-width: 420px;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      z-index: 1050;
+    }
+  }
+  /* Navbar link underline animation */
+  .nav-link { 
+    position: relative; 
+    color: var(--muted); 
+    font-weight: 600;
+    padding-bottom: 8px;
+    transition: color 0.3s ease; 
+  }
+  .nav-link:hover,
+  .nav-link.active { 
+    color: var(--brand); 
+    transform: translateY(-1px);
+  }
+  .nav-link::after {
+    content: '';
+    position: absolute;
+    left: 50%; 
+    bottom: 0;
+    transform: translateX(-50%) scaleX(0);
+    transform-origin: center;
+    width: 70%;
+    height: 3px;
+    background: var(--gradient);
+    border-radius: 3px;
+    transition: transform 0.3s ease;
+  }
+  .nav-link:hover::after,
+  .nav-link.active::after {
+    transform: translateX(-50%) scaleX(1);
+  }
+  /* Notification dot and avatar hover */
+  .notif-dot {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 10px;
+    height: 10px;
+    background: var(--danger);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(239,68,68,0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(239,68,68,0); }
+    100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+  }
+  .user-avatar {
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  .user-avatar:hover {
+    transform: scale(1.15) rotate(5deg);
+    box-shadow: 0 4px 12px rgba(var(--brand-rgb), 0.3);
+  }
+  /* Mobile offcanvas nav optimization */
+  .offcanvas-body .nav-link {
+    position: relative;
+    padding: 10px 0;
+    color: var(--muted);
+    font-weight: 500;
+    transition: color .25s ease;
+  }
+  .offcanvas-body .nav-link::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: 2px;
+    background: var(--brand);
+    border-radius: 2px;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform .3s ease;
+  }
+  .offcanvas-body .nav-link:hover,
+  .offcanvas-body .nav-link.active {
+    color: var(--brand);
+  }
+  .offcanvas-body .nav-link:hover::after,
+  .offcanvas-body .nav-link.active::after {
+    transform: scaleX(1);
+  }
+  .offcanvas-body .navbar-nav { gap: 12px; }
+  /* Header */
+  .upload-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  /* Review Modal */
+  #reviewModal .modal-dialog {
+    max-width: 800px; /* Widened for additional fields */
+  }
+  #reviewModal .modal-content {
+    border-radius: var(--radius);
+  }
+  #reviewModal .table th {
+    border-top: none;
+    font-weight: 600;
+  }
+  #reviewModal .edit-icon {
+    cursor: pointer;
+    color: var(--brand);
+    transition: color 0.2s ease;
+  }
+  #reviewModal .edit-icon:hover {
+    color: var(--brand);
+    transform: scale(1.2);
+  }
+  .ai-suggestion {
+    background: rgba(var(--brand-rgb), 0.05);
+    padding: 12px;
+    border-radius: 8px;
+    margin-top: 20px;
+    font-style: italic;
+    border-left: 3px solid var(--brand);
+  }
+  [data-theme="dark"] .ai-suggestion {
+    background: rgba(var(--brand-rgb), 0.15);
+  }
+  [data-theme="dark"] .border-warning {
+    background: rgba(var(--warning-rgb), 0.1);
+  }
+  [data-theme="dark"] .modal-content {
+    color: var(--text);
+  }
+  /* Full-screen spinner */
+  #processingOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255,255,255,0.9);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+  }
+  [data-theme="dark"] #processingOverlay {
+    background: rgba(0,0,0,0.9);
+  }
+  #processingOverlay .spinner-border {
+    width: 3rem;
+    height: 3rem;
+  }
+  #processingOverlay .thinking-text {
+    margin-top: 20px;
+    font-weight: 600;
+    color: var(--brand);
+  }
+  #processingOverlay .fun-fact {
+    margin-top: 10px;
+    font-style: italic;
+    color: var(--muted);
+    animation: fadeInOut 3s infinite;
+  }
+  @keyframes fadeInOut {
+    0%, 100% { opacity: 0.7; }
+    50% { opacity: 1; }
+  }
+  .invalid-image-modal .modal-body {
+    text-align: center;
+  }
+  .invalid-image-modal .modal-body img {
+    max-width: 200px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+  }
+  .btn {
+    border-radius: 16px;
+    font-weight: 600;
+    padding: 12px 24px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+  }
+  .btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s;
+  }
+  .btn:hover::before {
+    left: 100%;
+  }
+  .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+  }
+  .btn-primary {
+    background: var(--gradient);
+    border: none;
+  }
+  .btn-outline-secondary:hover {
+    background: var(--gradient);
+    color: white;
+    border-color: transparent;
+  }
+  .plan-badge {
+    font-size: 0.85rem;
+    padding: 6px 12px;
+  }
+  .upgrade-modal .modal-body {
+    text-align: center;
+  }
+  .upgrade-modal .modal-body ul {
+    text-align: left;
+  }
+  .upgrade-modal .btn-warning {
+    background: var(--warning);
+    border-color: var(--warning);
+    color: white;
+  }
+  .upgrade-modal .btn-warning:hover {
+    background: #D97706;
+    border-color: #D97706;
+  }
+  #uploadLimitInfo {
+    background: rgba(var(--warning-rgb), 0.1);
+    border-left: 3px solid var(--warning);
+    padding: 12px;
+    border-radius: 0 8px 8px 0;
+    margin-top: 16px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<main class="container py-5 flex-grow-1">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      <div class="upload-header">
+        <h4 class="fw-bold d-flex align-items-center gap-2"><i class="bi bi-plus-circle"></i> Log a Trade</h4>
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge plan-badge bg-secondary">Plan: {{ current_user.plan.title() }}</span>
+          <span id="uploadCountBadge" class="badge bg-info">Loading...</span>
+        </div>
+      </div>
+      <div id="uploadLimitInfo" class="d-none"></div>
+      <div id="dropZone" class="card-radius dropzone" tabindex="0">
+        <div><i class="bi bi-cloud-upload" style="font-size:48px;color:var(--brand)"></i></div>
+        <p class="mt-2 mb-1 fw-semibold">Drag screenshot here</p>
+        <p class="text-muted small mb-3">Accepts images. Max 10 MB per file.</p>
+        <div>
+          <span id="chooseBtn" class="btn btn-outline-primary btn-sm" role="button" tabindex="0">Browse Files</span>
+        </div>
+        <input id="fileInput" type="file" accept="image/*" hidden multiple />
+      </div>
+      <div id="thumbnails" class="thumbnails"></div>
+      <div class="quick-inputs">
+        <select class="form-select" id="sessionSelect">
+          <option>Session: Auto-detect</option>
+          <option>London</option>
+          <option>New York</option>
+          <option>Tokyo</option>
+          <option>Sydney</option>
+        </select>
+        <select class="form-select" id="strategySelect">
+          <option>Strategy: From profile</option>
+          <option>Breakout</option>
+          <option>Scalp</option>
+          <option>Reversal</option>
+          <option>RSI Divergence</option>
+          <option>Swing Trading</option>
+        </select>
+      </div>
+      <button id="analyzeBtn" class="btn btn-primary analyze-btn" disabled><i class="bi bi-robot"></i> Let AI Analyze</button>
+      <div class="progress progress-bar" id="uploadProgress">
+        <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width: 0%;"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Processing Overlay -->
+<div id="processingOverlay">
+  <div class="spinner-border text-primary" role="status"></div>
+  <p class="mt-3 fw-semibold thinking-text">AI thinking...</p>
+  <p class="fun-fact">Analyzing chart patterns...</p>
+</div>
+
+<!-- Invalid Image Modal -->
+<div class="modal fade invalid-image-modal" id="invalidImageModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title text-danger">Image Not Recognized</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <img id="invalidImagePreview" src="" alt="Uploaded image" class="img-fluid mx-auto d-block">
+        <p class="mt-3">This doesn't look like a trading chart or screenshot with clear details. Try a screenshot with entry/exit prices or annotations. Image saved for manual entry if possible.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Try Another</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Upgrade Modal -->
+<div class="modal fade upgrade-modal" id="upgradeModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Upgrade for More Uploads</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p id="upgradeMessage">You've reached your monthly upload limit on the {{ current_user.plan.title() }} plan ({{ upload_limit }} uploads). Upgrade to Pro for unlimited uploads and AI insights!</p>
+        <ul class="list-unstyled mb-3">
+          <li><i class="bi bi-check-circle text-success me-2"></i>Unlimited uploads & AI analyses</li>
+          <li><i class="bi bi-check-circle text-success me-2"></i>Advanced analytics</li>
+          <li><i class="bi bi-check-circle text-success me-2"></i>50% off first month ($4.99)</li>
+        </ul>
+        <a href="/plans" class="btn btn-warning w-100">Upgrade Now</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Review Modal -->
+<div class="modal fade" id="reviewModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content card-radius">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold">Review AI Extractions</h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="tradesContainer"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button id="saveTradeBtn" class="btn btn-primary">Save All Trades</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Plan-based limits
+const PLAN_LIMITS = {
+  'free': 3,
+  'starter': 3,
+  'pro': Infinity,
+  'elite': Infinity
+};
+const BATCH_LIMITS = {
+  'free': 3,
+  'starter': 3,
+  'pro': 10,
+  'elite': 10
+};
+const currentPlan = '{{ current_user.plan }}';
+const uploadLimit = PLAN_LIMITS[currentPlan.toLowerCase()] || 3;
+const batchLimit = BATCH_LIMITS[currentPlan.toLowerCase()] || 3;
+let monthlyUploads = 0;
+
+const fileInput = document.getElementById('fileInput');
+const dropZone = document.getElementById('dropZone');
+const thumbnailsContainer = document.getElementById('thumbnails');
+const analyzeBtn = document.getElementById('analyzeBtn');
+const uploadProgress = document.getElementById('uploadProgress');
+const processingOverlay = document.getElementById('processingOverlay');
+const funFactEl = processingOverlay.querySelector('.fun-fact');
+const invalidImageModal = document.getElementById('invalidImageModal');
+const invalidImagePreview = document.getElementById('invalidImagePreview');
+const reviewModalEl = document.getElementById('reviewModal');
+const sessionSelect = document.getElementById('sessionSelect');
+const strategySelect = document.getElementById('strategySelect');
+const uploadCountBadge = document.getElementById('uploadCountBadge');
+const uploadLimitInfo = document.getElementById('uploadLimitInfo');
+const funFacts = [
+  'Analyzing chart patterns...',
+  'Detecting entry/exit points...',
+  'Inferring strategy from visuals...',
+  'Cross-checking with your profile...',
+  'Calculating risk/reward ratios...'
+];
+let files = [];
+let factIndex = 0;
+let extractedData = [];
+
+// Fetch monthly uploads on load
+async function fetchMonthlyUploads() {
+  try {
+    const res = await fetch('/upload/monthly_uploads', { credentials: 'include' });
+    if (res.ok) {
+      const data = await res.json();
+      monthlyUploads = data.count || 0;
+      updateUploadBadge();
+    } else {
+      monthlyUploads = 0;
+      updateUploadBadge();
+    }
+  } catch (err) {
+    console.error('Failed to fetch uploads:', err);
+    monthlyUploads = 0;
+    updateUploadBadge();
+  }
+}
+
+async function getProfileStrategy() {
+  try {
+    const res = await fetch('/api/profile', { credentials: 'include' });
+    if (res.ok) {
+      const data = await res.json();
+      return data.strategy || 'Manual';
+    }
+  } catch (err) {
+    console.error('Failed to fetch profile strategy:', err);
+  }
+  return 'Manual';
+}
+
+function updateUploadBadge() {
+  const remaining = uploadLimit === Infinity ? Infinity : uploadLimit - monthlyUploads;
+  if (uploadLimit === Infinity) {
+    uploadCountBadge.innerHTML = '<i class="bi bi-infinity"></i> Unlimited';
+    uploadCountBadge.className = 'badge bg-success';
+  } else {
+    uploadCountBadge.textContent = `${monthlyUploads}/${uploadLimit}`;
+    uploadCountBadge.className = remaining <= 1 ? 'badge bg-warning' : 'badge bg-info';
+  }
+  checkUploadLimit();
+}
+
+function checkUploadLimit() {
+  const remaining = uploadLimit === Infinity ? Infinity : uploadLimit - monthlyUploads;
+  if (remaining <= 0) {
+    analyzeBtn.disabled = true;
+    analyzeBtn.title = 'Upload limit reached. Upgrade to continue.';
+    uploadLimitInfo.innerHTML = `
+      <i class="bi bi-exclamation-triangle"></i> 
+      <strong>Monthly limit reached</strong> (${uploadLimit} uploads). 
+      <a href="/plans" class="text-warning">Upgrade to Pro</a> for unlimited uploads.
+    `;
+    uploadLimitInfo.classList.remove('d-none');
+    document.getElementById('upgradeMessage').innerHTML = `You've reached your monthly upload limit on the ${currentPlan.charAt(0).toUpperCase() + currentPlan.slice(1)} plan (${uploadLimit} uploads). Upgrade to Pro for unlimited uploads and AI insights!`;
+    const upgradeModal = new bootstrap.Modal(document.getElementById('upgradeModal'));
+    upgradeModal.show();
+  } else {
+    analyzeBtn.disabled = files.length === 0;
+    uploadLimitInfo.classList.add('d-none');
+  }
+}
+
+// Drag and drop
+dropZone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  dropZone.classList.add('dragover');
+});
+dropZone.addEventListener('dragleave', () => {
+  dropZone.classList.remove('dragover');
+});
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  handleFiles(e.dataTransfer.files);
+});
+
+// File input
+document.getElementById('chooseBtn').addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+function handleFiles(newFiles) {
+  if (newFiles.length === 0) return;
+
+  const remainingMonthly = uploadLimit === Infinity ? Infinity : uploadLimit - monthlyUploads;
+  const effectiveLimit = Math.min(batchLimit, remainingMonthly);
+  if (files.length >= effectiveLimit) {
+    showErrorToast(`You have reached the maximum of ${effectiveLimit} images for this upload.`);
+    return;
+  }
+
+  const availableSlots = effectiveLimit - files.length;
+  const toAdd = Array.from(newFiles).slice(0, availableSlots);
+
+  files = [...files, ...toAdd];
+
+  if (toAdd.length < newFiles.length) {
+    showErrorToast(`Only ${toAdd.length} images added. Maximum ${effectiveLimit} for this upload.`);
+  }
+
+  renderThumbnails();
+  checkUploadLimit();
+}
+
+function renderThumbnails() {
+  thumbnailsContainer.innerHTML = '';
+  files.forEach((file, index) => {
+    const thumb = document.createElement('div');
+    thumb.className = 'thumbnail';
+    const img = document.createElement('img');
+    img.src = URL.createObjectURL(file);
+    thumb.appendChild(img);
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'delete-thumb';
+    deleteBtn.innerHTML = '&times;';
+    deleteBtn.onclick = () => {
+      files.splice(index, 1);
+      renderThumbnails();
+      checkUploadLimit();
+    };
+    thumb.appendChild(deleteBtn);
+    thumbnailsContainer.appendChild(thumb);
+  });
+}
+
+// Analyze: Call backend /extract_batch (only if under limit)
+analyzeBtn.addEventListener('click', async () => {
+  if (files.length === 0) return;
+  if (uploadLimit !== Infinity && monthlyUploads >= uploadLimit) {
+    const upgradeModal = new bootstrap.Modal(document.getElementById('upgradeModal'));
+    upgradeModal.show();
+    return;
+  }
+  if (uploadLimit !== Infinity && monthlyUploads + files.length > uploadLimit) {
+    showErrorToast(`This upload would exceed your monthly limit. You can upload up to ${uploadLimit - monthlyUploads} more.`);
+    return;
+  }
+  const formData = new FormData();
+  files.forEach(file => formData.append('files', file));
+
+  processingOverlay.style.display = 'flex';
+  uploadProgress.style.display = 'block';
+  uploadProgress.querySelector('.progress-bar').style.width = '0%';
+  let progress = 0;
+  const interval = setInterval(() => {
+    progress += 10;
+    uploadProgress.querySelector('.progress-bar').style.width = `${progress}%`;
+    if (progress >= 100) clearInterval(interval);
+  }, 200);
+  factIndex = 0;
+  const factInterval = setInterval(() => {
+    funFactEl.textContent = funFacts[factIndex % funFacts.length];
+    factIndex++;
+  }, 2000);
+
+  try {
+    const res = await fetch('/upload/extract_batch', {
+      method: 'POST',
+      body: formData,
+      credentials: 'include'
+    });
+    clearInterval(factInterval);
+    processingOverlay.style.display = 'none';
+    uploadProgress.style.display = 'none';
+
+    if (!res.ok) {
+      if (res.status === 422) {
+        if (files.length > 0) {
+          invalidImagePreview.src = URL.createObjectURL(files[0]);
+        }
+        const invalidModal = new bootstrap.Modal(invalidImageModal);
+        invalidModal.show();
+        return;
+      }
+      throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    }
+
+    extractedData = await res.json();
+    
+    // Override with pre-selected session and strategy
+    const selectedSession = sessionSelect.value;
+    const selectedStrategy = strategySelect.value;
+    let profileStrategy = 'Manual';
+    if (selectedStrategy === 'Strategy: From profile') {
+      profileStrategy = await getProfileStrategy();
+    }
+    extractedData.forEach(trade => {
+      trade._user_overridden = false;
+      if (selectedSession !== 'Session: Auto-detect') {
+        trade.session = selectedSession.replace('Session: ', '');
+        trade._user_overridden = true;
+      }
+      if (selectedStrategy === 'Strategy: From profile') {
+        trade.strategy = profileStrategy;
+        trade._user_overridden = true;
+      } else if (selectedStrategy !== 'Strategy: From profile') {
+        trade.strategy = selectedStrategy.replace('Strategy: ', '');
+        trade._user_overridden = true;
+      }
+    });
+    
+    // Check if all are partial (no full extractions)
+    const allPartial = extractedData.every(d => d._is_partial);
+    if (extractedData.length === 0 || allPartial) {
+      // For partials, still show review but with manual banner; don't show invalid
+      if (files.length > 0 && allPartial) {
+        // Proceed to review with warning
+      } else {
+        if (files.length > 0) {
+          invalidImagePreview.src = URL.createObjectURL(files[0]);
+        }
+        const invalidModal = new bootstrap.Modal(invalidImageModal);
+        invalidModal.show();
+        return;
+      }
+    }
+
+    // Populate modal with multiple trades
+    const container = document.getElementById('tradesContainer');
+    container.innerHTML = '';
+    
+    // Add manual banner if all partial
+    if (allPartial) {
+      const banner = document.createElement('div');
+      banner.className = 'alert alert-warning mb-3';
+      banner.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Partial AI extraction—please review and edit details manually.';
+      container.appendChild(banner);
+    }
+    
+    extractedData.forEach((data, index) => {
+      const section = createTradeSection(data, index);
+      container.appendChild(section);
+    });
+
+    if (extractedData.length > 0) {
+      sessionSelect.value = extractedData[0].session || 'Session: Auto-detect';
+      const firstStrat = extractedData[0].strategy || 'From profile';
+      strategySelect.value = `Strategy: ${firstStrat}`;
+    }
+
+    attachEditListeners();
+
+    const modal = new bootstrap.Modal(reviewModalEl);
+    modal.show();
+  } catch (err) {
+    clearInterval(factInterval);
+    processingOverlay.style.display = 'none';
+    uploadProgress.style.display = 'none';
+    showErrorToast(err.message || 'Extraction failed');
+  }
+});
+
+function createTradeSection(data, index) {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const tableClass = `table table-borderless${isDark ? ' table-dark' : ''}`;
+  const entryExit = formatEntryExit(data.entry_price, data.exit_price, data.pnl);
+  const slTp = formatSLTP(data.sl_price, data.tp_price, data.entry_price, data.direction);
+  const dateValue = data.trade_date ? new Date(data.trade_date).toLocaleString() : 'N/A';
+  const sizeValue = data.position_size ? `${data.position_size.toFixed(4)} ${data.asset_type === 'forex' ? 'lots' : 'units'}` : 'N/A';
+  const directionValue = data.direction ? data.direction.toUpperCase() : 'N/A';
+  let strategyValue = data.strategy || 'Manual';
+  const label = data._is_partial ? '(Partial - Edit)' : (data._user_overridden ? '(User-selected)' : '(AI-detected)');
+  strategyValue += ` ${label}`;
+  const riskPctValue = data.risk_percentage ? `${data.risk_percentage.toFixed(2)}%` : 'N/A';
+  const riskAmtValue = data.risk_amount ? `$${data.risk_amount.toFixed(2)}` : 'N/A';
+  const rewardAmtValue = data.reward_amount ? `$${data.reward_amount.toFixed(2)}` : 'N/A';
+  const rrValue = data.r_r_ratio ? `${data.r_r_ratio.toFixed(2)}:1` : 'N/A';
+  const leverageValue = data.leverage ? `${data.leverage.toFixed(1)}x` : 'N/A';
+  const notesValue = data.notes || 'N/A';
+  const sessionValue = data.session || 'N/A';
+  const assetValue = data.symbol || 'N/A';
+  const assetTypeValue = data.asset_type ? data.asset_type.charAt(0).toUpperCase() + data.asset_type.slice(1) : 'N/A';
+
+  const div = document.createElement('div');
+  div.innerHTML = `
+    <div class="border rounded p-3 mb-3 ${data._is_partial ? 'border-warning' : ''}">
+      <h6 class="fw-bold mb-3">Trade ${index + 1} ${data._is_partial ? '<span class="badge bg-warning">Partial</span>' : ''}</h6>
+      ${data.chart_url ? `<img src="${data.chart_url}" alt="Chart" style="max-width:100%; border-radius:8px; margin-bottom:10px;">` : ''}
+      <table class="${tableClass}">
+        <tbody>
+          <tr>
+            <td class="fw-semibold">Asset</td>
+            <td id="assetValue_${index}">${assetValue}</td>
+            <td><i class="bi bi-pencil edit-icon" data-field="asset" data-trade-index="${index}"></i></td>
+          </tr>
+          <tr>
+            <td class="fw-semibold">Asset Type</td>
+            <td id="assetTypeValue_${index}">${assetTypeValue}</td>
+            <td><i class="bi bi-pencil edit-icon" data-field="assetType" data-trade-index="${index}"></i></td>
+          </tr>
+          <tr>
+            <td class="fw-semibold">Direction</td>
+            <td id="directionValue_${index}">${directionValue}</td>
+            <td><i class="bi bi-pencil edit-icon" data-field="direction" data-trade-index="${index}"></i></td>
+          </tr>
+          <tr>
+            <td class="fw-semibold">Date</td>
+            <td id="dateValue_${index}">${dateValue}</td>
+            <td><i class="bi bi-pencil edit-icon" data-field="date" data-trade-index="${index}"></i></td>
+          </tr>
+          <tr>
+            <td class="fw-semibold">Session</td>
+            <td id="sessionValue_${index}">${sessionValue}</td>
+            <td><i class="bi bi-pencil edit-icon" data-field="session" data-trade-index="${index}"></i></td>
+          </tr>
+          <tr>
+            <td class="fw-semibold">Position Size</td>
+            <td id="sizeValue_${index}">${sizeValue}</td>
+            <td><i class="bi bi-pencil edit-icon" data-field="size" data-trade-index="${index}"></i></td>
+          </tr>
+          <tr>
+            <td class="fw-semibold">Leverage</td>
+            <td id="leverageValue_${index}">${leverageValue}</td>
+            <td><i class="bi bi-pencil edit-icon" data-field="leverage" data-trade-index="${index}"></i></td>
+          </tr>
+          <tr>
+            <td class="fw-semibold">Entry/Exit</td>
+            <td id="entryExitValue_${index}">${entryExit}</td>
+            <td><i class="bi bi-pencil edit-icon" data-field="entryExit" data-trade-index="${index}"></i></td>
+          </tr>
+          <tr>
+            <td class="fw-semibold">SL / TP</td>
+            <td id="slTpValue_${index}">${slTp}</td>
+            <td><i class="bi bi-pencil edit-icon" data-field="slTp" data-trade-index="${index}"></i></td>
+          </tr>
+          <tr>
+            <td class="fw-semibold">Strategy</td>
+            <td id="strategyValue_${index}">${strategyValue}</td>
+            <td><i class="bi bi-pencil edit-icon" data-field="strategy" data-trade-index="${index}"></i></td>
+          </tr>
+          <tr>
+            <td class="fw-semibold">Risk %</td>
+            <td id="riskPctValue_${index}">${riskPctValue}</td>
+            <td><i class="bi bi-pencil edit-icon" data-field="riskPct" data-trade-index="${index}"></i></td>
+          </tr>
+          <tr>
+            <td class="fw-semibold">Risk Amount</td>
+            <td id="riskAmtValue_${index}">${riskAmtValue}</td>
+            <td><i class="bi bi-pencil edit-icon" data-field="riskAmt" data-trade-index="${index}"></i></td>
+          </tr>
+          <tr>
+            <td class="fw-semibold">Reward Amount</td>
+            <td id="rewardAmtValue_${index}">${rewardAmtValue}</td>
+            <td><i class="bi bi-pencil edit-icon" data-field="rewardAmt" data-trade-index="${index}"></i></td>
+          </tr>
+          <tr>
+            <td class="fw-semibold">R:R Ratio</td>
+            <td id="rrValue_${index}">${rrValue}</td>
+            <td><i class="bi bi-pencil edit-icon" data-field="rr" data-trade-index="${index}"></i></td>
+          </tr>
+          <tr>
+            <td class="fw-semibold">Notes</td>
+            <td id="notesValue_${index}">${notesValue}</td>
+            <td><i class="bi bi-pencil edit-icon" data-field="notes" data-trade-index="${index}"></i></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="ai-suggestion" id="aiSuggestion_${index}">
+        <i class="bi bi-lightbulb text-primary"></i> AI Tip: ${data.suggestion || 'No suggestion available.'}
+      </div>
+    </div>
+  `;
+  return div.firstElementChild;
+}
+
+function attachEditListeners() {
+  document.querySelectorAll('#reviewModal .edit-icon').forEach(icon => {
+    icon.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const field = e.target.dataset.field;
+      const tradeIndex = parseInt(e.target.dataset.tradeIndex);
+      let currentValue;
+      switch (field) {
+        case 'asset': currentValue = document.getElementById(`assetValue_${tradeIndex}`).textContent; break;
+        case 'assetType': currentValue = document.getElementById(`assetTypeValue_${tradeIndex}`).textContent; break;
+        case 'direction': currentValue = document.getElementById(`directionValue_${tradeIndex}`).textContent; break;
+        case 'date': currentValue = document.getElementById(`dateValue_${tradeIndex}`).textContent; break;
+        case 'session': currentValue = document.getElementById(`sessionValue_${tradeIndex}`).textContent; break;
+        case 'size': currentValue = document.getElementById(`sizeValue_${tradeIndex}`).textContent; break;
+        case 'leverage': currentValue = document.getElementById(`leverageValue_${tradeIndex}`).textContent; break;
+        case 'entryExit': currentValue = document.getElementById(`entryExitValue_${tradeIndex}`).textContent; break;
+        case 'slTp': currentValue = document.getElementById(`slTpValue_${tradeIndex}`).textContent; break;
+        case 'strategy': currentValue = document.getElementById(`strategyValue_${tradeIndex}`).textContent.replace(/ \(.+\)/, ''); break;
+        case 'riskPct': currentValue = document.getElementById(`riskPctValue_${tradeIndex}`).textContent; break;
+        case 'riskAmt': currentValue = document.getElementById(`riskAmtValue_${tradeIndex}`).textContent; break;
+        case 'rewardAmt': currentValue = document.getElementById(`rewardAmtValue_${tradeIndex}`).textContent; break;
+        case 'rr': currentValue = document.getElementById(`rrValue_${tradeIndex}`).textContent; break;
+        case 'notes': currentValue = document.getElementById(`notesValue_${tradeIndex}`).textContent; break;
+      }
+      const newValue = prompt(`Edit ${field.replace(/([A-Z])/g, ' $1').trim()} for Trade ${tradeIndex + 1}`, currentValue);
+      if (newValue === null) return;
+      let updated = true;
+      switch (field) {
+        case 'asset':
+          document.getElementById(`assetValue_${tradeIndex}`).textContent = newValue;
+          extractedData[tradeIndex].symbol = newValue;
+          // Update asset_type if symbol suggests a clear type
+          const inferredType = inferAssetType(newValue);
+          if (inferredType) {
+            document.getElementById(`assetTypeValue_${tradeIndex}`).textContent = inferredType.charAt(0).toUpperCase() + inferredType.slice(1);
+            extractedData[tradeIndex].asset_type = inferredType;
+          }
+          break;
+        case 'assetType':
+          const normalizedType = newValue.toLowerCase();
+          if (['forex', 'crypto'].includes(normalizedType)) {
+            document.getElementById(`assetTypeValue_${tradeIndex}`).textContent = normalizedType.charAt(0).toUpperCase() + normalizedType.slice(1);
+            extractedData[tradeIndex].asset_type = normalizedType;
+          } else {
+            showErrorToast('Asset Type must be "Forex" or "Crypto"');
+            updated = false;
+          }
+          break;
+        case 'direction':
+          const dirValue = newValue.toUpperCase();
+          if (['LONG', 'SHORT'].includes(dirValue)) {
+            document.getElementById(`directionValue_${tradeIndex}`).textContent = dirValue;
+            extractedData[tradeIndex].direction = dirValue;
+          } else {
+            showErrorToast('Direction must be "LONG" or "SHORT"');
+            updated = false;
+          }
+          break;
+        case 'date':
+          try {
+            const dateStr = new Date(newValue).toLocaleString();
+            document.getElementById(`dateValue_${tradeIndex}`).textContent = dateStr;
+            extractedData[tradeIndex].trade_date = new Date(newValue).toISOString();
+          } catch {
+            showErrorToast('Invalid date format');
+            updated = false;
+          }
+          break;
+        case 'session':
+          document.getElementById(`sessionValue_${tradeIndex}`).textContent = newValue;
+          extractedData[tradeIndex].session = newValue;
+          extractedData[tradeIndex]._user_overridden = true;
+          break;
+        case 'size':
+          const sizeNum = parseFloat(newValue);
+          if (!isNaN(sizeNum) && sizeNum > 0) {
+            document.getElementById(`sizeValue_${tradeIndex}`).textContent = `${sizeNum.toFixed(4)} ${extractedData[tradeIndex].asset_type === 'forex' ? 'lots' : 'units'}`;
+            extractedData[tradeIndex].position_size = sizeNum;
+          } else {
+            showErrorToast('Position Size must be a positive number');
+            updated = false;
+          }
+          break;
+        case 'leverage':
+          const levNum = parseFloat(newValue.replace('x', ''));
+          if (!isNaN(levNum) && levNum >= 1 && levNum <= 100) {
+            document.getElementById(`leverageValue_${tradeIndex}`).textContent = `${levNum.toFixed(1)}x`;
+            extractedData[tradeIndex].leverage = levNum;
+          } else {
+            showErrorToast('Leverage must be a number between 1x and 100x');
+            updated = false;
+          }
+          break;
+        case 'entryExit':
+          updated = updateEntryExit(newValue, tradeIndex);
+          if (updated) {
+            document.getElementById(`entryExitValue_${tradeIndex}`).textContent = formatEntryExit(
+              extractedData[tradeIndex].entry_price,
+              extractedData[tradeIndex].exit_price,
+              extractedData[tradeIndex].pnl
+            );
+          }
+          break;
+        case 'slTp':
+          updated = updateSLTP(newValue, tradeIndex);
+          if (updated) {
+            document.getElementById(`slTpValue_${tradeIndex}`).textContent = formatSLTP(
+              extractedData[tradeIndex].sl_price,
+              extractedData[tradeIndex].tp_price,
+              extractedData[tradeIndex].entry_price,
+              extractedData[tradeIndex].direction
+            );
+          }
+          break;
+        case 'strategy':
+          document.getElementById(`strategyValue_${tradeIndex}`).textContent = `${newValue} (User-selected)`;
+          extractedData[tradeIndex].strategy = newValue;
+          extractedData[tradeIndex]._user_overridden = true;
+          break;
+        case 'riskPct':
+          const riskPctNum = parseFloat(newValue.replace('%', ''));
+          if (!isNaN(riskPctNum) && riskPctNum >= 0) {
+            document.getElementById(`riskPctValue_${tradeIndex}`).textContent = `${riskPctNum.toFixed(2)}%`;
+            extractedData[tradeIndex].risk_percentage = riskPctNum;
+          } else {
+            showErrorToast('Risk % must be a non-negative number');
+            updated = false;
+          }
+          break;
+        case 'riskAmt':
+          const riskAmtNum = parseFloat(newValue.replace('$', ''));
+          if (!isNaN(riskAmtNum) && riskAmtNum >= 0) {
+            document.getElementById(`riskAmtValue_${tradeIndex}`).textContent = `$${riskAmtNum.toFixed(2)}`;
+            extractedData[tradeIndex].risk_amount = riskAmtNum;
+          } else {
+            showErrorToast('Risk Amount must be a non-negative number');
+            updated = false;
+          }
+          break;
+        case 'rewardAmt':
+          const rewardAmtNum = parseFloat(newValue.replace('$', ''));
+          if (!isNaN(rewardAmtNum) && rewardAmtNum >= 0) {
+            document.getElementById(`rewardAmtValue_${tradeIndex}`).textContent = `$${rewardAmtNum.toFixed(2)}`;
+            extractedData[tradeIndex].reward_amount = rewardAmtNum;
+          } else {
+            showErrorToast('Reward Amount must be a non-negative number');
+            updated = false;
+          }
+          break;
+        case 'rr':
+          const rrNum = parseFloat(newValue.replace(':1', ''));
+          if (!isNaN(rrNum) && rrNum > 0) {
+            document.getElementById(`rrValue_${tradeIndex}`).textContent = `${rrNum.toFixed(2)}:1`;
+            extractedData[tradeIndex].r_r_ratio = rrNum;
+          } else {
+            showErrorToast('R:R Ratio must be a positive number');
+            updated = false;
+          }
+          break;
+        case 'notes':
+          document.getElementById(`notesValue_${tradeIndex}`).textContent = newValue;
+          extractedData[tradeIndex].notes = newValue;
+          break;
+      }
+      if (!updated) return;
+      // Re-render section if needed for computations
+      if (['entryExit', 'slTp', 'rr', 'size', 'leverage', 'assetType', 'strategy'].includes(field)) {
+        const container = document.getElementById('tradesContainer');
+        const newSection = createTradeSection(extractedData[tradeIndex], tradeIndex);
+        const offset = extractedData.every(d => d._is_partial) ? 1 : 0;
+        container.replaceChild(newSection, container.children[tradeIndex + offset]);
+        attachEditListeners();
+      }
+    });
+  });
+}
+
+function inferAssetType(symbol) {
+  if (!symbol) return null;
+  const symbolUpper = symbol.toUpperCase();
+  const forexPairs = ['EUR', 'USD', 'GBP', 'JPY', 'AUD', 'CAD', 'CHF', 'NZD'];
+  if (forexPairs.some(pair => symbolUpper.includes(pair)) && symbolUpper.includes('/')) {
+    return 'forex';
+  }
+  if (['BTC', 'ETH', 'USDT', 'USDC'].some(crypto => symbolUpper.includes(crypto))) {
+    return 'crypto';
+  }
+  return null;
+}
+
+function updateEntryExit(newValue, tradeIndex) {
+  const match = newValue.match(/\$?([\d.,]+)(k|m)?\s*\/\s*\$?([\d.,]+)(k|m)?\s*\((\+?-?\d+(?:\.\d+)?)%\)/i);
+  if (!match) {
+    showErrorToast('Invalid Entry/Exit format. Please use: 1.0850 / 1.0900 (+2%)');
+    return false;
+  }
+  let entry = parseFloat(match[1].replace(/,/g, ''));
+  const entryUnit = match[2] ? match[2].toLowerCase() : '';
+  if (entryUnit === 'k') entry *= 1000;
+  else if (entryUnit === 'm') entry *= 1000000;
+
+  let exit_p = parseFloat(match[3].replace(/,/g, ''));
+  const exitUnit = match[4] ? match[4].toLowerCase() : '';
+  if (exitUnit === 'k') exit_p *= 1000;
+  else if (exitUnit === 'm') exit_p *= 1000000;
+
+  const pnl = parseFloat(match[5]);
+
+  extractedData[tradeIndex].entry_price = entry;
+  extractedData[tradeIndex].exit_price = exit_p;
+  extractedData[tradeIndex].pnl = pnl;
+  return true;
+}
+
+function updateSLTP(newValue, tradeIndex) {
+  const match = newValue.match(/\$?([\d.,]+)(k|m)?\s*\/\s*\$?([\d.,]+)(k|m)?/i);
+  if (!match) {
+    showErrorToast('Invalid SL/TP format. Please use: 1.0900 / 1.0750');
+    return false;
+  }
+  let sl = parseFloat(match[1].replace(/,/g, ''));
+  const slUnit = match[2] ? match[2].toLowerCase() : '';
+  if (slUnit === 'k') sl *= 1000;
+  else if (slUnit === 'm') sl *= 1000000;
+
+  let tp = parseFloat(match[3].replace(/,/g, ''));
+  const tpUnit = match[4] ? match[4].toLowerCase() : '';
+  if (tpUnit === 'k') tp *= 1000;
+  else if (tpUnit === 'm') tp *= 1000000;
+
+  extractedData[tradeIndex].sl_price = sl;
+  extractedData[tradeIndex].tp_price = tp;
+  // Recalc R:R, amounts if possible
+  const entry = extractedData[tradeIndex].entry_price;
+  const posSize = extractedData[tradeIndex].position_size || 1;
+  const dir = extractedData[tradeIndex].direction?.toLowerCase() || 'long';
+  const assetType = extractedData[tradeIndex].asset_type || 'forex';
+  if (entry) {
+    let riskDist, rewardDist;
+    if (dir === 'long') {
+      riskDist = entry - sl;
+      rewardDist = tp - entry;
+    } else {
+      riskDist = sl - entry;
+      rewardDist = entry - tp;
+    }
+    if (riskDist > 0) {
+      const rr = rewardDist / riskDist;
+      extractedData[tradeIndex].r_r_ratio = rr.toFixed(2);
+      const pipValue = assetType === 'forex' ? 10.0 : 1.0; // $10/lot for forex, $1/unit for crypto
+      extractedData[tradeIndex].risk_amount = (posSize * Math.abs(riskDist) * pipValue).toFixed(2);
+      extractedData[tradeIndex].reward_amount = (posSize * rewardDist * pipValue).toFixed(2);
+    }
+  }
+  return true;
+}
+
+function formatEntryExit(entry, exit_p, pnl) {
+  if (!entry || exit_p === null || pnl === null) return 'N/A';
+  return `${entry.toFixed(4)} / ${exit_p ? exit_p.toFixed(4) : 'N/A'} (${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}%)`;
+}
+
+function formatSLTP(sl, tp, entry, direction) {
+  if (!sl || !tp || !entry || !direction) return 'N/A';
+  const slDist = direction.toLowerCase() === 'short' ? `+${((sl - entry)/entry*100).toFixed(2)}%` : `-${((entry - sl)/entry*100).toFixed(2)}%`;
+  const tpDist = direction.toLowerCase() === 'short' ? `-${((entry - tp)/entry*100).toFixed(2)}%` : `+${((tp - entry)/entry*100).toFixed(2)}%`;
+  return `${sl.toFixed(4)} ${slDist} / ${tp.toFixed(4)} ${tpDist}`;
+}
+
+// Save: Call backend /save_batch
+document.getElementById('saveTradeBtn').addEventListener('click', async () => {
+  if (!extractedData || extractedData.length === 0) return;
+
+  const allData = extractedData.map(trade => ({ ...trade }));
+  allData.forEach(trade => {
+    // Ensure asset_type is lowercase for backend
+    if (trade.asset_type) {
+      trade.asset_type = trade.asset_type.toLowerCase();
+    }
+    // Ensure leverage is a number or null
+    if (trade.leverage !== undefined && (isNaN(trade.leverage) || trade.leverage < 1 || trade.leverage > 100)) {
+      trade.leverage = null;
+    }
+  });
+
+  try {
+    const res = await fetch('/upload/save_batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(allData),
+      credentials: 'include'
+    });
+    if (!res.ok) {
+      const errorData = await res.json();
+      if (res.status === 422) {
+        let errorMsg = errorData.detail?.message || 'Validation error';
+        if (errorData.detail?.errors && errorData.detail.errors.length > 0) {
+          errorMsg += ': ' + errorData.detail.errors.map(e => {
+            let tradeError = Array.isArray(e.error) ? e.error.map(err => {
+              const loc = Array.isArray(err.loc) ? err.loc.join('.') : err.loc;
+              return `${loc}: ${err.msg}`;
+            }).join('; ') : e.error;
+            return `Trade ${e.index + 1}: ${tradeError}`;
+          }).join('; ');
+        }
+        showErrorToast(errorMsg);
+      } else {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
+      return;
+    }
+    bootstrap.Modal.getInstance(reviewModalEl).hide();
+    const toastBody = document.getElementById('saveToast').querySelector('.toast-body');
+    toastBody.innerHTML = `<i class="bi bi-check-circle-fill"></i> ${allData.length} trades logged successfully!`;
+    const saveToast = new bootstrap.Toast(document.getElementById('saveToast'), { delay: 2000 });
+    saveToast.show();
+    // Refresh upload count after save
+    setTimeout(() => {
+      fetchMonthlyUploads();
+      window.location.href = '/journal';
+    }, 1000);
+  } catch (err) {
+    showErrorToast(err.message || 'Save failed');
+  }
+});
+
+function showErrorToast(message) {
+  const errorToast = new bootstrap.Toast(document.getElementById('errorToast'));
+  document.getElementById('errorToast').querySelector('.toast-body').innerHTML = `<i class="bi bi-x-circle-fill me-2"></i>${message}`;
+  errorToast.show();
+}
+
+// Reset on modal hide
+reviewModalEl.addEventListener('hidden.bs.modal', () => {
+  files = [];
+  extractedData = [];
+  document.getElementById('tradesContainer').innerHTML = '';
+  renderThumbnails();
+  checkUploadLimit();
+  sessionSelect.value = 'Session: Auto-detect';
+  strategySelect.value = 'Strategy: From profile';
+});
+
+// Initial load
+document.addEventListener('DOMContentLoaded', () => {
+  fetchMonthlyUploads();
+});
+</script>
+{% endblock %}

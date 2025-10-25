@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<main class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-10">
+      <!-- Hero Header -->
+      <div class="card-radius hero-header fade-up">
+        <div class="row align-items-center text-center text-md-start">
+          <div class="col-md-4 mb-4 mb-md-0">
+            <div class="d-flex align-items-center justify-content-center justify-md-start gap-3">
+              <div class="user-avatar rounded-circle d-flex justify-content-center align-items-center text-white fw-bold" style="width:64px; height:64px; background:var(--gradient);" id="userInitialsHero">{{ initials }}</div>
+              <div>
+                <div class="greeting">{{ greeting }}</div>
+                <div class="text-muted small">today's edge: <span class="edge">{% if todays_edge > 0 %}+{% endif %}{{ "%.1f"|format(todays_edge) }}%</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4 mb-4 mb-md-0">
+            <div class="pnl-big" id="pnlBig" style="color: {% if pnl.daily.value < 0 %}var(--danger){% else %}var(--success){% endif %};">${{ "%.0f"|format(pnl.daily.value) if pnl.daily.value else 0 }}</div>
+            <div class="pnl-subtitle" id="pnlSubtitle" title="P&L based on trade dates (not when logged)">({{ "%.1f"|format(pnl.daily.percent) }}% today)</div>
+            <canvas id="pnlSpark" class="sparkline-canvas mt-2"></canvas>
+            <div class="btn-group view-toggles mt-3" role="group">
+              <button type="button" class="btn active" data-view="daily">Daily</button>
+              <button type="button" class="btn" data-view="weekly">Weekly</button>
+              <button type="button" class="btn" data-view="monthly">Monthly</button>
+            </div>
+          </div>
+          <div class="col-md-4 d-flex justify-content-end">
+            <!-- Spacing -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Session Zones -->
+      <section class="sessions-section fade-up">
+        <div class="map-overlay"></div>
+        <h5 class="session-title"><i class="bi bi-globe2"></i> Your Session Zones</h5>
+        <div class="session-carousel" id="sessionCarousel">
+          {% for session in sessions %}
+          <div class="card-radius session-card" onclick="toggleExpand(this)">
+            <div class="session-icon"><i class="bi {{ session.icon }}"></i></div>
+            <div class="fw-bold" style="font-size:1.2rem;">{{ session.name }}</div>
+            <div class="session-stats">Trades: {{ session.trades }} | Win Rate: {{ session.winRate }}% | Avg P&L: {{ session.avgPnL }}</div>
+            <canvas class="session-spark" data-values="{{ session.trend | tojson }}"></canvas>
+            <div class="expand-details">
+              Last trade: <strong>{{ session.lastTrade }}</strong><br>
+              <div class="ai-tip"><i class="bi bi-lightbulb me-2"></i>{{ session.tip }}</div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        <div id="emptyState" class="empty-state" style="display: {% if sessions %}none{% else %}block{% endif %};">
+          <i class="bi bi-inbox empty-icon"></i>
+          <p>Start logging to unlock sessions</p>
+          <button class="btn btn-outline-primary" onclick="location.href='/upload'">Upload something</button>
+        </div>
+      </section>
+
+      <!-- Referrals Section -->
+      <section class="referrals-section fade-up">
+        <h5 class="session-title"><i class="bi bi-share-fill"></i> Your Referrals</h5>
+        <div class="card-radius">
+          <div class="referral-card">
+            <div class="fw-bold mb-2">Invite friends, earn free AI analyses</div>
+            <p class="text-muted mb-4">Share your unique code. Each successful referral gives you both 1 free AI analysis.</p>
+            <div class="referral-code" id="referralCode">{{ referral_code }}</div>
+            <div class="referral-stats">
+              <div class="stat-item">
+                <div class="stat-number">{{ referrals_count }}</div>
+                <div class="stat-label">Referred</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-number">{{ earned_analyses }}</div>
+                <div class="stat-label">Free Analyses</div>
+              </div>
+            </div>
+            <div class="share-buttons">
+              <button class="share-btn share-btn-copy" onclick="copyReferralCode()">
+                <i class="bi bi-copy"></i> Copy Link
+              </button>
+              <button class="share-btn share-btn-twitter" onclick="shareOnTwitter()">
+                <i class="bi bi-twitter-x"></i> Share on X
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Quick Actions -->
+      <div class="quick-actions fade-up">
+        <div class="quick-action-btn" onclick="location.href='/upload'">
+          <div class="quick-icon"><i class="bi bi-cloud-upload"></i></div>
+          <div>Log Trade</div>
+        </div>
+        <div class="quick-action-btn" onclick="location.href='/journal'">
+          <div class="quick-icon"><i class="bi bi-journal-text"></i></div>
+          <div>View Journal</div>
+        </div>
+        <div class="quick-action-btn" onclick="location.href='/insights'">
+          <div class="quick-icon"><i class="bi bi-lightbulb"></i></div>
+          <div>Generate Insights</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+{% endblock %}
+
+{% block mobile_fab %}
+  <button id="mobileFab" class="btn d-flex align-items-center justify-content-center" onclick="location.href='/upload'">
+    <i class="bi bi-plus-lg fs-3"></i>
+  </button>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  let pnlChart;
+  let currentView = 'daily';
+  const pnlHistory = {{ pnl_history | tojson }};
+  const pnlData = {{ pnl | tojson }};
+
+  // PNL Sparkline improved
+  function initPnlSpark(view = 'daily') {
+    const ctx = document.getElementById('pnlSpark').getContext('2d');
+    const history = pnlHistory[view] || [0,0,0,0,0];
+    const isUp = history[history.length - 1] >= history[0];
+    const borderColor = isUp ? 'var(--success)' : 'var(--danger)';
+    const bgColor = isUp ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)';
+    if (pnlChart) pnlChart.destroy();
+    pnlChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: history.map((_, i) => i),
+        datasets: [{
+          data: history,
+          borderColor: borderColor,
+          backgroundColor: bgColor,
+          tension: 0.4,
+          fill: true,
+          pointRadius: 3,
+          pointBackgroundColor: borderColor,
+          pointBorderColor: 'white',
+          pointBorderWidth: 2,
+          borderWidth: 3,
+          pointHoverRadius: 5
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: { x: { display: false }, y: { display: false } },
+        plugins: { legend: { display: false }, tooltip: { enabled: true } },
+        animation: { duration: 1500, easing: 'easeInOutQuart' },
+        elements: { line: { borderCapStyle: 'round', borderJoinStyle: 'round' } }
+      }
+    });
+  }
+  initPnlSpark();
+
+  // View toggles
+  const pnlBigEl = document.getElementById('pnlBig');
+  const pnlSubtitleEl = document.querySelector('.pnl-subtitle');
+  const periodText = {
+    daily: 'today',
+    weekly: 'this week',
+    monthly: 'this month'
+  };
+  document.querySelectorAll('.view-toggles .btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.view-toggles .btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentView = btn.dataset.view;
+      const data = pnlData[currentView];
+      const value = data.value;
+      const percent = data.percent;
+      pnlBigEl.textContent = `$${Math.round(value).toLocaleString()}`;
+      pnlBigEl.style.color = value < 0 ? 'var(--danger)' : 'var(--success)';
+      pnlSubtitleEl.textContent = `(${percent.toFixed(1)}% ${periodText[currentView]})`;
+      initPnlSpark(currentView);
+    });
+  });
+
+  // Session sparks
+  function initSessionSparks() {
+    document.querySelectorAll('.session-spark').forEach(canvas => {
+      let values = JSON.parse(canvas.dataset.values || '[]');
+      if (!values.length) {
+        values = [0, 0, 0, 0, 0];
+      }
+      const ctx = canvas.getContext('2d');
+      const isUp = values[values.length - 1] >= values[0];
+      const borderColor = isUp ? 'var(--success)' : 'var(--danger)';
+      const bgColor = isUp ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)';
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: values.map((_, i) => i),
+          datasets: [{
+            data: values,
+            borderColor: borderColor,
+            backgroundColor: bgColor,
+            tension: 0.4,
+            fill: true,
+            pointRadius: 0,
+            borderWidth: 3,
+            borderJoinStyle: 'round'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { x: { display: false }, y: { display: false } },
+          plugins: { legend: { display: false }, tooltip: { enabled: false } },
+          animation: { duration: 1000, easing: 'easeInOutCubic' },
+          elements: { line: { borderCapStyle: 'round', borderJoinStyle: 'round' } }
+        }
+      });
+    });
+  }
+
+  // Toggle expand
+  function toggleExpand(card) {
+    const details = card.querySelector('.expand-details');
+    details.style.display = details.style.display === 'block' ? 'none' : 'block';
+  }
+
+  // Mobile fab pulse if no activity (mock)
+  const mobileFab = document.getElementById('mobileFab');
+  if (mobileFab && true) { // Replace with real check
+    mobileFab.style.animation = 'pulse 2s infinite';
+  }
+  const style = document.createElement('style');
+  style.innerHTML = `@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(47,107,255,0.4); } 70% { box-shadow: 0 0 0 10px rgba(47,107,255,0); } 100% { box-shadow: 0 0 0 0 rgba(47,107,255,0); } }`;
+  document.head.appendChild(style);
+
+  // Referral functions
+  function copyReferralCode() {
+    const code = document.getElementById('referralCode').textContent;
+    const referralUrl = `${window.location.origin}/?ref=${code}`;
+    navigator.clipboard.writeText(referralUrl).then(() => {
+      showToast('Referral link copied!');
+    }).catch(() => {
+      // Fallback
+      const textArea = document.createElement('textarea');
+      textArea.value = referralUrl;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      showToast('Referral link copied!');
+    });
+  }
+
+  function shareOnTwitter() {
+    const code = document.getElementById('referralCode').textContent;
+    const text = `Join me on iTrade Journal! Use my referral code ${code} for a free AI analysis. Your trades. Your edge. ${window.location.origin}/?ref=${code}`;
+    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+  }
+
+  // Dashboard-specific initial load
+  initSessionSparks();
+</script>
+{% endblock %}

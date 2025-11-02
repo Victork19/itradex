@@ -1,4 +1,3 @@
-# server/main.py
 from pathlib import Path
 import logging
 from typing import Optional
@@ -6,7 +5,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta, date
 import json
 
-from fastapi import FastAPI, Request, Depends, Cookie, HTTPException, status, Form
+from fastapi import FastAPI, Request, Depends, Cookie, HTTPException, status, Form, Query
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -173,18 +172,33 @@ async def startup_event():
         trigger=CronTrigger(hour=2, minute=0),  # Daily at 2:00 AM UTC
         id="auto_renewals",
         replace_existing=True,
-        kwargs={"db": get_session}  # Pass dependency correctly
+        # NOTE: Dependencies can't be passed directly; use a wrapper or global session
+        # For simplicity, we'll recreate session inside the job if needed
     )
     scheduler.start()
     logger.info("APScheduler started: auto-renewals scheduled at 2:00 AM UTC")
 
-# --- Middleware ---
+    # Patch: Run auto_generate_renewals with session via wrapper
+    async def wrapped_renewals():
+        async with get_session() as db:
+            await auto_generate_renewals(db=db)
+    scheduler.add_job(
+        wrapped_renewals,
+        trigger=CronTrigger(hour=2, minute=0),
+        id="auto_renewals_wrapped",
+        replace_existing=True
+    )
+
+# --- Middleware (UPDATED: Exempt /payment-success from auth) ---
 @app.middleware("http")
 async def auth_redirect_middleware(request: Request, call_next):
     protected = [
         "/dashboard", "/insights", "/profile", "/plans", "/upload",
         "/journal", "/onboard", "/chat", "/subscriptions"
     ]
+    # NEW: Exempt payment success page (public, no auth needed)
+    if request.url.path.startswith("/payment-success"):
+        return await call_next(request)
     if any(request.url.path.startswith(p) for p in protected) and not request.cookies.get("access_token"):
         logger.info(f"Redirecting unauthenticated {request.url.path} -> /")
         return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
@@ -206,6 +220,88 @@ async def root(
         "ref_code": request.query_params.get("ref")
     }
     return templates.TemplateResponse("index.html", context)
+
+# NEW: Payment Success Page Route (public, verifies payment status)
+@app.get("/payment-success", response_class=HTMLResponse)
+async def payment_success_page(
+    request: Request,
+    NP_id: Optional[str] = Query(None),  # From query: ?NP_id=5078472979
+    sub_id: Optional[str] = Query(None),
+    trader_id: Optional[str] = Query(None),
+    payment: str = Query("success"),  # Default from NowPayments
+    db: AsyncSession = Depends(get_session)
+):
+    if payment != "success":
+        raise HTTPException(status_code=400, detail="Invalid payment status")
+
+    # Verify payment (public lookup—no auth needed)
+    payment_status = "pending"  # Default
+    user_email = None
+    plan_type = None
+    is_marketplace = False
+    has_email = False  # NEW: Boolean for JS safety
+    if NP_id:
+        # Lookup Payment by nowpayments_payment_id (from webhook)
+        result = await db.execute(
+            select(models.Payment).where(models.Payment.nowpayments_payment_id == NP_id)
+        )
+        db_payment = result.scalar_one_or_none()
+        if db_payment and db_payment.status in ["finished", "finished_auto", "finished_manual"]:
+            payment_status = "confirmed"
+            # Fetch user/sub for details
+            if db_payment.user_id:
+                user_result = await db.execute(select(models.User).where(models.User.id == db_payment.user_id))
+                user = user_result.scalar_one_or_none()
+                user_email = user.email if user else None
+                has_email = bool(user_email)
+            if db_payment.subscription_id:
+                sub_result = await db.execute(
+                    select(models.Subscription).where(models.Subscription.id == db_payment.subscription_id)
+                )
+                db_sub = sub_result.scalar_one_or_none()
+                if db_sub:
+                    plan_type = db_sub.plan_type
+                    is_marketplace = bool(db_sub.trader_id)
+        else:
+            # Fallback: Check Subscription by sub_id (for initial/renew)
+            if sub_id:
+                try:
+                    sub_int = int(sub_id)
+                    sub_result = await db.execute(
+                        select(models.Subscription).where(
+                            models.Subscription.id == sub_int,
+                            models.Subscription.status == "active"  # Assume webhook ran
+                        )
+                    )
+                    db_sub = sub_result.scalar_one_or_none()
+                    if db_sub:
+                        payment_status = "confirmed"
+                        user_result = await db.execute(select(models.User).where(models.User.id == db_sub.user_id))
+                        user = user_result.scalar_one_or_none()
+                        user_email = user.email if user else None
+                        has_email = bool(user_email)
+                        plan_type = db_sub.plan_type
+                        is_marketplace = bool(db_sub.trader_id)
+                except ValueError:
+                    pass  # Invalid sub_id
+
+    # If still pending, show "processing" (webhook might be delayed—poll or wait)
+    if payment_status != "confirmed":
+        logger.warning(f"Payment verification pending for NP_id={NP_id}, sub_id={sub_id}")
+
+    context = {
+        "request": request,
+        "NP_id": NP_id,
+        "sub_id": sub_id,
+        "trader_id": trader_id,
+        "payment_status": payment_status,
+        "user_email": user_email,
+        "has_email": has_email,  # NEW
+        "plan_type": plan_type,
+        "is_marketplace": is_marketplace,
+        "now": datetime.utcnow(),
+    }
+    return templates.TemplateResponse("success.html", context)
 
 @app.get("/onboard", response_class=HTMLResponse)
 async def onboard_page(

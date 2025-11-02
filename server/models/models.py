@@ -156,6 +156,7 @@ class Payment(Base):
     nowpayments_payment_id = Column(String, unique=True, nullable=True)
     amount_usd = Column(Float, nullable=False)
     amount_paid_crypto = Column(Float, nullable=True)
+    amount_paid_usd = Column(Float, default=0.0, nullable=False)
     crypto_currency = Column(String, nullable=True)
     status = Column(String, default='pending')
     invoice_url = Column(String, nullable=True)

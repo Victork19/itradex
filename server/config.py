@@ -7,7 +7,7 @@ class Settings:
     DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./test1.db")
     SECRET_KEY = os.getenv("SECRET_KEY", "supersecret")
     ALGORITHM = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES = 60
+    ACCESS_TOKEN_EXPIRE_MINUTES = 120
     REFRESH_TOKEN_EXPIRE_DAYS = 7
     REMEMBER_ME_REFRESH_TOKEN_EXPIRE_DAYS = 30
     IS_PRODUCTION = os.getenv("IS_PRODUCTION", "false").lower() == "true"
@@ -20,7 +20,7 @@ class Settings:
     NOWPAYMENTS_BASE_URL = os.getenv("NOWPAYMENTS_BASE_URL")
     NOWPAYMENTS_EMAIL = os.getenv("NOWPAYMENTS_EMAIL")
     NOWPAYMENTS_PASSWORD = os.getenv("NOWPAYMENTS_PASSWORD")
-    BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
+    BASE_URL = os.getenv("BASE_URL", "https://submiss-intemerately-jace.ngrok-free.dev")
 
 
 settings = Settings()

@@ -204,8 +204,8 @@ def submit_waitlist():
 
     
     # Send email
-    send_signup_code(email=email, code=login_token)
-    # print(f"Verification code for {email}: {login_token}") 
+    # send_signup_code(email=email, code=login_token)
+    print(f"Verification code for {email}: {login_token}") 
     return jsonify({'success': True, 'message': 'Verification code sent'})
 
 
@@ -233,9 +233,9 @@ def resend_code():
         db.session.commit()
 
     try:
-    
+        # send_verification_email(email, code)
         send_signup_code(email=email, code=code)
-        # print(f"Verification code for {email}: {code}") 
+        print(f"Verification code for {email}: {code}") 
     except Exception as e:
         print(f"Email error: {e}")
         return jsonify({"success": False, "error": "Failed to send code"}), 500
@@ -423,6 +423,11 @@ def admin_panel():
         verified_users=verified_users,
         users=users
     )
+# sudo mkdir -p /etc/ssl/cloudflare
+# sudo nano /etc/ssl/cloudflare/waitlist.itradex.xyz.crt   # paste origin cert
+# sudo nano /etc/ssl/cloudflare/waitlist.itradex.xyz.key   # paste private key
+# sudo chmod 600 /etc/ssl/cloudflare/waitlist.itradex.xyz.key
+# sudo chmod 644 /etc/ssl/cloudflare/waitlist.itradex.xyz.crt
 
 ADMIN_EMAIL = "ukovictor8@gmail.com"
 # Generate this once and store the hash

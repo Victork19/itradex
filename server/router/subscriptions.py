@@ -1,4 +1,3 @@
-# subscriptions.py 
 from fastapi import APIRouter, Depends, HTTPException, Request, status, Header
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -79,11 +78,10 @@ async def list_subscriptions(
         )
         payments = pays_res.scalars().all()
 
-        # FIXED: Include partials in total_paid (assumes amount_paid_usd added to Payment model)
-        # TODO: If not added, fallback to 0 for partials or implement rate fetch
+        # FIXED: Include partials in total_paid (uses amount_paid_usd now available)
         paid = round(sum(
             p.amount_usd if p.status in ["finished", "finished_auto"] 
-            else (getattr(p, 'amount_paid_usd', 0) if p.status == "partially_paid" else 0)
+            else (p.amount_paid_usd if p.status == "partially_paid" else 0)
             for p in payments
         ), 2)
 
@@ -120,9 +118,9 @@ async def list_subscriptions(
                     "paid_at": p.paid_at.strftime("%b %d, %Y") if p.paid_at else "Pending",
                     "invoice_url": p.invoice_url,
                     "fresh": _invoice_is_fresh(p) if p.invoice_url else False,
-                    # FIXED: Partial progress (assumes amount_paid_usd in model; set in webhook)
-                    "partial_amount": getattr(p, 'amount_paid_usd', f"{p.amount_paid_crypto} {p.crypto_currency}") if p.status == "partially_paid" else None,
-                    "progress": f"{(getattr(p, 'amount_paid_usd', 0) / p.amount_usd * 100):.0f}%" if p.status == "partially_paid" and p.amount_usd > 0 and hasattr(p, 'amount_paid_usd') else "Partial (USD pending)",
+                    # FIXED: Partial progress (now uses amount_paid_usd directly)
+                    "partial_amount": f"${p.amount_paid_usd:.2f}" if p.status == "partially_paid" and p.amount_paid_usd > 0 else None,
+                    "progress": f"{(p.amount_paid_usd / p.amount_usd * 100):.0f}%" if p.status == "partially_paid" and p.amount_usd > 0 and p.amount_paid_usd > 0 else "Partial",
                 } for p in payments[-10:]
             ],
             "has_more_payments": len(payments) > 10,

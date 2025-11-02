@@ -1,4 +1,3 @@
-# payments.py 
 import hmac
 import hashlib
 import json
@@ -141,7 +140,8 @@ async def create_direct_invoice(amount: float, order_id: str, order_description:
             "order_id": order_id,
             "order_description": order_description,
             "ipn_callback_url": f"{settings.BASE_URL}/payments/webhook",
-            "success_url": f"{settings.BASE_URL}/dashboard?payment=success{success_params}",
+            # FIXED: Static success_url (no placeholder—NowPayments doesn't replace in payload; use sub_id lookup)
+            "success_url": f"{settings.BASE_URL}/payment-success?payment=success{success_params}",
             "cancel_url": f"{settings.BASE_URL}/plans",
         }
         logger.info(f"Creating direct invoice: {invoice_payload}")
@@ -160,7 +160,9 @@ async def create_direct_invoice(amount: float, order_id: str, order_description:
             logger.error(f"No invoice_url in response: {invoice_data}")
             raise HTTPException(status_code=500, detail="Failed to generate payment link — please contact support.")
         
-        logger.info(f"Created direct invoice (crypto-only): {invoice_url}")
+        # Extract invoice_id from response for logging/DB if needed
+        invoice_id = invoice_data.get("invoice_id", "unknown")
+        logger.info(f"Created direct invoice (crypto-only): {invoice_url} (ID: {invoice_id})")
         return invoice_url
 
 def extract_invoice_id(invoice_url: str) -> Optional[str]:
@@ -183,7 +185,9 @@ async def get_invoice_status(invoice_url: str, token: str) -> dict:
                 headers=headers
             )
             if resp.status_code == 200:
-                return resp.json()
+                status_data = resp.json()
+                logger.info(f"[STATUS POLL] Fetched status for invoice {invoice_id}: {status_data.get('payment_status')}")
+                return status_data
             else:
                 logger.warning(f"Failed to fetch invoice status: {resp.status_code} - {resp.text}")
                 return {"payment_status": "expired"}
@@ -252,28 +256,23 @@ async def create_subscription(
         )
 
     # Cleanup pending/paused for this plan_type
-    await db.execute(
-        update(Subscription).where(
+    result_cleanup = await db.execute(
+        select(Subscription).where(
             Subscription.user_id == current_user.id,
             Subscription.plan_type == plan_type,
             Subscription.status.in_(['pending', 'paused'])
-        ).values(status='cancelled')
+        )
     )
+    old_subs = result_cleanup.scalars().all()
+    if old_subs:
+        for old_sub in old_subs:
+            await db.execute(
+                update(Subscription).where(Subscription.id == old_sub.id).values(status='cancelled')
+            )
+            logger.info(f"Cancelled old sub {old_sub.id} for {plan_type} during new checkout")
     await db.commit()
 
-    token = await get_nowpayments_token()
-    order_id = f"{current_user.id}_{plan_type}"  # e.g., "1_pro_monthly"
-    order_description = f"iTrade {plan_title} {'initial' if trader_id is None else 'marketplace'} payment"
-    success_params = f"&sub_id=new"  # Placeholder for initial
-
-    # Generate invoice
-    try:
-        invoice_url = await create_direct_invoice(amount, order_id, order_description, token, success_params)
-    except Exception as e:
-        logger.error(f"Invoice creation error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to generate payment link — please contact support.")
-
-    # Create pending sub in DB
+    # FIXED: Create pending sub FIRST (no invoice_url yet), commit for real ID
     db_sub = Subscription(
         user_id=current_user.id,
         trader_id=trader_id,
@@ -283,16 +282,37 @@ async def create_subscription(
         status='pending',
         start_date=datetime.utcnow(),
         next_billing_date=datetime.utcnow() + timedelta(days=interval_days),
-        order_id=order_id,
-        order_description=order_description,
-        renewal_url=invoice_url  # Store for in-app access
+        order_id=f"{current_user.id}_{plan_type}",  # Temp; will set full after
+        order_description=f"iTrade {plan_title} {'initial' if trader_id is None else 'marketplace'} payment",
+        # renewal_url set after invoice
     )
     db.add(db_sub)
+    await db.commit()  # Commit to get real db_sub.id
+
+    # Now use real sub_id in params
+    success_params = f"&sub_id={db_sub.id}"
+
+    token = await get_nowpayments_token()
+    order_id = db_sub.order_id  # Use the one from sub
+    order_description = db_sub.order_description
+
+    # Generate invoice (now with real sub_id)
+    try:
+        invoice_url = await create_direct_invoice(amount, order_id, order_description, token, success_params)
+        logger.info(f"Invoice created for sub {db_sub.id}: {invoice_url}")
+    except Exception as e:
+        logger.error(f"Invoice creation error: {e}")
+        # Rollback sub on failure
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to generate payment link — please contact support.")
+
+    # Update sub with invoice_url
+    db_sub.renewal_url = invoice_url
     await db.commit()
 
     return {
         "message": f"Payment link ready! Complete your {plan_title} subscription now.",
-        "subscription_id": db_sub.id,  # Your DB ID
+        "subscription_id": db_sub.id,  # Real DB ID
         "email": current_user.email,
         "invoice_url": invoice_url
     }
@@ -318,32 +338,38 @@ async def renew_subscription(
     if db_sub.status == 'active' and db_sub.next_billing_date > datetime.utcnow() + timedelta(days=1):
         raise HTTPException(status_code=400, detail="Subscription is active and not due for renewal yet.")
 
-    token = await get_nowpayments_token()
+    # FIXED: Create pending Payment FIRST for tracking (no invoice_url yet)
     order_id = f"{current_user.id}_{db_sub.plan_type}_renew"  # e.g., "1_pro_monthly_renew"
     order_description = f"Renewal for {db_sub.plan_type} subscription {sub_id}"
-    success_params = f"&sub_id={sub_id}"
-
-    # Generate renewal invoice
-    try:
-        invoice_url = await create_direct_invoice(db_sub.amount_usd, order_id, order_description, token, success_params)
-    except Exception as e:
-        logger.error(f"Renewal invoice error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to generate renewal link — please contact support.")
-
-    # Update sub to pending, store URL
-    db_sub.status = 'pending_renewal'
-    db_sub.renewal_url = invoice_url
-    db_sub.updated_at = datetime.utcnow()
-    # Create pending Payment record
     db_payment = Payment(
         user_id=current_user.id,
         subscription_id=sub_id,
         amount_usd=db_sub.amount_usd,
         status='generated',  # Custom: awaiting payment
         order_id=order_id,
-        invoice_url=invoice_url
+        # invoice_url set after
     )
     db.add(db_payment)
+    await db.commit()  # Commit to get db_payment.id if needed, but mainly for consistency
+
+    success_params = f"&sub_id={sub_id}"  # Already real
+
+    token = await get_nowpayments_token()
+
+    # Generate renewal invoice
+    try:
+        invoice_url = await create_direct_invoice(db_sub.amount_usd, order_id, order_description, token, success_params)
+        logger.info(f"Renewal invoice created for sub {sub_id}: {invoice_url}")
+    except Exception as e:
+        logger.error(f"Renewal invoice error: {e}")
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to generate renewal link — please contact support.")
+
+    # Update sub and payment with URL
+    db_sub.status = 'pending_renewal'
+    db_sub.renewal_url = invoice_url
+    db_sub.updated_at = datetime.utcnow()
+    db_payment.invoice_url = invoice_url
     await db.commit()
 
     # Optional: Trigger in-app notification (e.g., set flag or send your own email/push)
@@ -433,13 +459,20 @@ async def create_marketplace_subscription(
             }
 
     # If no valid pending or expired, cleanup old pending/paused
-    await db.execute(
-        update(Subscription).where(
+    result_cleanup = await db.execute(
+        select(Subscription).where(
             Subscription.user_id == current_user.id,
             Subscription.trader_id == trader_id,
             Subscription.status.in_(['pending', 'paused'])
-        ).values(status='cancelled')
+        )
     )
+    old_subs = result_cleanup.scalars().all()
+    if old_subs:
+        for old_sub in old_subs:
+            await db.execute(
+                update(Subscription).where(Subscription.id == old_sub.id).values(status='cancelled')
+            )
+            logger.info(f"Cancelled old marketplace sub {old_sub.id} for trader {trader_id} during new checkout")
     await db.commit()
 
     interval_days = 30 if interval == "monthly" else 365
@@ -448,20 +481,7 @@ async def create_marketplace_subscription(
         plan_title += f" ({int(perc)}% promo)"
     plan_type = f"marketplace_{trader_id}_{interval}"
 
-    token = await get_nowpayments_token()
-    # FIXED: Include full plan_type (with interval) for consistent webhook parsing
-    order_id = f"{current_user.id}_{plan_type}"
-    order_description = f"Subscription to {trader.full_name or trader.username}"
-    success_params = f"&sub_id=new&trader_id={trader_id}"
-
-    # Generate new invoice (now with correct discounted amount)
-    try:
-        invoice_url = await create_direct_invoice(amount, order_id, order_description, token, success_params)
-    except Exception as e:
-        logger.error(f"Marketplace invoice error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to generate payment link — please contact support.")
-
-    # Create new pending sub
+    # FIXED: Create pending sub FIRST (no invoice_url yet), commit for real ID
     db_sub = Subscription(
         user_id=current_user.id,
         trader_id=trader_id,
@@ -471,31 +491,95 @@ async def create_marketplace_subscription(
         status='pending',
         start_date=datetime.utcnow(),
         next_billing_date=datetime.utcnow() + timedelta(days=interval_days),
-        order_id=order_id,
-        order_description=order_description,
-        renewal_url=invoice_url
+        order_id=f"{current_user.id}_{plan_type}",  # Temp
+        order_description=f"Subscription to {trader.full_name or trader.username}",
+        # renewal_url set after invoice
     )
     db.add(db_sub)
+    await db.commit()  # Commit to get real db_sub.id
+
+    # Now use real sub_id in params
+    success_params = f"&sub_id={db_sub.id}&trader_id={trader_id}"
+
+    token = await get_nowpayments_token()
+    order_id = db_sub.order_id
+    order_description = db_sub.order_description
+
+    # Generate new invoice (now with real sub_id)
+    try:
+        invoice_url = await create_direct_invoice(amount, order_id, order_description, token, success_params)
+        logger.info(f"Marketplace invoice created for sub {db_sub.id}: {invoice_url}")
+    except Exception as e:
+        logger.error(f"Marketplace invoice error: {e}")
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to generate payment link — please contact support.")
+
+    # Update sub with invoice_url
+    db_sub.renewal_url = invoice_url
     await db.commit()
 
     return {
         "message": f"Payment link ready for subscription to {trader.full_name or trader.username}!",
-        "subscription_id": db_sub.id,
+        "subscription_id": db_sub.id,  # Real ID
         "trader_id": trader_id,
         "email": current_user.email,
         "invoice_url": invoice_url
     }
 
+# NEW: Manual verification endpoint (call from /payment-success polling on 'finished')
+@router.post("/verify/{sub_id}")
+async def verify_subscription(
+    sub_id: int = Path(..., description="Subscription ID to verify"),
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_session)
+):
+    result = await db.execute(
+        select(Subscription).where(Subscription.id == sub_id, Subscription.user_id == current_user.id)
+    )
+    db_sub = result.scalar_one_or_none()
+    if not db_sub or db_sub.status != 'pending':
+        raise HTTPException(status_code=400, detail="Invalid subscription for verification")
+
+    if not db_sub.renewal_url:
+        raise HTTPException(status_code=400, detail="No invoice URL for verification")
+
+    token = await get_nowpayments_token()
+    status_data = await get_invoice_status(db_sub.renewal_url, token)
+    payment_status = status_data.get("payment_status", "").lower().replace(" ", "_").replace("-", "_")
+
+    if payment_status != "finished":
+        logger.warning(f"Verification failed for sub {sub_id}: status '{payment_status}' (not 'finished')")
+        raise HTTPException(status_code=400, detail=f"Payment not confirmed yet (status: {payment_status})")
+
+    # Mimic webhook success logic
+    user = await db.get(User, current_user.id)
+    db_sub.status = "active"
+    db_sub.next_billing_date = db_sub.start_date + timedelta(days=db_sub.interval_days)
+    db_sub.renewal_url = None
+    db_sub.updated_at = datetime.utcnow()
+    if user:
+        user.plan = db_sub.plan_type
+        user.updated_at = datetime.utcnow()
+    await db.commit()
+
+    logger.info(f"Manual verification succeeded for sub {sub_id}: activated via polling")
+    return {"message": "Subscription verified and activated!"}
+
 @router.post("/webhook")
 async def nowpayments_webhook(request: Request, db: AsyncSession = Depends(get_session)):
+    # FIXED: Read body ONCE, then derive preview as str (avoids multiple reads + type error)
     body = await request.body()
+    body_str = body.decode('utf-8', errors='ignore')  # Safe decode for preview/logging
+    body_preview = body_str[:500] + "..." if len(body_str) > 500 else body_str
+    logger.info(f"[WEBHOOK ENTRY] Incoming webhook: headers={dict(request.headers)}, body_preview={body_preview}")
+    
     sig = request.headers.get("x-nowpayments-sig")
-    if not verify_ipn(body, sig, settings.NOWPAYMENTS_IPN_SECRET):
+    if not verify_ipn(body, sig, settings.NOWPAYMENTS_IPN_SECRET):  # Use raw bytes for HMAC
         logger.warning("Invalid IPN signature received")
         raise HTTPException(status_code=401, detail="Invalid signature")
 
     try:
-        data = json.loads(body)
+        data = json.loads(body)  # Parse raw bytes as JSON
     except json.JSONDecodeError:
         logger.error("Invalid JSON in webhook body")
         raise HTTPException(status_code=400, detail="Invalid JSON body")
@@ -513,6 +597,9 @@ async def nowpayments_webhook(request: Request, db: AsyncSession = Depends(get_s
         logger.info(f"Webhook ignored: missing payment_id or order_id")
         return {"status": "ignored"}
 
+    # ADDED: Log full payload for debugging (remove/sanitize in high-traffic prod)
+    logger.info(f"[WEBHOOK DEBUG] Full payload for {payment_id}: {json.dumps(data, indent=2)}")
+
     # Parse order_id early for user_id/plan_type
     match = re.match(r"^(\d+)_(.+?)(?:_renew)?$", order_id)
     if not match:
@@ -528,6 +615,10 @@ async def nowpayments_webhook(request: Request, db: AsyncSession = Depends(get_s
             trader_id = int(trader_match.group(1))
             logger.info(f"[WEBHOOK DEBUG] Parsed marketplace: trader_id={trader_id}, extra={trader_match.group(2)}")  # e.g., 'monthly'
 
+    # ADDED: Fallback search by exact order_id if plan_type match fails
+    order_result = await db.execute(select(Subscription).where(Subscription.order_id == order_id))
+    db_sub_from_order = order_result.scalars().first()
+
     # Find matching sub (for Payment linking)
     where_clause = [
         Subscription.user_id == user_id,
@@ -540,9 +631,17 @@ async def nowpayments_webhook(request: Request, db: AsyncSession = Depends(get_s
         select(Subscription).where(*where_clause).order_by(Subscription.id.desc())
     )
     db_sub = result.scalars().first()
+    
+    # Use fallback if needed
+    if not db_sub and db_sub_from_order:
+        db_sub = db_sub_from_order
+        logger.info(f"[WEBHOOK DEBUG] Using fallback sub from exact order_id match: {db_sub.id}")
+    
     if not db_sub:
         logger.info(f"Webhook ignored: no matching sub for order_id {order_id} (looked for plan_type='{plan_type}')")
         return {"status": "ignored"}
+
+    logger.info(f"[WEBHOOK DEBUG] Matched sub {db_sub.id} (status: {db_sub.status}, plan_type: {db_sub.plan_type}) for order_id {order_id}")
 
     # ALWAYS update/create Payment record
     result = await db.execute(select(Payment).where(Payment.nowpayments_payment_id == payment_id))
@@ -552,15 +651,26 @@ async def nowpayments_webhook(request: Request, db: AsyncSession = Depends(get_s
     if data.get("pay_date"):
         pay_date = datetime.fromisoformat(data["pay_date"].replace("Z", "+00:00"))
 
-    # FIXED: Use correct NowPayments fields: actually_paid (crypto), actually_paid_at_fiat (USD equiv)
+    # FIXED: Compute USD equiv if missing (use ratio to avoid external API calls)
+    expected_usd = float(data.get("price_amount", db_sub.amount_usd))
+    pay_amount_crypto = float(data.get("pay_amount", 0))  # Expected crypto amount
     actually_paid_crypto = float(data.get("actually_paid", existing_payment.amount_paid_crypto if existing_payment else 0))
     actually_paid_usd = float(data.get("actually_paid_at_fiat", 0))
+
+    if actually_paid_usd == 0 and pay_amount_crypto > 0:
+        # Compute proportional USD: (paid_crypto / expected_crypto) * expected_usd
+        paid_ratio = actually_paid_crypto / pay_amount_crypto
+        actually_paid_usd = paid_ratio * expected_usd
+        logger.info(f"[USD COMPUTE] Missing fiat; computed ${actually_paid_usd:.4f} from ratio {paid_ratio:.4f} "
+                    f"({actually_paid_crypto} / {pay_amount_crypto} MATIC × ${expected_usd:.2f})")
 
     if existing_payment:
         existing_payment.status = payment_status  # Now normalized lowercase
         existing_payment.paid_at = pay_date
         existing_payment.amount_paid_crypto = actually_paid_crypto  # FIXED: From actually_paid
+        existing_payment.amount_paid_usd = actually_paid_usd  # NEW: USD equiv for partials
         existing_payment.updated_at = datetime.utcnow()
+        logger.info(f"[WEBHOOK DEBUG] Updated existing Payment {existing_payment.id} for {payment_id}")
     else:
         db_payment = Payment(
             user_id=user_id,
@@ -568,49 +678,55 @@ async def nowpayments_webhook(request: Request, db: AsyncSession = Depends(get_s
             nowpayments_payment_id=payment_id,
             amount_usd=float(data.get("price_amount", 0)),
             amount_paid_crypto=actually_paid_crypto,  # FIXED: From actually_paid
+            amount_paid_usd=actually_paid_usd,  # NEW: USD equiv for partials
             crypto_currency=data.get("pay_currency"),  # FIXED: Use pay_currency (standard field)
             status=payment_status,  # Normalized lowercase
             invoice_url=data.get("invoice_url"),
             paid_at=pay_date
         )
         db.add(db_payment)
+        logger.info(f"[WEBHOOK DEBUG] Created new Payment for {payment_id}, linked to sub {db_sub.id}")
 
     await db.commit()  # Commit Payment early
 
-    # NEW: Auto-complete logic for partials
-    effective_status = payment_status
+    # SIMPLIFIED: Handle partials via NowPayments covering (trust "finished" if within tolerance)
+    # For true partials (< covering %), log and optionally notify user to top-up
     if payment_status == "partially_paid":
         # IMPROVED: Log full payload for debugging (remove in prod)
         logger.info(f"[DEBUG] Partial payload for {payment_id}: {json.dumps(data, indent=2)}")
 
-        expected_usd = float(data.get("price_amount", db_sub.amount_usd))
-        # FIXED: Use actually_paid_at_fiat directly (USD equiv, no exchange_rate needed)
-        paid_usd_equiv = actually_paid_usd
+        diff_usd = expected_usd - actually_paid_usd
+        logger.info(f"[PARTIAL DEBUG] Expected: ${expected_usd:.2f}, Paid USD equiv: ${actually_paid_usd:.2f}, Shortfall: ${diff_usd:.2f}")
 
-        diff_usd = expected_usd - paid_usd_equiv
-        tolerance_abs = 1.0
-        tolerance_pct = 0.05  # 5%
-        tolerance_usd = max(tolerance_abs, expected_usd * tolerance_pct)
+        # Optional: Email user "Partial received—top up ${diff_usd:.2f} to complete"
+        # TODO: Integrate your email service here
 
-        logger.info(f"[PARTIAL DEBUG] Expected: ${expected_usd:.2f}, Paid USD equiv: ${paid_usd_equiv:.2f} (from actually_paid_at_fiat), Diff: ${diff_usd:.2f}, Tolerance: ${tolerance_usd:.2f}")
+    # Handle sub/trader only for final statuses
+    if payment_status in ["finished", "failed", "refunded"]:
+        # ADDED: Tolerance check for 'finished' but slight underpay (e.g., volatility)
+        if payment_status == "finished":
+            paid = actually_paid_usd  # Now reliable
+            expected = expected_usd
+            if paid < expected * 0.95:  # 5% tolerance for underpay
+                logger.warning(f"[TOLERANCE DEBUG] Finished but underpaid for {payment_id}: ${paid:.2f} vs ${expected:.2f} (short by ${(expected - paid):.2f}) - treating as partial")
+                # Downgrade to partial handling (no sub activation)
+                payment_status = "partially_paid"
+                # Re-update payment status
+                if existing_payment:
+                    existing_payment.status = payment_status
+                else:
+                    db_payment.status = payment_status
+                await db.commit()
+            else:
+                logger.info(f"[TOLERANCE DEBUG] Finished payment within tolerance: ${paid:.2f} >= ${expected * 0.95:.2f}")
 
-        if 0 < diff_usd <= tolerance_usd:
-            effective_status = "finished"  # Internal: Treat as complete
-            logger.warning(f"AUTO-COMPLETED partial {payment_id}: overlooked ${diff_usd:.2f} diff for sub {db_sub.id}")
-            # Optional: Add a note to Payment (assumes 'notes' field exists; add if not)
-            payment_to_update = existing_payment or db_payment
-            payment_to_update.status = "finished_auto"  # Custom flag for audits
-            payment_to_update.notes = f"Auto-completed: overlooked ${diff_usd:.2f}"
-            await db.commit()
-            # TODO: Notify support via email/Slack: f"Auto-completed partial for user {user_id}: {diff_usd}"
-        else:
-            logger.info(f"Partial kept as-is: diff ${diff_usd:.2f} > tolerance ${tolerance_usd:.2f}")
-            # Optional: Email user "Partial received—top up ${diff_usd:.2f} to complete"
+        if payment_status == "partially_paid":
+            logger.info(f"Webhook partial/update: payment {payment_id} status {payment_status} for order {order_id} (sub {db_sub.id}) - awaiting full/covering payment")
+            # Optional: Trigger user email "Partial payment received—send remaining to complete!"
+            return {"status": "ok"}
 
-    # Handle sub/trader only for final statuses (now including our effective_status)
-    if effective_status in ["finished", "failed", "refunded"]:
         # Handle trader earnings on success
-        if trader_id and effective_status == "finished":
+        if trader_id and payment_status == "finished":
             trader = await db.get(User, trader_id)
             if trader:
                 earnings = db_sub.amount_usd * 0.7
@@ -618,13 +734,9 @@ async def nowpayments_webhook(request: Request, db: AsyncSession = Depends(get_s
                 await db.commit()
                 logger.info(f"Credited trader {trader_id} ${earnings:.2f} from {order_id}")
 
-        # Update sub status
-        user = await db.get(User, user_id)
-        if not user:
-            logger.warning(f"User {user_id} not found for webhook")
-            return {"status": "ok"}
-
-        if effective_status == "finished":
+        # Update sub status FIRST (before user fetch)
+        user_plan = None
+        if payment_status == "finished":
             db_sub.status = "active"
             if "_renew" in order_id:
                 db_sub.next_billing_date += timedelta(days=db_sub.interval_days)
@@ -632,19 +744,30 @@ async def nowpayments_webhook(request: Request, db: AsyncSession = Depends(get_s
                 # Initial: Set from start_date
                 db_sub.next_billing_date = db_sub.start_date + timedelta(days=db_sub.interval_days)
             db_sub.renewal_url = None  # Clear after payment
-            user.plan = plan_type
-        elif effective_status in ["failed", "refunded"]:
+            user_plan = plan_type
+            logger.info(f"[SUB UPDATE] Activated sub {db_sub.id} as active (initial/renew: {'renew' if '_renew' in order_id else 'initial'})")
+        elif payment_status in ["failed", "refunded"]:
             db_sub.status = "paused"
-            user.plan = "starter"
+            user_plan = "starter"
+            logger.info(f"[SUB UPDATE] Paused sub {db_sub.id} due to {payment_status}")
 
         db_sub.updated_at = datetime.utcnow()
-        user.updated_at = datetime.utcnow()
+
+        # Now update user if exists
+        user = await db.get(User, user_id)
+        if user:
+            user.plan = user_plan
+            user.updated_at = datetime.utcnow()
+            logger.info(f"[USER UPDATE] Set user {user_id} plan to {user_plan}")
+        else:
+            logger.error(f"[USER ERROR] Sub {db_sub.id} updated but user {user_id} not found - manual intervention needed!")
+
         await db.commit()
 
-        logger.info(f"Webhook processed: effective {effective_status} for payment {payment_id} status {payment_status} for order {order_id} (sub {db_sub.id})")
+        logger.info(f"Webhook processed: {payment_status} for payment {payment_id} for order {order_id} (sub {db_sub.id})")
     else:
         # For partials/waiting: Log and maybe notify
-        logger.info(f"Webhook partial/update: payment {payment_id} status {payment_status} for order {order_id} (sub {db_sub.id}) - awaiting full payment")
+        logger.info(f"Webhook partial/update: payment {payment_id} status {payment_status} for order {order_id} (sub {db_sub.id}) - awaiting full/covering payment")
         # Optional: Trigger user email "Partial payment received—send remaining to complete!"
 
     return {"status": "ok"}
@@ -756,3 +879,14 @@ async def manual_complete_payment(
     
     logger.info(f"Manually completed {payment_id} for sub {db_sub.id}: {reason}")
     return {"message": "Payment completed, subscription activated!"}
+
+# NEW: Public status API for polling (no auth)
+@router.get("/sub-status/{sub_id}")
+async def sub_status(sub_id: int, db: AsyncSession = Depends(get_session)):
+    result = await db.execute(
+        select(Subscription.status, User.email).join(User, Subscription.user_id == User.id).where(Subscription.id == sub_id)
+    )
+    row = result.first()
+    if row:
+        return {"active": row.status == "active", "email": row.email or ""}
+    return {"active": False, "email": ""}

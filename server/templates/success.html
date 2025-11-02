@@ -3,70 +3,161 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>iTrade Journal — Subscription Confirmed</title>
-
-  <!-- Fonts + Bootstrap -->
+  <title>Payment Success — iTradex</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
-
   <style>
-    :root{
-      --brand-500:#2F6BFF;
-      --success:#22C55E;
-      --muted:#64748B;
-      --bg:#F8FAFC;
-      --surface:#FFFFFF;
-      --border:#E6EEF8;
-      --radius:12px;
-      --shadow:0 10px 30px rgba(15,23,42,0.08);
+    :root {
+      --brand-500: #2F6BFF;
+      --brand-600: #1F55E0;
+      --accent-cyan: #06B6D4;
+      --success: #22C55E;
+      --danger: #EF4444;
+      --gold: #FCD34D;
+      --bg: #F8FAFC;
+      --surface: #FFFFFF;
+      --text: #0F1724;
+      --muted: #64748B;
+      --border: #E6EEF8;
+      --radius: 16px;
+      --shadow: 0 20px 40px rgba(15,23,42,0.08);
+      --shadow-lg: 0 25px 50px -12px rgba(0,0,0,0.15);
     }
-    body{
-      background:var(--bg);
-      color:#0F1724;
-      font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial;
+
+    [data-theme="dark"] {
+      --bg: #0B0F16;
+      --surface: #1A1F2B;
+      --text: #E5E7EB;
+      --muted: #94A3B8;
+      --border: rgba(148,163,184,0.18);
+      --shadow: 0 20px 40px rgba(0,0,0,0.5);
+      --shadow-lg: 0 25px 50px -12px rgba(0,0,0,0.25);
+      color-scheme: dark;
     }
-    .page-container{min-height:100vh;display:flex;flex-direction:column}
-    main{flex:1;display:flex;justify-content:center;align-items:center;padding:40px 16px}
-    .success-card{
-      background:var(--surface);
-      border:1px solid var(--border);
-      border-radius:var(--radius);
-      box-shadow:var(--shadow);
-      padding:40px;
-      max-width:480px;
-      width:100%;
-      text-align:center;
+
+    [data-theme="dark"] .text-muted { color: var(--muted) !important; }
+    [data-theme="dark"] .btn-outline-primary { color: var(--brand-500); border-color: var(--brand-500); }
+    [data-theme="dark"] .btn-outline-primary:hover { background-color: var(--brand-500); color: white; }
+    [data-theme="dark"] .btn-primary { background-color: var(--brand-500); border-color: var(--brand-500); }
+    [data-theme="dark"] .plan-card.border-primary { border-color: var(--brand-500); }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+      transition: background 0.3s ease, color 0.3s ease;
     }
-    .success-icon{
-      font-size:3rem;
-      color:var(--success);
-      margin-bottom:20px;
-    }
-    .btn-primary{
-      background:var(--brand-500);
-      border:none;
-      border-radius:10px;
-      height:48px;
-      font-weight:600;
-    }
-    footer{padding:18px 0;text-align:center;color:var(--muted);font-size:.9rem}
+
+    nav.navbar { background: transparent; padding: 20px 0; }
+    .brand { font-weight: 700; color: var(--brand-500); font-size: 1.125rem; display: flex; align-items: center; gap: 10px; }
+    .success-container { max-width: 500px; margin: 2rem auto; padding: 2rem; text-align: center; background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); }
+    .success-icon { font-size: 4rem; color: var(--success); margin-bottom: 1rem; }
+    .processing-icon { font-size: 4rem; color: var(--brand-500); margin-bottom: 1rem; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    .btn-login { background: var(--brand-500); color: white; border: none; padding: 12px 24px; border-radius: var(--radius); font-weight: 600; transition: all 0.2s; display: block; margin: 1rem auto; max-width: 250px; }
+    .btn-login:hover { background: var(--brand-600); transform: translateY(-1px); }
+    .email-highlight { background: linear-gradient(135deg, rgba(47,107,255,0.1), rgba(252,211,77,0.1)); padding: 4px 8px; border-radius: 6px; font-family: 'SF Mono', monospace; color: var(--brand-500); font-weight: 600; }
+    [data-theme="dark"] .email-highlight { background: linear-gradient(135deg, rgba(47,107,255,0.2), rgba(252,211,77,0.2)); }
+    .auto-redirect { font-size: 0.9rem; color: var(--muted); margin-top: 1rem; }
+    .form-control { max-width: 250px; display: inline-block; margin-right: 0.5rem; }
+    .polling-status { font-size: 0.9rem; color: var(--muted); margin-top: 1rem; }
+    .btn-refresh { background: var(--brand-500); color: white; border: none; padding: 8px 16px; border-radius: 6px; font-size: 0.85rem; margin-left: 0.5rem; }
+    .status-updating { color: var(--brand-500); }
+    .status-success { color: var(--success); }
+    .status-error { color: var(--danger); }
+    footer { padding: 30px 0; text-align: center; color: var(--muted); font-size: .9rem; }
   </style>
 </head>
 <body>
   <div class="page-container">
-    <main>
-      <div class="success-card">
-        <div class="success-icon"><i class="bi bi-check-circle-fill"></i></div>
-        <h2 class="fw-bold">You're all set</h2>
-        <p class="text-muted mt-2 mb-4">Your subscription to <strong>Pro Plan</strong> is active.  
-        You can now access all features and start journaling smarter.</p>
-        <a href="dashboard.html" class="btn btn-primary w-100">Go to Dashboard</a>
+    <nav class="navbar container">
+      <a class="brand" href="/"><i class="bi bi-graph-up-arrow fs-3"></i> iTrade</a>
+    </nav>
+
+    <main class="container">
+      <div class="success-container" id="successContainer">
+        {% if payment_status == "confirmed" %}
+          <i class="bi bi-check-circle-fill success-icon"></i>
+          <h1 class="mb-3">Payment Successful!</h1>
+          <p class="text-muted mb-4">Your {{ plan_type.replace('_', ' ').title() if plan_type else 'subscription' }}{% if is_marketplace %} Marketplace{% endif %} is now active.</p>
+          {% if user_email %}
+            <div class="email-highlight mb-3">Logged in as: {{ user_email }}</div>
+            <p class="text-muted">Already signed in? <a href="/dashboard">Go to Dashboard</a></p>
+          {% else %}
+            <p class="text-muted mb-4">Sign in to unlock your premium features instantly.</p>
+            <form action="/login" method="POST" style="display: inline;">
+              <input type="email" name="email" value="{{ user_email or '' }}" placeholder="your@email.com" required class="form-control">
+              <input type="hidden" name="next" value="/dashboard">
+              <button type="submit" class="btn-login">Sign In & Continue</button>
+            </form>
+            <div class="auto-redirect">Or <a href="/signup?next=/dashboard">sign up</a> for a new account.</div>
+          {% endif %}
+        {% else %}
+          <i class="bi bi-clock processing-icon"></i>
+          <h1 class="mb-3">Payment Processing</h1>
+          <p class="text-muted mb-4">We've received your payment (Sub ID: {{ sub_id or 'N/A' }}). Activating your subscription now—it may take a moment for the network to confirm.</p>
+          <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;"></div>
+          <div class="polling-status" id="pollingStatus">Checking status... <button class="btn-refresh" onclick="pollStatus()">Refresh</button></div>
+          <p class="text-muted">If delayed, <a href="/login?next=/dashboard">sign in</a> to check manually.</p>
+        {% endif %}
       </div>
     </main>
+
     <footer>
-      <div class="container small">© iTrade Journal · <a href="#" class="text-muted">Support</a></div>
+      <div class="container">Secure crypto payments via NowPayments. Cancel anytime.</div>
     </footer>
   </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    (function() {
+      const savedTheme = localStorage.getItem('theme') || 'light';
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    })();
+
+    // FIXED: Polling via API (no reload—updates UI dynamically)
+    let pollInterval;
+    function pollStatus() {
+      const subId = new URLSearchParams(window.location.search).get('sub_id');
+      if (!subId || '{{ payment_status }}' === 'confirmed') return;
+
+      const statusEl = document.getElementById('pollingStatus');
+      statusEl.innerHTML = 'Checking status... <button class="btn-refresh" onclick="pollStatus()">Refresh</button>';
+      statusEl.className = 'polling-status status-updating';
+
+      fetch(`/payments/sub-status/${subId}`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.active) {
+            statusEl.innerHTML = '✅ Subscription activated! Reloading page...';
+            statusEl.className = 'polling-status status-success';
+            setTimeout(() => location.reload(), 1500);  // Reload once active
+          } else {
+            statusEl.innerHTML = `⏳ Still processing (email: ${data.email || 'N/A'})... <button class="btn-refresh" onclick="pollStatus()">Refresh</button>`;
+            statusEl.className = 'polling-status status-updating';
+          }
+        })
+        .catch(error => {
+          console.error('Polling error:', error);
+          statusEl.innerHTML = '❌ Check failed—try refresh. <button class="btn-refresh" onclick="pollStatus()">Retry</button>';
+          statusEl.className = 'polling-status status-error';
+        });
+    }
+
+    // Auto-start polling if processing
+    if ('{{ payment_status }}' !== 'confirmed') {
+      pollInterval = setInterval(pollStatus, 5000);  // Every 5s
+      setTimeout(() => clearInterval(pollInterval), 120000);  // Stop after 2min
+      pollStatus();  // Initial check
+    } else {
+      // Confirmed: 3s auto-redirect if no email
+      setTimeout(() => {
+        if (!{{ has_email | tojson }}) {
+          window.location.href = '/dashboard';
+        }
+      }, 3000);
+    }
+  </script>
 </body>
 </html>

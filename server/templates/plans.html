@@ -1,4 +1,3 @@
-<!-- templates/plans.html -->
 <!doctype html>
 <html lang="en" data-theme="light">
 <head>
@@ -193,6 +192,7 @@
       </div>
     </main>
 
+    <!-- Processing Modal -->
     <div class="modal fade processing-modal" id="processingModal" tabindex="-1" aria-labelledby="processingModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -209,14 +209,15 @@
               <span class="fw-medium">Generating encrypted payment link</span>
             </div>
             <div class="progress-step">
-              <i class="bi bi-envelope-heart text-info"></i>
-              <span class="fw-medium">Delivering to your inbox</span>
+              <i class="bi bi-currency-bitcoin text-info"></i>
+              <span class="fw-medium">Ready for instant checkout</span>
             </div>
           </div>
         </div>
       </div>
     </div>
 
+    <!-- Confirmation Modal -->
     <div class="modal fade checkout-modal" id="confirmationModal" tabindex="-1" aria-labelledby="confirmationModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -245,27 +246,18 @@
                 <span id="totalAmount" class="text-success fw-bold"></span>
               </div>
             </div>
-            <div class="email-alert">
-              <i class="bi bi-envelope-check-fill text-info fs-5 float-end"></i>
-              <div class="email-details">
-                <p class="mb-0"><strong>From:</strong> noreply@nowpayments.io</p>
-                <p class="mb-0"><strong>To:</strong> <span class="email-highlight" id="userEmail"></span></p>
-                <p class="mb-1"><strong>Subject:</strong> Secure Your iTrade Premium</p>
-                <p class="text-muted small mb-0">Check Spam if needed.</p>
-              </div>
-            </div>
             <h6 class="fw-bold mb-2 text-uppercase text-muted small">Next Steps</h6>
             <div class="step-card">
               <div class="step-icon"><i class="bi bi-1-circle"></i></div>
               <div class="step-text">
-                <p class="step-title">Open Invite</p>
-                <p class="step-desc">Click link – expires in 24h for security.</p>
+                <p class="step-title">Click Pay Now</p>
+                <p class="step-desc">Direct crypto checkout – no email required.</p>
               </div>
             </div>
             <div class="step-card">
               <div class="step-icon"><i class="bi bi-2-circle"></i></div>
               <div class="step-text">
-                <p class="step-title">Pay with Crypto</p>
+                <p class="step-title">Pay with Any Crypto</p>
                 <p class="step-desc">BTC, ETH, USDT + 100+ options. Instant.</p>
               </div>
             </div>
@@ -273,7 +265,7 @@
               <div class="step-icon"><i class="bi bi-3-circle"></i></div>
               <div class="step-text">
                 <p class="step-title">Unlock Access</p>
-                <p class="step-desc">Premium activates immediately.</p>
+                <p class="step-desc">Premium activates immediately after payment.</p>
               </div>
             </div>
             <div class="vip-alert" {% if effective_discount > 0 %}style="display:flex;"{% else %}style="display:none;"{% endif %}>
@@ -282,20 +274,15 @@
               <span class="fw-semibold flex-grow-1">{{ "%.0f"|format(effective_discount) }}% off first month included.</span>
             </div>
           </div>
-          <div class="modal-footer">
-            <div class="d-grid gap-2">
-              <button class="btn btn-premium" id="openEmailBtn">
-                <i class="bi bi-envelope-open-heart"></i>
-                Open Email & Pay
-              </button>
-              <button class="btn btn-secondary-premium" id="dashboardBtn">
-                <i class="bi bi-house-door"></i>
-                Back to Dashboard
-              </button>
-            </div>
-            <small class="text-muted text-center mt-3 d-block">
-              Powered by NowPayments. Cancel anytime. <a href="mailto:contact@itradex.xyz" class="text-primary fw-semibold">Support</a>.
-            </small>
+          <div class="modal-footer d-flex flex-column gap-2">
+            <!-- Pay Now Button (Direct Invoice Link) -->
+            <a id="direct-pay-btn" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-success w-100 mb-2 d-none">
+              <i class="bi bi-currency-bitcoin"></i> Pay Now with Crypto — Instant Access
+            </a>
+            <button class="btn btn-secondary-premium w-100" id="marketplaceDashboardBtn">
+              <i class="bi bi-house-door"></i>
+              Back to Dashboard
+            </button>
           </div>
         </div>
       </div>
@@ -321,29 +308,25 @@
       const eliteBtn = document.getElementById('elite-btn');
       const processingModal = new bootstrap.Modal(document.getElementById('processingModal'), {backdrop: 'static', keyboard: false});
       const confirmationModal = new bootstrap.Modal(document.getElementById('confirmationModal'), {backdrop: 'static', keyboard: false});
+
+      const directPayBtn = document.getElementById('direct-pay-btn');
+      const dashboardBtn = document.getElementById('marketplaceDashboardBtn');
+
       const userEmailSpan = document.getElementById('userEmail');
       const selectedPlanNameSpan = document.getElementById('selectedPlanName');
-      const selectedPlanNameSubSpan = document.getElementById('selectedPlanNameSub');
       const selectedPlanNameSumSpan = document.getElementById('selectedPlanNameSum');
       const processingPlanNameSpan = document.getElementById('processingPlanName');
       const billingCycleSpan = document.getElementById('billingCycle');
       const totalAmountSpan = document.getElementById('totalAmount');
-      const openEmailBtn = document.getElementById('openEmailBtn');
-      const dashboardBtn = document.getElementById('dashboardBtn');
 
       let selectedPlan = 'pro';
       let selectedInterval = 'monthly';
 
-      function safeSetText(element, value) {
-        if (element) {
-          element.textContent = value;
-        } else {
-          console.error(`Element not found for text update: ${value}`);
-        }
-      }
+      function safeSetText(el, txt) { if (el) el.textContent = txt; }
 
+      // Interval toggle
       intervalButtons.forEach(btn => {
-        btn.addEventListener('click', (e) => {
+        btn.addEventListener('click', e => {
           const plan = e.target.dataset.plan;
           const interval = e.target.dataset.interval;
           document.querySelectorAll(`[data-plan="${plan}"]`).forEach(b => b.classList.remove('active'));
@@ -355,7 +338,8 @@
 
       function handleCheckout(plan, interval) {
         const btn = plan === 'pro' ? proBtn : eliteBtn;
-        const originalText = btn.innerHTML;
+        if (!btn) return;
+        const originalHTML = btn.innerHTML;
         btn.disabled = true;
         const planName = plan.charAt(0).toUpperCase() + plan.slice(1);
         safeSetText(processingPlanNameSpan, planName);
@@ -367,72 +351,69 @@
           credentials: 'include',
           body: JSON.stringify({ plan, interval })
         })
-        .then(res => {
-          if (!res.ok) {
-            return res.json().then(err => { throw new Error(err.detail || 'Failed to create subscription'); });
-          }
-          return res.json();
+        .then(r => {
+          if (!r.ok) return r.json().then(err => { throw new Error(err.detail || 'Failed'); });
+          return r.json();
         })
         .then(data => {
-          console.log('Checkout data:', data);
           processingModal.hide();
           confirmationModal.show();
-          safeSetText(userEmailSpan, data.email || 'your email');
+
           safeSetText(selectedPlanNameSpan, planName);
-          safeSetText(selectedPlanNameSubSpan, planName);
           safeSetText(selectedPlanNameSumSpan, planName);
           safeSetText(billingCycleSpan, interval.charAt(0).toUpperCase() + interval.slice(1));
-          
+
           const basePrice = nestedPricing[plan][interval];
           const monthlyEquiv = nestedPricing[plan].monthly;
           const discountPerc = {{ effective_discount }};
-          
-          let discountedTotal = basePrice;
+
+          let final = basePrice;
           if (discountPerc > 0) {
             const discount = monthlyEquiv * (discountPerc / 100);
-            discountedTotal = basePrice - discount;
+            final = basePrice - discount;
             const discountRow = document.getElementById('discountRow');
             const discountText = document.getElementById('discountText');
             if (discountRow && discountText) {
-              discountText.textContent = `-${discountPerc.toFixed(0)}% First Month`;
+              discountText.textContent = `-${discountPerc}% First Month`;
               discountRow.style.display = 'flex';
             }
           }
-          safeSetText(totalAmountSpan, `$${Math.max(discountedTotal, 0.01).toFixed(2)}`);
-          
-          const emailProviders = {
-            'gmail.com': 'https://mail.google.com',
-            'outlook.com': 'https://outlook.live.com',
-            'hotmail.com': 'https://outlook.live.com',
-            'yahoo.com': 'https://mail.yahoo.com',
-            'icloud.com': 'https://www.icloud.com/mail'
-          };
-          const emailDomain = (data.email || '').split('@')[1];
-          const emailUrl = emailProviders[emailDomain] || 'mailto:';
-          openEmailBtn.onclick = () => { window.open(emailUrl, '_blank'); };
-          dashboardBtn.onclick = () => {
-            confirmationModal.hide();
-            window.location.href = '/dashboard';
-          };
+          safeSetText(totalAmountSpan, `$${Math.max(final, 0.01).toFixed(2)}`);
+
+          // === DIRECT PAYMENT LINK — 100% IMMEDIATE ===
+          if (data.invoice_url) {
+            directPayBtn.href = data.invoice_url;
+            directPayBtn.classList.remove('d-none');
+          } else {
+            directPayBtn.classList.add('d-none');
+            alert('Payment link failed to generate. Please try again or contact support.');
+          }
+
+          if (dashboardBtn) {
+            dashboardBtn.onclick = () => {
+              confirmationModal.hide();
+              window.location.href = '/dashboard';
+            };
+          }
         })
         .catch(err => {
-          console.error('Checkout error:', err);
           processingModal.hide();
-          alert('Checkout setup failed: ' + err.message + '\n\nPlease try again or contact support.');
+          alert('Checkout failed: ' + err.message + '\n\nPlease try again or contact support.');
         })
         .finally(() => {
           setTimeout(() => {
-            btn.disabled = false;
-            btn.innerHTML = originalText;
+            if (btn) {
+              btn.disabled = false;
+              btn.innerHTML = originalHTML;
+            }
           }, 2000);
         });
       }
 
-      proBtn.addEventListener('click', () => handleCheckout('pro', selectedInterval));
-      eliteBtn.addEventListener('click', () => handleCheckout('elite', selectedInterval));
+      if (proBtn) proBtn.addEventListener('click', () => handleCheckout('pro', selectedInterval));
+      if (eliteBtn) eliteBtn.addEventListener('click', () => handleCheckout('elite', selectedInterval));
 
       const proMonthly = document.querySelector('[data-plan="pro"][data-interval="monthly"]');
-      const eliteMonthly = document.querySelector('[data-plan="elite"][data-interval="monthly"]');
       if (proMonthly) proMonthly.click();
     });
   </script>

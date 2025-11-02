@@ -808,13 +808,13 @@
             <h2>Your go-to strategy</h2>
             <p class="text-muted mb-4">We'll refine this from your trades.</p>
             <div class="strategy-dropdown">
-              <input type="text" class="strategy-input form-control" id="strategyInput" placeholder="Select or type (e.g., Scalping)" readonly aria-label="Strategy selection">
+              <input type="text" class="strategy-input form-control" id="strategyInput" placeholder="Select or type (e.g., Scalping)" aria-label="Strategy selection">
               <div class="strategy-options" id="strategyOptions" role="listbox" aria-label="Strategy options">
-                <div class="strategy-option" data-strat="scalping" role="option">Scalping</div>
-                <div class="strategy-option" data-strat="swing" role="option">Swing Trading</div>
-                <div class="strategy-option" data-strat="breakout" role="option">Breakout</div>
-                <div class="strategy-option" data-strat="rsi" role="option">RSI Divergence</div>
-                <div class="strategy-option" data-strat="custom" role="option">Custom...</div>
+                <div class="strategy-option" data-strat="Scalping" role="option">Scalping</div>
+                <div class="strategy-option" data-strat="Swing Trading" role="option">Swing Trading</div>
+                <div class="strategy-option" data-strat="Breakout" role="option">Breakout</div>
+                <div class="strategy-option" data-strat="RSI Divergence" role="option">RSI Divergence</div>
+                <div class="strategy-option" data-strat="Reversal" role="option">Reversal</div>
               </div>
             </div>
             <textarea class="custom-desc form-control" id="strategyDesc" placeholder="Describe your strategy or key parameters (e.g., 'EMA Crossover on 1h charts')" aria-label="Strategy description"></textarea>
@@ -1032,10 +1032,23 @@
         strategyOptions.style.display = strategyOptions.style.display === 'block' ? 'none' : 'block';
       });
 
+      strategyInput.addEventListener('input', () => {
+        selectedStrategy = strategyInput.value.toLowerCase().trim() || '';
+        strategyOptions.style.display = 'none';
+      });
+
       document.querySelectorAll('.strategy-option').forEach(option => {
         option.addEventListener('click', () => {
-          selectedStrategy = option.dataset.strat;
-          strategyInput.value = selectedStrategy.charAt(0).toUpperCase() + selectedStrategy.slice(1);
+          const stratValue = option.dataset.strat;
+          if (stratValue === 'custom') {
+            strategyInput.value = '';
+            strategyInput.focus();
+            strategyInput.removeAttribute('readonly');
+          } else {
+            selectedStrategy = stratValue;
+            strategyInput.value = stratValue.charAt(0).toUpperCase() + stratValue.slice(1);
+            strategyInput.setAttribute('readonly', true);
+          }
           strategyOptions.style.display = 'none';
           document.querySelectorAll('.strategy-option').forEach(o => o.classList.remove('selected'));
           option.classList.add('selected');

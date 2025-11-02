@@ -1,3 +1,4 @@
+# Updated models/models.py
 from sqlalchemy import Column, Integer, String, Text, JSON, Float, ForeignKey, DateTime, Boolean, Date, Enum as SQLEnum
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -58,6 +59,13 @@ class User(Base):
     psych_zone = Column(String, nullable=True)  # Psychological state or trading zone
     strategy = Column(String, nullable=True)
     strategy_desc = Column(Text, nullable=True)
+    preferred_strategies = Column(Text, nullable=True)  # e.g., "Momentum, Breakouts, Scalping" (FIXED: Added field)
+
+    # NEW: For marketplace
+    is_trader_pending = Column(Boolean, default=False)
+    is_trader = Column(Boolean, default=False)  # Opt-in to be discoverable
+    win_rate = Column(Float, default=0.0)  # Cached/computed win rate
+    marketplace_price = Column(Float, default=19.99, nullable=False)  # Monthly subscription price for this trader
 
     ai_detect = Column(Boolean, default=True)  # Enable AI trade detection
     risk_per_trade = Column(Float, nullable=True, default=1.0)  # Default risk % per trade
@@ -75,7 +83,8 @@ class User(Base):
     
     trades = relationship("Trade", back_populates="owner", cascade="all, delete-orphan")
     insights = relationship("TradeInsight", back_populates="user", cascade="all, delete-orphan")
-    subscriptions = relationship("Subscription", back_populates="user", cascade="all, delete-orphan")
+    # FIXED: Specify foreign_keys to resolve multiple FK paths (user_id vs trader_id)
+    subscriptions = relationship("Subscription", back_populates="user", foreign_keys="Subscription.user_id", cascade="all, delete-orphan")
 
 class Trade(Base):
     __tablename__ = "trades"
@@ -124,19 +133,19 @@ class Subscription(Base):
     __tablename__ = "subscriptions"
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    nowpayments_plan_id = Column(String, nullable=False)
-    nowpayments_sub_id = Column(String, unique=True, nullable=False)
+    trader_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # For marketplace subs
     order_id = Column(String, nullable=True)
     order_description = Column(String, nullable=True)
-    plan_type = Column(String, nullable=False)  # e.g., starter, premium
+    plan_type = Column(String, nullable=False)  # e.g., pro_monthly, marketplace_trader_1_monthly
     interval_days = Column(Integer, nullable=False)  # Billing interval
     amount_usd = Column(Float, nullable=False)
-    status = Column(String, default='active')
+    status = Column(String, default='pending')  # pending, active, paused, cancelled
     start_date = Column(DateTime, default=datetime.utcnow)
     next_billing_date = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    user = relationship("User", back_populates="subscriptions")
+    updated_at = Column(DateTime, default=datetime.utcnow)
+    renewal_url = Column(String, nullable=True)  # NEW: For storing generated invoice URLs
+    user = relationship("User", back_populates="subscriptions", foreign_keys="Subscription.user_id")
     payments = relationship("Payment", back_populates="subscription", cascade="all, delete-orphan")
 
 class Payment(Base):
@@ -144,12 +153,13 @@ class Payment(Base):
     id = Column(Integer, primary_key=True, index=True)
     subscription_id = Column(Integer, ForeignKey("subscriptions.id"), nullable=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    nowpayments_payment_id = Column(String, unique=True, nullable=False)
+    nowpayments_payment_id = Column(String, unique=True, nullable=True)
     amount_usd = Column(Float, nullable=False)
     amount_paid_crypto = Column(Float, nullable=True)
     crypto_currency = Column(String, nullable=True)
     status = Column(String, default='pending')
     invoice_url = Column(String, nullable=True)
+    order_id = Column(String(255))
     paid_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -159,7 +169,7 @@ class Payment(Base):
 class Pricing(Base):
     __tablename__ = "pricing"
     id = Column(Integer, primary_key=True, index=True)
-    plan = Column(String, index=True)  # e.g., starter, premium
+    plan = Column(String, index=True)  # e.g., starter, premium, marketplace
     interval = Column(String, index=True)  # e.g., monthly, yearly
     amount = Column(Float)  # Price in USD
 
@@ -169,3 +179,18 @@ class Discount(Base):
     enabled = Column(Boolean, default=False)
     percentage = Column(Float, default=0.0)
     expiry = Column(Date, nullable=True)  # Discount expiration date
+
+class EligibilityConfig(Base):
+    __tablename__ = 'eligibility_config'
+    id = Column(Integer, primary_key=True, index=True)
+    min_trades = Column(Integer, default=50)
+    min_win_rate = Column(Float, default=80.0)
+    max_marketplace_price = Column(Float, default=99.99)
+    is_active = Column(Boolean, default=True)
+
+class UploadLimits(Base):
+    __tablename__ = "upload_limits"
+    id = Column(Integer, primary_key=True, index=True)
+    plan = Column(String, index=True, unique=True, nullable=False)  # e.g., 'starter', 'pro', 'elite'
+    monthly_limit = Column(Integer, default=3, nullable=False)  # Number of uploads per month
+    batch_limit = Column(Integer, default=3, nullable=False)  # Max files per batch

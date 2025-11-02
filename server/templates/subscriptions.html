@@ -1,0 +1,257 @@
+<!-- subscriptions.html (updated with partial progress display in payments table) -->
+{% extends "base.html" %}
+{% block title %}My Subscriptions - iTrade Journal{% endblock %}
+{% block content %}<style>
+  :root{--brand:#2F6BFF;--brand-dark:#1F55E0;--success:#22C55E;--danger:#EF4444;--warning:#F59E0B;--gold:#FCD34D;--bg:#F8FAFC;--surface:#FFF;--text:#0F1724;--muted:#64748B;--border:#E6EEF8;--radius:16px;--shadow:0 20px 40px rgba(15,23,42,.08);--shadow-lg:0 25px 50px -12px rgba(0,0,0,.15)}
+  [data-theme=dark]{--bg:#0B0F16;--surface:#1A1F2B;--text:#E5E7EB;--muted:#94A3B8;--border:rgba(148,163,184,.18);--shadow:0 20px 40px rgba(0,0,0,.5);--shadow-lg:0 25px 50px -12px rgba(0,0,0,.25);color-scheme:dark}
+  body{background:var(--bg);color:var(--text);font-family:Inter,system-ui}
+  .subscription-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);transition:all .2s;overflow:hidden}
+  .subscription-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
+  .sub-header{background:linear-gradient(135deg,var(--bg),rgba(47,107,255,.05));padding:1.5rem;border-bottom:1px solid var(--border)}
+  .trader-avatar{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,var(--brand),var(--brand-dark));color:#fff;font-weight:600;font-size:1.1rem;display:flex;align-items:center;justify-content:center}
+  .plan-details li{display:flex;justify-content:space-between;padding:.5rem 0;border-bottom:1px solid var(--border);font-size:.9rem}
+  .plan-details li:last-child{border-bottom:none}
+  .payment-table{font-size:.85rem}
+  .payment-table th{color:var(--muted);font-weight:600;font-size:.75rem;text-transform:uppercase}
+  .status-badge{padding:.375rem .75rem;border-radius:20px;font-size:.75rem;font-weight:600}
+  .action-btn{border-radius:20px;padding:.375rem .75rem;font-size:.8rem}
+  .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem}
+  .stat-item{background:linear-gradient(135deg,rgba(47,107,255,.05),rgba(47,107,255,.02));padding:1rem;border-radius:calc(var(--radius)-4px);text-align:center;border:1px solid rgba(47,107,255,.1)}
+  .stat-number{font-size:1.5rem;font-weight:700;color:var(--brand)}
+  .stat-label{font-size:.8rem;color:var(--muted);text-transform:uppercase}
+  .empty-state{background:var(--surface);border:2px dashed var(--border);border-radius:var(--radius);padding:3rem;text-align:center;box-shadow:var(--shadow)}
+  .empty-state i{font-size:4rem;color:var(--muted);opacity:.5;margin-bottom:1rem}
+  .renewal-due{background:linear-gradient(135deg,#FEF3C7,#FDE68A);border:1px solid #F59E0B}
+  [data-theme="dark"] .renewal-due{background:linear-gradient(135deg,#92400E,#78350F);border:1px solid #F59E0B;color:var(--text)}
+  .invoice-hint{font-size:.75rem;color:var(--muted);margin-bottom:.5rem}
+  /* Dark mode overrides for badges */
+  [data-theme="dark"] .bg-success{background-color:#15803D !important;color:white !important}
+  [data-theme="dark"] .bg-warning{background-color:#B45309 !important;color:white !important}
+  [data-theme="dark"] .bg-danger{background-color:#DC2626 !important;color:white !important}
+  [data-theme="dark"] .bg-secondary{background-color:#6B7280 !important;color:white !important}
+  [data-theme="dark"] .bg-light{background-color:rgba(148,163,184,0.2) !important;color:var(--text) !important}
+  [data-theme="dark"] .text-dark{color:var(--text) !important}
+  /* Dark mode for stat-item background */
+  [data-theme="dark"] .stat-item{background:linear-gradient(135deg,rgba(47,107,255,.1),rgba(47,107,255,.05));border:1px solid rgba(47,107,255,.2)}
+  /* Dark mode for tables */
+  [data-theme="dark"] .table {
+    --bs-table-color: var(--text);
+    --bs-table-bg: transparent;
+    --bs-table-border-color: var(--border);
+  }
+  [data-theme="dark"] .payment-table {
+    color: var(--text);
+  }
+  [data-theme="dark"] .payment-table thead th {
+    color: var(--muted);
+    border-bottom-color: var(--border);
+  }
+  [data-theme="dark"] .payment-table td {
+    color: var(--text);
+    background-color: transparent;
+    border-color: var(--border);
+  }
+  [data-theme="dark"] .payment-table tbody tr:hover {
+    background-color: rgba(148,163,184,0.1);
+  }
+  [data-theme="dark"] hr {
+    border-color: var(--border) !important;
+  }
+  [data-theme="dark"] .btn-warning {
+    color: #000 !important;
+  }
+  /* HTMX Loading States */
+  .htmx-indicator { display: none; align-items: center; gap: 0.5rem; }
+  .htmx-request .htmx-indicator { display: flex !important; }
+  .htmx-request button { opacity: 0.6; cursor: not-allowed; pointer-events: none; }
+  .htmx-request button i { display: none; }
+  .spinner-border-sm { width: 1rem; height: 1rem; }
+  /* NEW: Partial progress bar */
+  .progress-sm { height: 0.5rem; background: var(--border); border-radius: 10px; overflow: hidden; }
+  .progress-bar { background: var(--warning); height: 100%; border-radius: 10px; transition: width 0.3s; }
+</style><main class="container py-5">
+  <div class="row justify-content-center"><div class="col-lg-10">
+    <div class="text-center mb-5">
+      <h1 class="fw-bold mb-3" style="font-size:2.5rem;background:linear-gradient(135deg,var(--brand),var(--brand-dark));-webkit-background-clip:text;-webkit-text-fill-color:transparent;">
+        My Subscriptions
+      </h1>
+      <p class="text-muted" style="font-size:1.1rem;">Track signal access, payments, and performance.</p>
+    </div>{% if subscriptions|length == 0 %}<div class="empty-state">
+  <i class="bi bi-graph-up-arrow"></i>
+  <h4 class="mb-3">No Subscriptions Yet</h4>
+  <p class="text-muted mb-4">Subscribe to elite traders and elevate your edge.</p>
+  <a href="/dashboard" class="btn btn-primary" style="border-radius:var(--radius);padding:.75rem 2rem;font-weight:600;">
+    <i class="bi bi-search me-2"></i>Explore Signals
+  </a></div>
+{% else %}<!-- Stats -->
+<div class="stats-grid mb-4">
+  <div class="stat-item"><div class="stat-number">{{ stats.active_count }}</div><div class="stat-label">Active</div></div>
+  <div class="stat-item"><div class="stat-number">${{ "%.2f"|format(stats.monthly_total) }}</div><div class="stat-label">Monthly</div></div>
+  <div class="stat-item"><div class="stat-number">{{ stats.total_payments }}</div><div class="stat-label">Payments</div></div>
+  <div class="stat-item"><div class="stat-number">{{ "%.1f"|format(stats.success_rate) }}%</div><div class="stat-label">Success Rate</div></div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-8">
+    {% for sub in subscriptions %}
+    <div class="subscription-card {% if sub.status in ['pending', 'pending_renewal'] %}renewal-due{% endif %}">
+      <div class="sub-header d-flex align-items-center gap-3">
+        <div class="trader-avatar">{{ sub.trader_name[0]|upper }}</div>
+        <div class="flex-grow-1">
+          <h6 class="mb-1 fw-bold">{{ sub.trader_name }}</h6>
+          <p class="text-muted mb-0 small">{{ sub.plan_type }}</p>
+        </div>
+        <span class="badge status-badge bg-{{
+            'success' if sub.status == 'active' else
+            'warning' if sub.status in ['pending','pending_renewal'] else
+            'danger' if sub.status == 'cancelled' else
+            'secondary'
+        }}">{{ sub.status|replace('_',' ')|title }}</span>
+      </div>
+
+  <div class="card-body p-4">
+    <div class="row">
+      <div class="col-md-6">
+        <h6 class="mb-3 fw-semibold text-muted">Plan Details</h6>
+        <ul class="plan-details">
+          <li><span><strong>Monthly Fee:</strong></span> <span>${{ "%.2f"|format(sub.amount_usd) }}</span></li>
+          <li><span><strong>Started:</strong></span> <span>{{ sub.start_date }}</span></li>
+          <li><span><strong>Renews:</strong></span>
+            <span class="text-primary fw-medium">
+              {{ sub.next_billing }}
+              {% if sub.status in ['pending', 'pending_renewal'] %}<i class="bi bi-exclamation-triangle-fill text-warning ms-1" title="Payment due"></i>{% endif %}
+            </span>
+          </li>
+          <li><span><strong>Total Paid:</strong></span> <span>${{ "%.2f"|format(sub.total_paid) }}</span></li>
+        </ul>
+      </div>
+
+  <div class="col-md-6 d-flex align-items-end">
+    <div class="w-100">
+      {% if sub.status == 'active' %}
+        <div class="d-flex gap-2">
+          <button class="btn btn-outline-danger action-btn flex-fill"
+                  hx-post="/subscriptions/{{ sub.id }}/cancel"
+                  hx-confirm="Cancel {{ sub.trader_name }}? Access ends immediately."
+                  hx-target="closest .subscription-card"
+                  hx-swap="outerHTML">
+            <i class="bi bi-x-circle me-1"></i> Cancel
+          </button>
+          <div id="renew-action-{{ sub.id }}">
+            <form hx-post="/subscriptions/{{ sub.id }}/renew"
+                  hx-target="#renew-action-{{ sub.id }}"
+                  hx-swap="innerHTML"
+                  class="d-inline">
+              <button class="btn btn-outline-success action-btn flex-fill">
+                <i class="bi bi-arrow-clockwise me-1"></i> Renew Now
+              </button>
+            </form>
+          </div>
+        </div>
+
+  {% elif sub.status in ['pending', 'pending_renewal'] %}
+    <div id="pay-action-{{ sub.id }}">
+      {% if sub.pay_url %}
+        <a href="{{ sub.pay_url }}" class="btn btn-success action-btn w-100" target="_blank">
+          <i class="bi bi-credit-card me-1"></i> Pay Now
+        </a>
+      {% else %}
+        <form hx-post="/subscriptions/{{ sub.id }}/renew"
+              hx-target="#pay-action-{{ sub.id }}"
+              hx-swap="innerHTML"
+              hx-indicator="#pay-action-{{ sub.id }} .htmx-indicator"
+              class="d-inline">
+          <button class="btn btn-warning action-btn w-100" title="Generate a new invoice">
+            <i class="bi bi-arrow-repeat me-1"></i> Regenerate Invoice
+          </button>
+          <div class="htmx-indicator d-flex align-items-center justify-content-center gap-2 text-muted small" style="display: none;">
+            <div class="spinner-border spinner-border-sm text-warning" role="status">
+              <span class="visually-hidden">Generating...</span>
+            </div>
+            Generating new invoice...
+          </div>
+        </form>
+      {% endif %}
+    </div>
+
+  {% elif sub.status == 'cancelled' %}
+    <button class="btn btn-secondary action-btn w-100" disabled>
+      <i class="bi bi-slash-circle me-1"></i> Cancelled
+    </button>
+
+  {% else %}
+    <button class="btn btn-outline-secondary action-btn w-100" disabled>
+      <i class="bi bi-hourglass-split me-1"></i> {{ sub.status|title }}
+    </button>
+  {% endif %}
+</div>  </div>
+</div>
+
+<hr class="my-4">
+
+<div class="invoice-hint">
+  <i class="bi bi-clock"></i> Invoices expire ~1 hour after generation.
+  Click <i class="bi bi-arrow-repeat"></i> to regenerate if needed.
+</div>
+
+<h6 class="mb-3 fw-semibold text-muted">
+  <i class="bi bi-receipt me-2"></i>Recent Payments
+  <span class="badge bg-light text-dark small ms-2">
+    {{ sub.payments|length }}{% if sub.has_more_payments %} of {{ sub.payments|length + 10 }}{% endif %}
+  </span>
+</h6>
+
+<div class="table-responsive">
+  <table class="table payment-table mb-0">
+    <thead><tr>
+      <th>Date</th><th>Amount</th><th>Status</th>
+    </tr></thead>
+    <tbody>
+      {% for p in sub.payments %}
+      <tr>
+        <td><small class="text-muted">{{ p.paid_at }}</small></td>
+        <td><strong>${{ "%.2f"|format(p.amount_usd) }}</strong></td>
+        <td>
+          <span class="badge status-badge bg-{{
+              'success' if p.status in ['finished', 'finished_auto'] else
+              'warning' if p.status in ['pending','generated'] else
+              'danger' if p.status == 'failed' else
+              'secondary'
+          }}">
+            {{ p.status|title }}
+            {% if p.progress %}<br><small>({{ p.progress }} paid)</small>{% endif %}
+          </span>
+          {% if p.progress %}
+            <div class="progress-sm mt-1">
+              <div class="progress-bar" style="width: {{ p.progress }}"></div>
+            </div>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>  </div>
+</div>
+{% endfor %}  </div>
+
+  <div class="col-lg-4">
+    <div class="card-radius h-100">
+      <div class="card-body p-4">
+        <h6 class="fw-semibold text-muted mb-4 text-center">Quick Actions</h6>
+        <div class="d-grid gap-3">
+          <a href="/dashboard" class="btn btn-outline-primary"><i class="bi bi-search me-2"></i> Find Signals</a>
+          <a href="/plans" class="btn btn-outline-secondary"><i class="bi bi-gear me-2"></i> Change Plan</a>
+          <button class="btn btn-success" onclick="alert('Export coming soon!')"><i class="bi bi-download me-2"></i> Export CSV</button>
+        </div>
+        <hr class="my-4">
+        <a href="mailto:support@itradex.xyz" class="btn btn-link text-muted d-block text-center">
+          <i class="bi bi-headset me-2"></i> Need Help?
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}  </div></div>
+</main>
+{% endblock %}

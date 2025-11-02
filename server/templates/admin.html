@@ -102,18 +102,63 @@
     .table-trades th { font-weight: 600; color: var(--text); }
     .table-trades td { color: var(--muted); }
     .plan-dist { height: 200px; background: #f0f0f0; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--muted); }
-    .pricing-form-group, .discount-form-group { margin-bottom: 1rem; }
-    .pricing-input, .discount-input { width: 120px; display: inline-block; }
-    .save-pricing, .save-discount { margin-top: 1rem; }
+    .pricing-form-group, .discount-form-group, .eligibility-form-group, .upload-limits-form-group { margin-bottom: 1rem; }
+    .pricing-input, .discount-input, .eligibility-input, .upload-limits-input { width: 120px; display: inline-block; }
+    .save-pricing, .save-discount, .save-eligibility, .save-upload-limits { margin-top: 1rem; }
     .metric-positive { color: var(--success); }
     .metric-negative { color: var(--danger); }
     .metric-neutral { color: var(--text); }
     .fade-up { animation: fadeUp .28s ease both; }
     @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+    .toast {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 9999;
+      min-width: 300px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--card-shadow-strong);
+      padding: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      opacity: 0;
+      transform: translateX(100%);
+      transition: all 0.3s ease;
+    }
+    .toast.show { opacity: 1; transform: translateX(0); }
+    .toast.success { border-left: 4px solid var(--success); }
+    .toast.error { border-left: 4px solid var(--danger); }
+    .toast i { font-size: 1.25rem; }
+
     @media (max-width: 768px) { .container-main { padding: 14px; } }
+
+    /* NEW: Test Sub Modal Styles */
+    #testSubModal .modal-content { border-radius: var(--radius); }
+    #testSubModal .form-select { max-width: 300px; }
+
+    /* UPDATED: Test Access List Styles */
+    .test-access-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 8px;
+      background: rgba(47,107,255,0.05);
+      border-radius: 6px;
+      margin-bottom: 4px;
+      font-size: 0.875rem;
+    }
+    .test-access-item .text-muted { font-size: 0.8rem; }
+
+    /* NEW: Partial Payment Styles */
+    .partial-progress { background: rgba(34,197,94,0.1); color: var(--success); padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; }
   </style>
 </head>
 <body>
+  <!-- NAVBAR (unchanged) -->
   <nav class="navbar sticky-top" style="background: var(--surface); border-bottom: 1px solid var(--border); box-shadow: 0 2px 6px rgba(15,23,42,0.06);">
     <div class="container-fluid px-3 d-flex justify-content-between align-items-center">
       <a class="navbar-brand fw-bold fs-5 text-primary d-flex align-items-center gap-2" href="/">
@@ -135,8 +180,8 @@
           </a>
           <ul class="dropdown-menu dropdown-menu-end shadow-sm rounded-3 p-2">
             <li class="dropdown-header fw-semibold text-muted">Notifications</li>
-            <li><a class="dropdown-item small py-2 rounded" href="#">✅ Trade #102 logged</a></li>
-            <li><a class="dropdown-item small py-2 rounded" href="#">📊 AI insight ready</a></li>
+            <li><a class="dropdown-item small py-2 rounded" href="#">Trade #102 logged</a></li>
+            <li><a class="dropdown-item small py-2 rounded" href="#">AI insight ready</a></li>
           </ul>
         </div>
         <button id="themeToggle" class="btn btn-outline-secondary btn-sm"><i class="bi bi-moon"></i></button>
@@ -183,221 +228,569 @@
       </div>
     </div>
 
-    <section class="admin-grid mb-4 fade-up">
-      <div class="admin-card">
-        <h5><i class="bi bi-people-fill text-primary me-2"></i>Total Users</h5>
-        <div class="stat-item">
-          <span class="stat-label">Active Users</span>
-          <span class="stat-value">{{ total_users }}</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-label">New This Week</span>
-          <span class="stat-value">{{ new_users }}</span>
-        </div>
-      </div>
-      <div class="admin-card">
-        <h5><i class="bi bi-graph-up-arrow text-success me-2"></i>Total Trades</h5>
-        <div class="stat-item">
-          <span class="stat-label">All Trades</span>
-          <span class="stat-value">{{ total_trades }}</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-label">Avg per User</span>
-          <span class="stat-value">{{ avg_trades_per_user }}</span>
-        </div>
-      </div>
-      <div class="admin-card">
-        <h5><i class="bi bi-credit-card text-info me-2"></i>Plan Distribution</h5>
-        <div class="stat-item">
-          <span class="stat-label">Starter</span>
-          <span class="stat-value badge badge-starter">{{ plan_counts.starter }}</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-label">Pro</span>
-          <span class="stat-value badge badge-pro">{{ plan_counts.pro }}</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-label">Elite</span>
-          <span class="stat-value badge badge-elite">{{ plan_counts.elite }}</span>
-        </div>
-      </div>
-      <div class="admin-card">
-        <h5><i class="bi bi-currency-dollar text-warning me-2"></i>MRR</h5>
-        <div class="stat-item">
-          <span class="stat-label">Monthly Recurring Revenue</span>
-          <span class="stat-value metric-positive">${{ "%.2f"|format(mrr) }}</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-label">Monthly Revenue</span>
-          <span class="stat-value metric-positive">${{ "%.2f"|format(monthly_revenue) }}</span>
-        </div>
-      </div>
-      <div class="admin-card">
-        <h5><i class="bi bi-arrow-down-circle text-danger me-2"></i>Churn Metrics</h5>
-        <div class="stat-item">
-          <span class="stat-label">User Churn Rate</span>
-          <span class="stat-value metric-negative">{{ "%.1f"|format(user_churn_rate) }}%</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-label">Revenue Churn Rate</span>
-          <span class="stat-value metric-negative">{{ "%.1f"|format(revenue_churn_rate) }}%</span>
-        </div>
-      </div>
-      <div class="admin-card">
-        <h5><i class="bi bi-graph-down text-secondary me-2"></i>ARPU</h5>
-        <div class="stat-item">
-          <span class="stat-label">Avg Revenue Per User</span>
-          <span class="stat-value metric-neutral">${{ "%.2f"|format(arpu) }}</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-label">Active Subscribers</span>
-          <span class="stat-value">{{ active_subscribers }}</span>
-        </div>
-      </div>
-    </section>
-
-    <div class="admin-card fade-up mb-4">
-      <h5><i class="bi bi-currency-dollar text-warning me-2"></i>Plan Pricing</h5>
-      <form id="pricingForm">
-        <div class="pricing-form-group">
-          <label class="form-label fw-semibold">Pro Plan</label>
-          <div class="d-flex align-items-center gap-3">
-            <div>
-              <label class="form-label small text-muted">Monthly</label>
-              <input type="number" class="form-control pricing-input" name="pro_monthly" value="{{ pricing.pro_monthly }}" step="0.01" required>
-            </div>
-            <div>
-              <label class="form-label small text-muted">Yearly</label>
-              <input type="number" class="form-control pricing-input" name="pro_yearly" value="{{ pricing.pro_yearly }}" step="0.01" required>
-            </div>
-          </div>
-        </div>
-        <div class="pricing-form-group">
-          <label class="form-label fw-semibold">Elite Plan</label>
-          <div class="d-flex align-items-center gap-3">
-            <div>
-              <label class="form-label small text-muted">Monthly</label>
-              <input type="number" class="form-control pricing-input" name="elite_monthly" value="{{ pricing.elite_monthly }}" step="0.01" required>
-            </div>
-            <div>
-              <label class="form-label small text-muted">Yearly</label>
-              <input type="number" class="form-control pricing-input" name="elite_yearly" value="{{ pricing.elite_yearly }}" step="0.01" required>
-            </div>
-          </div>
-        </div>
-        <button type="submit" class="btn btn-primary save-pricing">Save Pricing</button>
-      </form>
+<!-- STATS GRID (unchanged) -->
+<section class="admin-grid mb-4 fade-up">
+  <div class="admin-card">
+    <h5><i class="bi bi-people-fill text-primary me-2"></i>Total Users</h5>
+    <div class="stat-item">
+      <span class="stat-label">Active Users</span>
+      <span class="stat-value">{{ total_users }}</span>
     </div>
+    <div class="stat-item">
+      <span class="stat-label">New This Week</span>
+      <span class="stat-value">{{ new_users }}</span>
+    </div>
+  </div>
+  <div class="admin-card">
+    <h5><i class="bi bi-graph-up-arrow text-success me-2"></i>Total Trades</h5>
+    <div class="stat-item">
+      <span class="stat-label">All Trades</span>
+      <span class="stat-value">{{ total_trades }}</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">Avg per User</span>
+      <span class="stat-value">{{ avg_trades_per_user }}</span>
+    </div>
+  </div>
+  <div class="admin-card">
+    <h5><i class="bi bi-credit-card text-info me-2"></i>Plan Distribution</h5>
+    <div class="stat-item">
+      <span class="stat-label">Starter</span>
+      <span class="stat-value badge badge-starter">{{ plan_counts.starter }}</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">Pro</span>
+      <span class="stat-value badge badge-pro">{{ plan_counts.pro }}</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">Elite</span>
+      <span class="stat-value badge badge-elite">{{ plan_counts.elite }}</span>
+    </div>
+  </div>
+  <div class="admin-card">
+    <h5><i class="bi bi-currency-dollar text-warning me-2"></i>MRR</h5>
+    <div class="stat-item">
+      <span class="stat-label">Monthly Recurring Revenue</span>
+      <span class="stat-value metric-positive">${{ "%.2f"|format(mrr) }}</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">Monthly Revenue</span>
+      <span class="stat-value metric-positive">${{ "%.2f"|format(monthly_revenue) }}</span>
+    </div>
+  </div>
+  <div class="admin-card">
+    <h5><i class="bi bi-arrow-down-circle text-danger me-2"></i>Churn Metrics</h5>
+    <div class="stat-item">
+      <span class="stat-label">User Churn Rate</span>
+      <span class="stat-value metric-negative">{{ "%.1f"|format(user_churn_rate) }}%</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">Revenue Churn Rate</span>
+      <span class="stat-value metric-negative">{{ "%.1f"|format(revenue_churn_rate) }}%</span>
+    </div>
+  </div>
+  <div class="admin-card">
+    <h5><i class="bi bi-graph-down text-secondary me-2"></i>ARPU</h5>
+    <div class="stat-item">
+      <span class="stat-label">Avg Revenue Per User</span>
+      <span class="stat-value metric-neutral">${{ "%.2f"|format(arpu) }}</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">Active Subscribers</span>
+      <span class="stat-value">{{ active_subscribers }}</span>
+    </div>
+  </div>
+</section>
 
-    <div class="admin-card fade-up mb-4">
-      <h5><i class="bi bi-ticket-perforated text-success me-2"></i>Discount Management</h5>
-      <form id="discountForm">
-        <div class="discount-form-group">
-          <label class="form-label fw-semibold">Discount Settings</label>
-          <div class="d-flex align-items-center gap-3">
-            <div>
-              <label class="form-label small text-muted">Enable Discount</label>
-              <input type="checkbox" class="form-check-input" name="discount_enabled" {% if discount.enabled %}checked{% endif %}>
-            </div>
-            <div>
-              <label class="form-label small text-muted">Discount Percentage (%)</label>
-              <input type="number" class="form-control discount-input" name="discount_percentage" value="{{ discount.percentage }}" step="0.1" min="0" max="100" {% if not discount.enabled %}disabled{% endif %}>
-            </div>
-            <div>
-              <label class="form-label small text-muted">Valid Until (Optional)</label>
-              <input type="date" class="form-control discount-input" name="discount_expiry" value="{{ discount.expiry|default('') }}" {% if not discount.enabled %}disabled{% endif %}>
-            </div>
-          </div>
+<!-- UPDATED: ELIGIBILITY CONFIG CARD -->
+<div class="admin-card fade-up mb-4">
+  <h5><i class="bi bi-shield-check text-success me-2"></i>Marketplace Eligibility</h5>
+  <form id="eligibilityForm">
+    <div class="eligibility-form-group">
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Minimum Trades</label>
+          <input type="number" class="form-control eligibility-input" name="min_trades" value="{{ eligibility.min_trades }}" min="1" required>
         </div>
-        <button type="submit" class="btn btn-primary save-discount">Save Discount</button>
-      </form>
-      <div class="alert alert-info mt-3">
-        <small><i class="bi bi-info-circle me-1"></i>Discount applies as a first-month reduction to new subscriptions. Recurring at promo rate if enabled.</small>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Minimum Win Rate (%)</label>
+          <input type="number" class="form-control eligibility-input" name="min_win_rate" value="{{ eligibility.min_win_rate }}" min="0" max="100" step="0.1" required>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Max Marketplace Price ($)</label>
+          <input type="number" class="form-control eligibility-input" name="max_marketplace_price" value="{{ eligibility.max_marketplace_price }}" step="0.01" min="0" required>
+        </div>
       </div>
     </div>
+    <button type="submit" class="btn btn-primary save-eligibility">Update Eligibility</button>
+  </form>
+  <div class="alert alert-info mt-3">
+    <small><i class="bi bi-info-circle me-1"></i>Only users meeting these criteria can be enabled as marketplace traders.</small>
+  </div>
+</div>
 
-    <div class="admin-card fade-up mb-4">
-      <h5><i class="bi bi-person-lines-fill text-warning me-2"></i>Recent Users</h5>
-      <div class="table-responsive">
-        <table class="table table-admin table-hover">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Email</th>
-              <th>Full Name</th>
-              <th>Joined</th>
-              <th>Trades</th>
-              <th>Plan</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for user in recent_users %}
-            <tr>
-              <td>{{ user.id }}</td>
-              <td>{{ user.email }}</td>
-              <td>{{ user.full_name }}</td>
-              <td>{{ user.joined }}</td>
-              <td>{{ user.trades }}</td>
-              <td><span class="badge badge-{{ user.plan.lower() }} px-2 py-1">{{ user.plan }}</span></td>
-              <td>
-                <select id="plan-{{ user.id }}" class="form-select form-select-sm d-inline-block w-auto" style="width: auto;">
-                  <option value="starter" {% if user.plan.lower() == 'starter' %}selected{% endif %}>Starter</option>
-                  <option value="pro" {% if user.plan.lower() == 'pro' %}selected{% endif %}>Pro</option>
-                  <option value="elite" {% if user.plan.lower() == 'elite' %}selected{% endif %}>Elite</option>
-                </select>
-                <button onclick="updatePlan({{ user.id }})" class="btn btn-sm btn-primary btn-admin-sm ms-1">Update</button>
-              </td>
-            </tr>
-            {% endfor %}
-            {% if not recent_users %}
-            <tr>
-              <td colspan="7" class="text-center text-muted">No users found</td>
-            </tr>
+<!-- NEW: UPLOAD LIMITS CARD -->
+<div class="admin-card fade-up mb-4">
+  <h5><i class="bi bi-upload text-info me-2"></i>Upload Limits</h5>
+  <form id="uploadLimitsForm">
+    <div class="row g-3">
+      <div class="col-md-3">
+        <label class="form-label fw-semibold">Starter Monthly</label>
+        <input type="number" class="form-control upload-limits-input" name="starter_monthly" value="{{ upload_limits.starter.monthly_limit }}" min="0" required>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label fw-semibold">Starter Batch</label>
+        <input type="number" class="form-control upload-limits-input" name="starter_batch" value="{{ upload_limits.starter.batch_limit }}" min="1" required>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label fw-semibold">Pro Monthly</label>
+        <input type="number" class="form-control upload-limits-input" name="pro_monthly" value="{{ upload_limits.pro.monthly_limit }}" min="0" required>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label fw-semibold">Pro Batch</label>
+        <input type="number" class="form-control upload-limits-input" name="pro_batch" value="{{ upload_limits.pro.batch_limit }}" min="1" required>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label fw-semibold">Elite Monthly</label>
+        <input type="number" class="form-control upload-limits-input" name="elite_monthly" value="{{ upload_limits.elite.monthly_limit }}" min="0" required>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label fw-semibold">Elite Batch</label>
+        <input type="number" class="form-control upload-limits-input" name="elite_batch" value="{{ upload_limits.elite.batch_limit }}" min="1" required>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary save-upload-limits mt-3">Save Upload Limits</button>
+  </form>
+  <div class="alert alert-info mt-3">
+    <small><i class="bi bi-info-circle me-1"></i>Configure monthly upload quotas and batch sizes per plan. Use a very high number (e.g., 999999) for unlimited.</small>
+  </div>
+</div>
+
+<!-- PRICING, DISCOUNT, MARKETPLACE DISCOUNT CARDS (unchanged) -->
+<div class="admin-card fade-up mb-4">
+  <h5><i class="bi bi-currency-dollar text-warning me-2"></i>Plan Pricing</h5>
+  <form id="pricingForm">
+    <div class="pricing-form-group">
+      <label class="form-label fw-semibold">Pro Plan</label>
+      <div class="d-flex align-items-center gap-3">
+        <div>
+          <label class="form-label small text-muted">Monthly</label>
+          <input type="number" class="form-control pricing-input" name="pro_monthly" value="{{ pricing.pro_monthly }}" step="0.01" required>
+        </div>
+        <div>
+          <label class="form-label small text-muted">Yearly</label>
+          <input type="number" class="form-control pricing-input" name="pro_yearly" value="{{ pricing.pro_yearly }}" step="0.01" required>
+        </div>
+      </div>
+    </div>
+    <div class="pricing-form-group">
+      <label class="form-label fw-semibold">Elite Plan</label>
+      <div class="d-flex align-items-center gap-3">
+        <div>
+          <label class="form-label small text-muted">Monthly</label>
+          <input type="number" class="form-control pricing-input" name="elite_monthly" value="{{ pricing.elite_monthly }}" step="0.01" required>
+        </div>
+        <div>
+          <label class="form-label small text-muted">Yearly</label>
+          <input type="number" class="form-control pricing-input" name="elite_yearly" value="{{ pricing.elite_yearly }}" step="0.01" required>
+        </div>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary save-pricing">Save Pricing</button>
+  </form>
+</div>
+
+<div class="admin-card fade-up mb-4">
+  <h5><i class="bi bi-ticket-perforated text-success me-2"></i>Platform Discount Management</h5>
+  <form id="discountForm">
+    <div class="discount-form-group">
+      <label class="form-label fw-semibold">Discount Settings</label>
+      <div class="d-flex align-items-center gap-3">
+        <div>
+          <label class="form-label small text-muted">Enable Discount</label>
+          <input type="checkbox" class="form-check-input" name="discount_enabled" {% if discount.enabled %}checked{% endif %}>
+        </div>
+        <div>
+          <label class="form-label small text-muted">Discount Percentage (%)</label>
+          <input type="number" class="form-control discount-input" name="discount_percentage" value="{{ discount.percentage }}" step="0.1" min="0" max="100" {% if not discount.enabled %}disabled{% endif %}>
+        </div>
+        <div>
+          <label class="form-label small text-muted">Valid Until (Optional)</label>
+          <input type="date" class="form-control discount-input" name="discount_expiry" value="{{ discount.expiry|default('') }}" {% if not discount.enabled %}disabled{% endif %}>
+        </div>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary save-discount">Save Discount</button>
+  </form>
+  <div class="alert alert-info mt-3">
+    <small><i class="bi bi-info-circle me-1"></i>Discount applies as a first-month reduction to new platform subscriptions.</small>
+  </div>
+</div>
+
+<div class="admin-card fade-up mb-4">
+  <h5><i class="bi bi-shop text-info me-2"></i>Marketplace Discount Management</h5>
+  <form id="marketplaceDiscountForm">
+    <div class="discount-form-group">
+      <label class="form-label fw-semibold">Discount Settings</label>
+      <div class="d-flex align-items-center gap-3">
+        <div>
+          <label class="form-label small text-muted">Enable Discount</label>
+          <input type="checkbox" class="form-check-input" name="marketplace_discount_enabled" {% if marketplace_discount.enabled %}checked{% endif %}>
+        </div>
+        <div>
+          <label class="form-label small text-muted">Discount Percentage (%)</label>
+          <input type="number" class="form-control discount-input" name="marketplace_discount_percentage" value="{{ marketplace_discount.percentage }}" step="0.1" min="0" max="100" {% if not marketplace_discount.enabled %}disabled{% endif %}>
+        </div>
+        <div>
+          <label class="form-label small text-muted">Valid Until (Optional)</label>
+          <input type="date" class="form-control discount-input" name="marketplace_discount_expiry" value="{{ marketplace_discount.expiry|default('') }}" {% if not marketplace_discount.enabled %}disabled{% endif %}>
+        </div>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary save-marketplace-discount">Save Marketplace Discount</button>
+  </form>
+  <div class="alert alert-info mt-3">
+    <small><i class="bi bi-info-circle me-1"></i>Discount applies as a first-month reduction to new marketplace subscriptions.</small>
+  </div>
+</div>
+
+<!-- NEW: RECENT PARTIAL PAYMENTS -->
+<div class="admin-card fade-up mb-4">
+  <h5><i class="bi bi-credit-card-2-front text-warning me-2"></i>Recent Partial Payments</h5>
+  <div class="table-responsive">
+    <table class="table table-admin table-hover">
+      <thead>
+        <tr>
+          <th>Payment ID</th>
+          <th>User</th>
+          <th>Trader</th>
+          <th>Expected ($)</th>
+          <th>Paid (Crypto)</th>
+          <th>Date</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for payment in recent_partial_payments %}
+        <tr>
+          <td>{{ payment.nowpayments_payment_id }}</td>
+          <td>{{ payment.user_email }} (ID: {{ payment.user_id }})</td>
+          <td>{% if payment.is_marketplace %}{{ payment.trader_name }}{% else %}<span class="text-muted">Platform</span>{% endif %}</td>
+          <td>${{ "%.2f"|format(payment.amount_usd) }}</td>
+          <td>{{ payment.amount_paid_crypto }} {{ payment.crypto_currency }}</td>
+          <td>{{ payment.created }}</td>
+          <td>
+            <button class="btn btn-sm btn-success btn-admin-sm" data-bs-toggle="modal" data-bs-target="#completePaymentModal" onclick="openCompleteModal('{{ payment.nowpayments_payment_id }}', '{{ payment.user_email }}')">
+              <i class="bi bi-check-lg"></i> Complete
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+        {% if not recent_partial_payments %}
+        <tr><td colspan="7" class="text-center text-muted">No partial payments</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- UPDATED: RECENT USERS WITH TRADER TOGGLE & PENDING STATUS -->
+<div class="admin-card fade-up mb-4">
+  <h5><i class="bi bi-person-lines-fill text-warning me-2"></i>Recent Users</h5>
+  <div class="table-responsive">
+    <table class="table table-admin table-hover">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Email</th>
+          <th>Full Name</th>
+          <th>Joined</th>
+          <th>Trades</th>
+          <th>Plan</th>
+          <th>Trader</th>
+          <th>Test Access</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for user in recent_users %}
+        <tr>
+          <td>{{ user.id }}</td>
+          <td>{{ user.email }}</td>
+          <td>{{ user.full_name }}</td>
+          <td>{{ user.joined }}</td>
+          <td>{{ user.trades }}</td>
+          <td><span class="badge badge-{{ user.plan.lower() }} px-2 py-1">{{ user.plan }}</span></td>
+
+      <!-- TRADER TOGGLE WITH PENDING STATUS -->
+      <td>
+        <div class="form-check form-switch d-inline-block">
+          <input
+            class="form-check-input trader-toggle"
+            type="checkbox"
+            id="trader-{{ user.id }}"
+            data-user-id="{{ user.id }}"
+            data-min-trades="{{ eligibility.min_trades }}"
+            data-min-win-rate="{{ eligibility.min_win_rate }}"
+            {% if user.is_trader %}checked{% endif %}
+          >
+          <label class="form-check-label" for="trader-{{ user.id }}"></label>
+        </div>
+        <small class="ms-1 eligibility-msg" data-user-id="{{ user.id }}">
+          {% if user.is_trader_pending %}
+            <span class="text-warning">Pending Review</span>
+          {% elif user.is_trader %}
+            <span class="text-success">Live ({{ "%.1f"|format(user.win_rate) }}% win)</span>
+          {% else %}
+            {% if user.trades < eligibility.min_trades %}
+              <span class="text-muted">Need {{ eligibility.min_trades - user.trades }} more trades</span>
+            {% elif user.win_rate < eligibility.min_win_rate %}
+              <span class="text-muted">Win-rate {{ "%.1f"|format(user.win_rate) }}%</span>
+            {% else %}
+              <span class="text-success">Eligible</span>
             {% endif %}
-          </tbody>
-        </table>
-      </div>
-    </div>
+          {% endif %}
+        </small>
+      </td>
 
-    <div class="admin-card fade-up">
-      <h5><i class="bi bi-arrow-repeat text-primary me-2"></i>Recent Trades</h5>
-      <div class="table-responsive">
-        <table class="table table-trades table-hover">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>User</th>
-              <th>Symbol</th>
-              <th>PnL</th>
-              <th>Date</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for trade in recent_trades %}
-            <tr class="{% if trade.pnl >= 0 %}table-success{% else %}table-danger{% endif %}">
-              <td>{{ trade.id }}</td>
-              <td>{{ trade.user_name }}</td>
-              <td>{{ trade.symbol }}</td>
-              <td class="{% if trade.pnl >= 0 %}text-success{% else %}text-danger{% endif %} fw-bold">{{ trade.pnl }}</td>
-              <td>{{ trade.created }}</td>
-              <td><button class="btn btn-sm btn-outline-secondary btn-admin-sm">View</button></td>
-            </tr>
-            {% endfor %}
-            {% if not recent_trades %}
-            <tr>
-              <td colspan="6" class="text-center text-muted">No trades found</td>
-            </tr>
-            {% endif %}
-          </tbody>
-        </table>
+      <!-- TEST ACCESS COLUMN (unchanged) -->
+      <td>
+        {% if user.sub_list %}
+          {% for sub in user.sub_list %}
+          <div class="test-access-item">
+            <span class="text-muted">{{ sub.trader_name }}</span>
+            <button class="btn btn-sm btn-outline-danger" onclick="revokeTestAccess({{ user.id }}, {{ sub.trader_id }})">
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </div>
+          {% endfor %}
+        {% else %}
+          <span class="text-muted small">No access</span>
+        {% endif %}
+        <button class="btn btn-sm btn-outline-primary btn-admin-sm mt-2 w-100" data-bs-toggle="modal" data-bs-target="#testSubModal" onclick="openTestSubModal({{ user.id }}, '{{ (user.full_name or user.email)|e }}')">
+          <i class="bi bi-plus-circle"></i> Grant
+        </button>
+      </td>
+
+      <td>
+        <select id="plan-{{ user.id }}" class="form-select form-select-sm d-inline-block w-auto" style="width:auto;">
+          <option value="starter" {% if user.plan.lower() == 'starter' %}selected{% endif %}>Starter</option>
+          <option value="pro" {% if user.plan.lower() == 'pro' %}selected{% endif %}>Pro</option>
+          <option value="elite" {% if user.plan.lower() == 'elite' %}selected{% endif %}>Elite</option>
+        </select>
+        <button onclick="updatePlan({{ user.id }})" class="btn btn-sm btn-primary btn-admin-sm ms-1">Update</button>
+      </td>
+    </tr>
+    {% endfor %}
+    {% if not recent_users %}
+    <tr><td colspan="9" class="text-center text-muted">No users found</td></tr>
+    {% endif %}
+  </tbody>
+</table>  </div>
+</div>
+
+<!-- MARKETPLACE TRADERS (unchanged) -->
+{% if marketplace_traders %}<div class="admin-card fade-up mb-4">
+  <h5><i class="bi bi-shop-window text-info me-2"></i>Marketplace Traders</h5>
+  <div class="table-responsive">
+    <table class="table table-admin table-hover">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Win Rate</th>
+          <th>Trades</th>
+          <th>Price ($/mo)</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for trader in marketplace_traders %}
+        <tr>
+          <td>{{ trader.id }}</td>
+          <td>{{ trader.name }}</td>
+          <td>{{ trader.win_rate }}%</td>
+          <td>{{ trader.trades }}</td>
+          <td id="price-display-{{ trader.id }}">${{ "%.2f"|format(trader.price) }}</td>
+          <td>
+            <input type="number" class="form-control form-control-sm d-inline-block w-auto" id="price-{{ trader.id }}" value="{{ trader.price }}" step="0.01" min="0" style="width:100px;">
+            <button onclick="updateMarketplacePrice({{ trader.id }})" class="btn btn-sm btn-primary btn-admin-sm ms-1">Update</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- NEW: PENDING TRADER APPLICATIONS -->
+<div class="admin-card fade-up mb-4">
+  <h5><i class="bi bi-clock-history text-warning me-2"></i>Pending Trader Applications</h5>
+  <div class="table-responsive">
+    <table class="table table-admin table-hover">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Win Rate</th>
+          <th>Trades</th>
+          <th>Applied</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for trader in pending_traders %}
+        <tr>
+          <td>{{ trader.id }}</td>
+          <td>{{ trader.name }}</td>
+          <td>{{ trader.email }}</td>
+          <td>{{ trader.win_rate }}%</td>
+          <td>{{ trader.trades }}</td>
+          <td>{{ trader.applied_at }}</td>
+          <td>
+            <button class="btn btn-sm btn-success btn-admin-sm me-1" onclick="approveTrader({{ trader.id }})">Approve</button>
+            <button class="btn btn-sm btn-outline-danger btn-admin-sm" data-bs-toggle="modal" data-bs-target="#rejectModal" onclick="openRejectModal({{ trader.id }}, '{{ trader.name|e }}')">Reject</button>
+          </td>
+        </tr>
+        {% endfor %}
+        {% if not pending_traders %}
+        <tr><td colspan="7" class="text-center text-muted">No pending applications</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- RECENT TRADES (unchanged) -->
+<div class="admin-card fade-up">
+  <h5><i class="bi bi-arrow-repeat text-primary me-2"></i>Recent Trades</h5>
+  <div class="table-responsive">
+    <table class="table table-trades table-hover">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>User</th>
+          <th>Symbol</th>
+          <th>PnL</th>
+          <th>Date</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for trade in recent_trades %}
+        <tr class="{% if trade.pnl >= 0 %}table-success{% else %}table-danger{% endif %}">
+          <td>{{ trade.id }}</td>
+          <td>{{ trade.user_name }}</td>
+          <td>{{ trade.symbol }}</td>
+          <td class="{% if trade.pnl >= 0 %}text-success{% else %}text-danger{% endif %} fw-bold">{{ trade.pnl }}</td>
+          <td>{{ trade.created }}</td>
+          <td><button class="btn btn-sm btn-outline-secondary btn-admin-sm">View</button></td>
+        </tr>
+        {% endfor %}
+        {% if not recent_trades %}
+        <tr>
+          <td colspan="6" class="text-center text-muted">No trades found</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- TEST SUB MODAL (unchanged) -->
+<div class="modal fade" id="testSubModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Grant Test Marketplace Access</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>Grant <strong id="modalUserName"></strong> access to a trader's journal for testing.</p>
+        <select id="traderSelect" class="form-select">
+          <option value="">Select Trader</option>
+          {% for trader in marketplace_traders %}
+          <option value="{{ trader.id }}">{{ trader.name }} ({{ trader.win_rate }}% win, ${{ trader.price }}/mo)</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="grantTestAccess">Grant Access</button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- NEW: REJECT MODAL -->
+<div class="modal fade" id="rejectModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Reject Trader Application</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>Reject <strong id="rejectTraderName"></strong>'s application?</p>
+        <div class="mb-3">
+          <label class="form-label">Rejection Reason (Optional)</label>
+          <textarea class="form-control" id="rejectReason" rows="3" placeholder="Enter reason for rejection..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger" id="rejectTraderBtn">Reject Application</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- NEW: COMPLETE PAYMENT MODAL -->
+<div class="modal fade" id="completePaymentModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Complete Partial Payment</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>Manually complete payment for <strong id="completeUserEmail"></strong>?</p>
+        <div class="mb-3">
+          <label class="form-label">Payment ID</label>
+          <input type="text" class="form-control" id="completePaymentId" readonly>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Reason (Optional)</label>
+          <textarea class="form-control" id="completeReason" rows="2" placeholder="e.g., Test partial payment, fee adjustment..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-success" id="completePaymentBtn">Complete Payment</button>
+      </div>
+    </div>
+  </div>
+</div>
+
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script>
+    // Toast Notification (unchanged)
+    function showToast(message, type = 'success') {
+      const toast = document.createElement('div');
+      toast.className = `toast ${type} show`;
+      toast.innerHTML = `
+        <i class="bi ${type === 'success' ? 'bi-check-circle-fill text-success' : 'bi-exclamation-triangle-fill text-danger'}"></i>
+        <div>${message}</div>
+      `;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    // Theme toggle (unchanged)
     document.getElementById('themeToggle').addEventListener('click', () => {
       const html = document.documentElement;
       const icon = document.querySelector('#themeToggle i');
@@ -410,6 +803,7 @@
       }
     });
 
+    // Update Plan (unchanged)
     function updatePlan(userId) {
       const select = document.getElementById(`plan-${userId}`);
       const plan = select.value;
@@ -418,83 +812,356 @@
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: `plan=${plan}`
       })
-      .then(response => {
-        if (!response.ok) {
-          return response.json().then(err => { throw new Error(err.detail || 'Failed to update plan'); });
-        }
-        return response.json();
-      })
+      .then(r => r.json())
       .then(data => {
         if (data.success) {
-          alert('Plan updated successfully!');
-          location.reload();
+          showToast('Plan updated successfully!');
+          setTimeout(() => location.reload(), 1000);
         } else {
-          alert('Error updating plan: ' + (data.message || 'Unknown error'));
+          showToast(data.message || 'Failed to update plan', 'error');
         }
       })
-      .catch(error => {
-        console.error('Error:', error);
-        alert('Error updating plan: ' + (error.message || 'Unknown error'));
-      });
+      .catch(() => showToast('Network error', 'error'));
     }
 
-    document.getElementById('pricingForm').addEventListener('submit', function(e) {
+    // Pricing Form (updated with reload on success)
+    document.getElementById('pricingForm').addEventListener('submit', e => {
       e.preventDefault();
-      const formData = new FormData(this);
-      fetch('/admin/update_pricing', {
-        method: 'POST',
-        body: formData
-      })
-      .then(response => {
-        if (!response.ok) {
-          return response.json().then(err => { throw new Error(err.detail || 'Failed to update pricing'); });
-        }
-        return response.json();
-      })
-      .then(data => {
+      const fd = new FormData(e.target);
+      fetch('/admin/update_pricing', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(d => {
+          if (d.success) {
+            showToast('Pricing saved!');
+            setTimeout(() => location.reload(), 1000);
+          } else {
+            showToast('Failed to save pricing', 'error');
+          }
+        })
+        .catch(() => showToast('Network error', 'error'));
+    });
+
+    // Platform Discount Form (updated with reload on success)
+    document.getElementById('discountForm').addEventListener('submit', e => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      fetch('/admin/update_discount', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(d => {
+          if (d.success) {
+            showToast('Discount saved!');
+            setTimeout(() => location.reload(), 1000);
+          } else {
+            showToast('Failed to save discount', 'error');
+          }
+        })
+        .catch(() => showToast('Network error', 'error'));
+    });
+
+    // Marketplace Discount Form (updated with reload on success)
+    document.getElementById('marketplaceDiscountForm').addEventListener('submit', e => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      fetch('/admin/update_marketplace_discount', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(d => {
+          if (d.success) {
+            showToast('Marketplace discount saved!');
+            setTimeout(() => location.reload(), 1000);
+          } else {
+            showToast('Failed to save marketplace discount', 'error');
+          }
+        })
+        .catch(() => showToast('Network error', 'error'));
+    });
+
+    // NEW: Upload Limits Form
+    document.getElementById('uploadLimitsForm').addEventListener('submit', e => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      fetch('/admin/update_upload_limits', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(d => {
+          if (d.success) {
+            showToast('Upload limits saved!');
+            setTimeout(() => location.reload(), 1000);
+          } else {
+            showToast('Failed to save upload limits', 'error');
+          }
+        })
+        .catch(() => showToast('Network error', 'error'));
+    });
+
+    // Eligibility Form (updated with reload on success)
+    document.getElementById('eligibilityForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const btn = e.target.querySelector('button');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
+
+      try {
+        const resp = await fetch('/admin/update_eligibility', { method: 'POST', body: fd });
+        const data = await resp.json();
         if (data.success) {
-          alert('Pricing updated successfully!');
-          location.reload();
+          showToast(data.message);
+          setTimeout(() => location.reload(), 1000);
         } else {
-          alert('Error updating pricing: ' + (data.message || 'Unknown error'));
+          showToast(data.detail || 'Failed', 'error');
         }
-      })
-      .catch(error => {
-        console.error('Error:', error);
-        alert('Error updating pricing: ' + (error.message || 'Unknown error'));
+      } catch {
+        showToast('Network error', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'Update Eligibility';
+      }
+    });
+
+    // Enable/disable discount inputs (unchanged)
+    document.querySelector('input[name="discount_enabled"]').addEventListener('change', function () {
+      const inputs = document.querySelectorAll('#discountForm .discount-input');
+      inputs.forEach(i => i.disabled = !this.checked);
+    });
+
+    // Enable/disable marketplace discount inputs (unchanged)
+    document.querySelector('input[name="marketplace_discount_enabled"]').addEventListener('change', function () {
+      const inputs = document.querySelectorAll('#marketplaceDiscountForm .discount-input');
+      inputs.forEach(i => i.disabled = !this.checked);
+    });
+
+    // Trader Toggle with Dynamic Feedback (unchanged)
+    document.querySelectorAll('.trader-toggle').forEach(toggle => {
+      toggle.addEventListener('change', async function () {
+        const userId = this.dataset.userId;
+        const minTrades = parseInt(this.dataset.minTrades);
+        const minWinRate = parseFloat(this.dataset.minWinRate);
+        const desiredOn = this.checked;
+        const small = this.closest('td').querySelector('.eligibility-msg');
+
+        this.disabled = true;
+
+        try {
+          const resp = await fetch(`/admin/toggle_trader/${userId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `desired_is_trader=${desiredOn}`
+          });
+          const data = await resp.json();
+
+          if (!data.success) throw new Error(data.detail || 'Failed');
+
+          // Update UI based on server response
+          if (data.is_trader) {
+            small.innerHTML = `<span class="text-success">Live (${data.win_rate.toFixed(1)}% win)</span>`;
+          } else {
+            let msg = '';
+            if (data.total_trades < minTrades) {
+              msg = `Need ${minTrades - data.total_trades} more trades`;
+            } else if (data.win_rate < minWinRate) {
+              msg = `Win-rate ${data.win_rate.toFixed(1)}%`;
+            } else {
+              msg = 'Eligible';
+            }
+            small.innerHTML = `<span class="${data.eligible ? 'text-success' : 'text-muted'}">${msg}</span>`;
+          }
+
+          showToast(`Trader ${data.is_trader ? 'enabled' : 'disabled'}`);
+        } catch (e) {
+          showToast(e.message, 'error');
+          this.checked = !desiredOn;
+        } finally {
+          this.disabled = false;
+        }
       });
     });
 
-    document.getElementById('discountForm').addEventListener('submit', function(e) {
-      e.preventDefault();
-      const formData = new FormData(this);
-      fetch('/admin/update_discount', {
+    // Update Marketplace Price (unchanged)
+    function updateMarketplacePrice(userId) {
+      const input = document.getElementById(`price-${userId}`);
+      const price = parseFloat(input.value);
+      if (isNaN(price) || price < 0) {
+        showToast('Invalid price', 'error');
+        return;
+      }
+      fetch(`/admin/update_marketplace_price/${userId}`, {
         method: 'POST',
-        body: formData
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `price=${price}`
       })
-      .then(response => {
-        if (!response.ok) {
-          return response.json().then(err => { throw new Error(err.detail || 'Failed to update discount'); });
-        }
-        return response.json();
-      })
+      .then(r => r.json())
       .then(data => {
         if (data.success) {
-          alert('Discount updated successfully!');
-          location.reload();
+          showToast('Price updated successfully!');
+          const priceCell = document.getElementById(`price-display-${userId}`);
+          priceCell.textContent = `$${price.toFixed(2)}`;
         } else {
-          alert('Error updating discount: ' + (data.message || 'Unknown error'));
+          showToast(data.message || 'Failed to update price', 'error');
         }
       })
-      .catch(error => {
-        console.error('Error:', error);
-        alert('Error updating discount: ' + (error.message || 'Unknown error'));
-      });
+      .catch(() => showToast('Network error', 'error'));
+    }
+
+    // Test Sub Modal Functions (unchanged)
+    let currentUserIdForModal = null;
+    function openTestSubModal(userId, userName) {
+      currentUserIdForModal = userId;
+      const userNameEl = document.getElementById('modalUserName');
+      userNameEl.textContent = userName;
+      
+      const select = document.getElementById('traderSelect');
+      select.value = '';
+    }
+
+    document.getElementById('grantTestAccess').addEventListener('click', async () => {
+      const traderId = parseInt(document.getElementById('traderSelect').value);
+      if (!traderId) {
+        showToast('Select a trader', 'error');
+        return;
+      }
+      
+      const btn = document.getElementById('grantTestAccess');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Granting...';
+      
+      try {
+        const res = await fetch('/admin/create_test_subscription', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `user_id=${currentUserIdForModal}&trader_id=${traderId}`
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+          showToast(data.message);
+          setTimeout(() => location.reload(), 1500);
+        } else {
+          showToast(data.detail || 'Failed', 'error');
+        }
+      } catch (err) {
+        showToast('Network error', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'Grant Access';
+        const modal = bootstrap.Modal.getInstance(document.getElementById('testSubModal'));
+        modal.hide();
+      }
     });
 
-    document.querySelector('input[name="discount_enabled"]').addEventListener('change', function() {
-      const inputs = document.querySelectorAll('.discount-input');
-      inputs.forEach(input => input.disabled = !this.checked);
+    // Revoke Test Access Function (unchanged)
+    function revokeTestAccess(userId, traderId) {
+      if (!confirm('Revoke test access to this trader\'s journal?')) return;
+      
+      fetch(`/admin/delete_test_subscription/${userId}/${traderId}`, { 
+        method: 'DELETE' 
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          showToast(data.message);
+          setTimeout(() => location.reload(), 1000);
+        } else {
+          showToast(data.detail || 'Failed to revoke access', 'error');
+        }
+      })
+      .catch(() => showToast('Network error', 'error'));
+    }
+
+    // NEW: Pending Trader Approval/Rejection Functions
+    let currentTraderIdForReject = null;
+
+    function openRejectModal(traderId, traderName) {
+      currentTraderIdForReject = traderId;
+      document.getElementById('rejectTraderName').textContent = traderName;
+      document.getElementById('rejectReason').value = '';
+    }
+
+    function approveTrader(traderId) {
+      if (!confirm('Approve this trader application?')) return;
+      
+      fetch(`/admin/approve_trader/${traderId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'approve=true'
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          showToast(data.message);
+          setTimeout(() => location.reload(), 1000);
+        } else {
+          showToast(data.detail || 'Failed to approve', 'error');
+        }
+      })
+      .catch(() => showToast('Network error', 'error'));
+    }
+
+    document.getElementById('rejectTraderBtn').addEventListener('click', async () => {
+      const reason = document.getElementById('rejectReason').value.trim();
+      const btn = document.getElementById('rejectTraderBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Rejecting...';
+      
+      try {
+        const res = await fetch(`/admin/approve_trader/${currentTraderIdForReject}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `approve=false&reason=${encodeURIComponent(reason)}`
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+          showToast(data.message);
+          setTimeout(() => location.reload(), 1500);
+        } else {
+          showToast(data.detail || 'Failed', 'error');
+        }
+      } catch (err) {
+        showToast('Network error', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'Reject Application';
+        const modal = bootstrap.Modal.getInstance(document.getElementById('rejectModal'));
+        modal.hide();
+      }
+    });
+
+    // NEW: Complete Payment Modal Functions
+    let currentPaymentIdForComplete = null;
+    function openCompleteModal(paymentId, userEmail) {
+      currentPaymentIdForComplete = paymentId;
+      document.getElementById('completePaymentId').value = paymentId;
+      document.getElementById('completeUserEmail').textContent = userEmail;
+      document.getElementById('completeReason').value = '';
+    }
+
+    document.getElementById('completePaymentBtn').addEventListener('click', async () => {
+      const reason = document.getElementById('completeReason').value.trim() || 'Manual completion';
+      const btn = document.getElementById('completePaymentBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Completing...';
+      
+      try {
+        const res = await fetch('/admin/complete-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ payment_id: currentPaymentIdForComplete, reason: reason })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+          showToast(data.message);
+          setTimeout(() => location.reload(), 1500);
+        } else {
+          showToast(data.detail || 'Failed to complete payment', 'error');
+        }
+      } catch (err) {
+        showToast('Network error', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'Complete Payment';
+        const modal = bootstrap.Modal.getInstance(document.getElementById('completePaymentModal'));
+        modal.hide();
+      }
     });
   </script>
 </body>

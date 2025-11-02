@@ -14,15 +14,10 @@
         <button class="btn btn-outline-secondary btn-sm" onclick="exportInsights('csv')" data-bs-toggle="tooltip" data-bs-placement="top" title="Export insights as CSV"><i class="bi bi-file-earmark-spreadsheet me-1"></i> CSV</button>
       </div>
     </div>
-  </div>
-
-  <div class="card-radius p-0" id="insights-container">
+  </div>  <div class="card-radius p-0" id="insights-container">
     <!-- Dynamic content injected via JS -->
-  </div>
-</main>
-
-<!-- Regenerate Modal -->
-<div class="modal fade" id="regenerateModal" tabindex="-1" aria-labelledby="regenerateModalLabel">
+  </div></main><!-- Regenerate Modal -->
+<div class="modal fade" id="regenerateModal" tabindex="-1" aria-labelledby="regenerateModalLabel" data-bs-theme="dark">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
@@ -46,7 +41,7 @@
 </div>
 
 <!-- Upgrade Modal -->
-<div class="modal fade" id="upgradeModal" tabindex="-1" aria-labelledby="upgradeModalLabel">
+<div class="modal fade" id="upgradeModal" tabindex="-1" aria-labelledby="upgradeModalLabel" data-bs-theme="dark">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
@@ -67,11 +62,7 @@
 </div>
 {% endblock %}
 
-{% block scripts %}<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<style>
+{% block scripts %}<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script><script src="https://cdn.jsdelivr.net/npm/chart.js"></script><style>
   /* Insights-specific styles */
   .session-toggle {
     background: rgba(47,107,255,0.08);
@@ -188,6 +179,77 @@
   @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Dark mode fixes for modal and table */
+  [data-bs-theme="dark"] .modal-content {
+    background-color: var(--bg-secondary);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  [data-bs-theme="dark"] .modal-header {
+    border-bottom: 1px solid var(--border);
+  }
+  [data-bs-theme="dark"] .modal-footer {
+    border-top: 1px solid var(--border);
+  }
+  [data-theme="dark"] .table {
+    --bs-table-bg: var(--surface);
+    --bs-table-color: var(--text);
+    --bs-table-border-color: var(--border);
+    --bs-table-striped-bg: rgba(255, 255, 255, 0.05);
+    --bs-table-hover-bg: rgba(255, 255, 255, 0.075);
+    --bs-table-accent-bg: rgba(255, 255, 255, 0.05);
+  }
+  [data-theme="dark"] .table th,
+  [data-theme="dark"] .table td {
+    border-color: var(--border) !important;
+    color: var(--text) !important;
+  }
+  [data-theme="dark"] .table thead th {
+    border-bottom: 2px solid var(--border) !important;
+    color: var(--text) !important;
+    background-color: var(--surface) !important;
+  }
+  [data-theme="dark"] .table-hover tbody tr:hover > * {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+  }
+  [data-theme="dark"] .table .badge {
+    color: var(--text) !important;
+  }
+
+  /* Improved styling for recommendation icons */
+  .insight-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding: 12px;
+    border-radius: 8px;
+    background: rgba(var(--brand-rgb), 0.05);
+    border: 1px solid var(--border);
+  }
+  .insight-icon {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-size: 1.1rem;
+  }
+  .icon-edge {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--brand);
+  }
+  .icon-risk {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--danger);
+  }
+  .icon-action {
+    background: rgba(34, 197, 94, 0.1);
+    color: var(--success);
   }
 </style>
 
@@ -482,7 +544,7 @@
                   </thead>
                   <tbody>
                     ${data.ai_insights && data.ai_insights.session_data ? data.ai_insights.session_data.map(session => `
-                      <tr onclick="drillToJournal('${session.session.replace(/'/g, "\\'")}')" style="cursor: pointer;">
+                      <tr>
                         <td><span class="badge bg-primary">${session.session}</span></td>
                         <td>${session.win_rate}%</td>
                         <td class="${session.avg_pnl > 0 ? 'text-success' : 'text-danger'} fw-semibold">${session.avg_pnl}%</td>
@@ -514,24 +576,24 @@
               ${data.ai_insights && data.ai_insights.strengths ? data.ai_insights.strengths.map(s => `
                 <div class="insight-item">
                   <div class="insight-icon icon-edge"><i class="bi bi-graph-up-arrow"></i></div>
-                  <div>
-                    <div class="small-muted">${s}</div>
+                  <div class="flex-grow-1">
+                    <p class="mb-0">${s}</p>
                   </div>
                 </div>
               `).join('') : '<div class="text-muted">No strengths identified</div>'}
               ${data.ai_insights && data.ai_insights.weaknesses ? data.ai_insights.weaknesses.map(w => `
                 <div class="insight-item">
                   <div class="insight-icon icon-risk"><i class="bi bi-exclamation-triangle"></i></div>
-                  <div>
-                    <div class="small-muted">${w}</div>
+                  <div class="flex-grow-1">
+                    <p class="mb-0">${w}</p>
                   </div>
                 </div>
               `).join('') : '<div class="text-muted">No weaknesses identified</div>'}
               ${data.ai_insights && data.ai_insights.actions ? data.ai_insights.actions.map(a => `
                 <div class="insight-item">
                   <div class="insight-icon icon-action"><i class="bi bi-lightbulb-fill"></i></div>
-                  <div>
-                    <div class="small-muted">${a}</div>
+                  <div class="flex-grow-1">
+                    <p class="mb-0">${a}</p>
                   </div>
                 </div>
               `).join('') : '<div class="text-muted">No actions recommended</div>'}
@@ -543,7 +605,6 @@
                   ${data.ai_insights && data.ai_insights.bullets ? data.ai_insights.bullets.map(b => `<li class="small-muted">${b}</li>`).join('') : '<li class="text-muted">No actions</li>'}
                 </ul>
               </div>
-              <button class="btn btn-primary mt-3" onclick="applyToProfile()">Apply to Profile</button>
               ${outdatedNote}
               ${upgradePrompts}
             </div>
@@ -800,14 +861,6 @@
     }
   }
 
-  function drillToJournal(session) {
-    alert(`Drill down to Journal for ${session} trades`);
-  }
-
-  function applyToProfile() {
-    alert('Applying recommendations to profile...');
-  }
-
   function showErrorToast(message) {
     const errorToastEl = document.getElementById('errorToast');
     if (errorToastEl) {
@@ -826,3 +879,4 @@
   });
 </script>
 {% endblock %}
+

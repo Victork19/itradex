@@ -1,5 +1,4 @@
 # router/uploads.py
-
 import io
 import os
 import re
@@ -298,18 +297,32 @@ async def get_monthly_upload_count(db: AsyncSession, user_id: int) -> int:
         logger.error("Failed to count monthly uploads: %s", e)
         return 0
 
-def get_plan_limits(plan: str) -> Tuple[int, int]:
-    """Get monthly and batch limits based on plan."""
-    if plan in ['free', 'starter']:
-        return 3, 3
-    elif plan in ['premium', 'pro', 'elite']:
-        return float('inf'), 10
+async def get_plan_limits(db: AsyncSession, plan: str) -> Tuple[int, int]:
+    """Get monthly and batch limits based on plan from DB."""
+    try:
+        result = await db.execute(
+            select(models.UploadLimits.monthly_limit, models.UploadLimits.batch_limit)
+            .where(models.UploadLimits.plan == plan)
+        )
+        row = result.fetchone()
+        if row:
+            return row.monthly_limit or 2, row.batch_limit or 3
+    except Exception as e:
+        logger.warning("Failed to fetch upload limits from DB: %s; using hardcoded", e)
+    
+    # Hardcoded fallback with updated limits
+    if plan == 'starter':
+        return 2, 3
+    elif plan == 'pro':
+        return 29, 10
+    elif plan == 'elite':
+        return 1000, 10
     else:
-        return 3, 3
+        return 2, 3
 
 async def enforce_upload_limits(db: AsyncSession, current_user: models.User, num_files: int) -> None:
     """Enforce plan-based upload limits."""
-    monthly_limit, batch_limit = get_plan_limits(current_user.plan)
+    monthly_limit, batch_limit = await get_plan_limits(db, current_user.plan)
     monthly_count = await get_monthly_upload_count(db, current_user.id)
     if num_files > batch_limit:
         raise HTTPException(
@@ -317,11 +330,11 @@ async def enforce_upload_limits(db: AsyncSession, current_user: models.User, num
             detail=f"Batch size exceeds plan limit ({batch_limit} max). Upgrade for more."
         )
     projected_count = monthly_count + num_files
-    if monthly_limit != float('inf') and projected_count > monthly_limit:
+    if projected_count > monthly_limit:
         remaining = max(0, monthly_limit - monthly_count)
         raise HTTPException(
             status_code=402,
-            detail=f"Monthly upload limit reached ({monthly_limit} total). {remaining} remaining this month. Upgrade for unlimited."
+            detail=f"Monthly upload limit reached ({monthly_limit} total). {remaining} remaining this month. Upgrade for more."
         )
 
 def validate_and_preprocess_image(contents: bytes, max_pixels: int = 1_000_000) -> bytes:
@@ -561,6 +574,26 @@ async def get_monthly_uploads(db: AsyncSession = Depends(get_session), current_u
     count = await get_monthly_upload_count(db, current_user.id)
     return {"count": count}
 
+# NEW: Dynamic limits endpoint
+@router.get("/limits", response_model=Dict[str, int])
+async def get_upload_limits(
+    plan: Optional[str] = None,  # Optional: fetch for specific plan (e.g., current user's)
+    current_user: Optional[models.User] = Depends(auth.get_current_user),  # Only if plan not provided
+    db: AsyncSession = Depends(get_session)
+):
+    """Fetch dynamic upload limits for plans (or current user's plan)."""
+    if plan:
+        monthly, batch = await get_plan_limits(db, plan)
+        return {"monthly_limit": monthly, "batch_limit": batch}
+    
+    # Default: fetch for all plans if no plan specified
+    plans = ['starter', 'pro', 'elite']
+    limits = {}
+    for p in plans:
+        monthly, batch = await get_plan_limits(db, p)
+        limits[p] = {"monthly_limit": monthly, "batch_limit": batch}
+    return limits
+
 @router.post("/extract_batch")
 async def extract_batch_trades(
     files: List[UploadFile] = File(..., media_type="image/*"),
@@ -747,7 +780,7 @@ async def save_batch_trades(
     }
     saved_trades = []
     errors = []
-    account_balance = getattr(current_user, 'account_balance', 10000.0)
+    total_pnl_delta = 0.0  # Accumulate for logging
     
     for idx, trade in enumerate(trades_data):
         try:
@@ -783,8 +816,8 @@ async def save_batch_trades(
                 errors.append({"index": idx, "error": "Incomplete trade data: At least 2 key fields (symbol, direction, entry_price, sl_price, tp_price) required"})
                 continue
             
-            if trade_dict_filtered.get('risk_amount') and account_balance > 0:
-                trade_dict_filtered['risk_percentage'] = round((trade_dict_filtered['risk_amount'] / account_balance) * 100, 2)
+            if trade_dict_filtered.get('risk_amount') and current_user.account_balance > 0:
+                trade_dict_filtered['risk_percentage'] = round((trade_dict_filtered['risk_amount'] / current_user.account_balance) * 100, 2)
             
             if trade_dict_filtered.get('trade_date'):
                 try:
@@ -797,6 +830,22 @@ async def save_batch_trades(
                     errors.append({"index": idx, "error": f"Invalid trade_date format: {trade_dict_filtered['trade_date']}"})
                     continue
             
+            # Recalc P&L if needed (fallback, same as journal.py)
+            if (trade_dict_filtered.get('entry_price') is not None and 
+                trade_dict_filtered.get('exit_price') is not None and
+                trade_dict_filtered.get('position_size') is not None and
+                trade_dict_filtered.get('pnl') is None):
+                direction_str = str(trade_dict_filtered.get('direction')) if trade_dict_filtered.get('direction') else None
+                delta = (trade_dict_filtered['exit_price'] - trade_dict_filtered['entry_price']) if direction_str in (None, 'LONG') else (trade_dict_filtered['entry_price'] - trade_dict_filtered['exit_price'])
+                leverage = trade_dict_filtered.get('leverage') or 1.0
+                base_pnl = delta * trade_dict_filtered['position_size'] * leverage
+                asset_type_str = str(trade_dict_filtered.get('asset_type')) if trade_dict_filtered.get('asset_type') else None
+                if asset_type_str == 'FOREX':
+                    pip_factor = 100 if 'JPY' in (trade_dict_filtered.get('symbol') or '') else 10000
+                    base_pnl *= (abs(delta) * pip_factor / abs(delta)) * 10  # Approx pip value
+                fees_val = trade_dict_filtered.get('fees') or 0.0
+                trade_dict_filtered['pnl'] = round(base_pnl - fees_val, 2)
+            
             new_trade = models.Trade(**trade_dict_filtered)
             if hasattr(new_trade, "owner_id"):
                 new_trade.owner_id = current_user.id
@@ -808,6 +857,14 @@ async def save_batch_trades(
                 new_trade.raw_ai_response = json.dumps({})
             if hasattr(new_trade, "confidence"):
                 new_trade.confidence = 0.95
+            
+            # Update user balance incrementally
+            pnl_delta = new_trade.pnl or 0.0
+            if pnl_delta != 0:
+                current_user.account_balance += pnl_delta
+                total_pnl_delta += pnl_delta
+                logger.info(f"Batch-saved trade {new_trade.id} for user {current_user.id}, added {pnl_delta:.2f} to balance (new: {current_user.account_balance:.2f})", extra={"corr_id": correlation_id})
+            
             db.add(new_trade)
             saved_trades.append(new_trade)
         except ValidationError as e:
@@ -828,7 +885,7 @@ async def save_batch_trades(
     
     try:
         await db.commit()
-        logger.info("Batch save completed: %d trades saved, %d failed", len(saved_trades), len(errors), extra={"corr_id": correlation_id})
+        logger.info("Batch save completed: %d trades saved, %d failed, total P&L delta: %.2f", len(saved_trades), len(errors), total_pnl_delta, extra={"corr_id": correlation_id})
         
         response = [schemas.TradeResponse.model_validate(t, from_attributes=True).dict() for t in saved_trades]
         if errors:
@@ -895,6 +952,22 @@ async def save_extracted_trade(
             logger.warning("Invalid trade_date format: %s", trade_dict['trade_date'], extra={"corr_id": correlation_id})
             del trade_dict['trade_date']
     
+    # Recalc P&L if needed (fallback, same as journal.py)
+    if (trade_dict.get('entry_price') is not None and 
+        trade_dict.get('exit_price') is not None and
+        trade_dict.get('position_size') is not None and
+        trade_dict.get('pnl') is None):
+        direction_str = str(trade_dict.get('direction')) if trade_dict.get('direction') else None
+        delta = (trade_dict['exit_price'] - trade_dict['entry_price']) if direction_str in (None, 'LONG') else (trade_dict['entry_price'] - trade_dict['exit_price'])
+        leverage = trade_dict.get('leverage') or 1.0
+        base_pnl = delta * trade_dict['position_size'] * leverage
+        asset_type_str = str(trade_dict.get('asset_type')) if trade_dict.get('asset_type') else None
+        if asset_type_str == 'FOREX':
+            pip_factor = 100 if 'JPY' in (trade_dict.get('symbol') or '') else 10000
+            base_pnl *= (abs(delta) * pip_factor / abs(delta)) * 10  # Approx pip value
+        fees_val = trade_dict.get('fees') or 0.0
+        trade_dict['pnl'] = round(base_pnl - fees_val, 2)
+    
     try:
         new_trade = models.Trade(**trade_dict)
         if hasattr(new_trade, "owner_id"):
@@ -907,6 +980,13 @@ async def save_extracted_trade(
             new_trade.raw_ai_response = json.dumps({})
         if hasattr(new_trade, "confidence"):
             new_trade.confidence = 0.95
+        
+        # Update user balance incrementally
+        pnl_delta = new_trade.pnl or 0.0
+        if pnl_delta != 0:
+            current_user.account_balance += pnl_delta
+            logger.info(f"Saved trade {new_trade.id} for user {current_user.id}, added {pnl_delta:.2f} to balance (new: {current_user.account_balance:.2f})", extra={"corr_id": correlation_id})
+        
         db.add(new_trade)
         await db.commit()
         logger.info("Trade saved: id=%s, symbol=%s", new_trade.id, new_trade.symbol, extra={"corr_id": correlation_id})
@@ -1012,6 +1092,22 @@ async def upload_trade_screenshot(
                 logger.warning("Invalid trade_date format: %s", trade_dict['trade_date'], extra={"corr_id": correlation_id})
                 del trade_dict['trade_date']
         
+        # Recalc P&L if needed (fallback, same as journal.py)
+        if (trade_dict.get('entry_price') is not None and 
+            trade_dict.get('exit_price') is not None and
+            trade_dict.get('position_size') is not None and
+            trade_dict.get('pnl') is None):
+            direction_str = str(trade_dict.get('direction')) if trade_dict.get('direction') else None
+            delta = (trade_dict['exit_price'] - trade_dict['entry_price']) if direction_str in (None, 'LONG') else (trade_dict['entry_price'] - trade_dict['exit_price'])
+            leverage = trade_dict.get('leverage') or 1.0
+            base_pnl = delta * trade_dict['position_size'] * leverage
+            asset_type_str = str(trade_dict.get('asset_type')) if trade_dict.get('asset_type') else None
+            if asset_type_str == 'FOREX':
+                pip_factor = 100 if 'JPY' in (trade_dict.get('symbol') or '') else 10000
+                base_pnl *= (abs(delta) * pip_factor / abs(delta)) * 10  # Approx pip value
+            fees_val = trade_dict.get('fees') or 0.0
+            trade_dict['pnl'] = round(base_pnl - fees_val, 2)
+        
         new_trade = models.Trade(**trade_dict)
         if hasattr(new_trade, "owner_id"):
             new_trade.owner_id = current_user.id
@@ -1023,6 +1119,12 @@ async def upload_trade_screenshot(
             new_trade.raw_ai_response = json.dumps(raw_response)
         if hasattr(new_trade, "confidence"):
             new_trade.confidence = conf["overall"]
+        
+        # Update user balance incrementally
+        pnl_delta = new_trade.pnl or 0.0
+        if pnl_delta != 0:
+            current_user.account_balance += pnl_delta
+            logger.info(f"Uploaded trade {new_trade.id} for user {current_user.id}, added {pnl_delta:.2f} to balance (new: {current_user.account_balance:.2f})", extra={"corr_id": correlation_id})
         
         db.add(new_trade)
         await db.commit()

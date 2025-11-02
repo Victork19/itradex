@@ -24,22 +24,48 @@
         <div class="stat-value" id="statTotal">--</div>
       </div>
     </div>
+  </div>  <!-- Marketplace Application Section -->
+  <div id="marketplaceSection" class="card mb-4" style="display: none; background: var(--surface); border: 1px solid var(--border);">
+    <div class="card-header" style="background: var(--surface-variant); border-bottom: 1px solid var(--border);">
+      <h5 class="card-title mb-0" style="color: var(--text);">Marketplace Listing</h5>
+    </div>
+    <div class="card-body">
+      <div id="eligibilityStatus"></div>
+      <form id="priceForm" style="display: none;">
+        <div class="mb-3">
+          <label for="priceInput" class="form-label" style="color: var(--text);">Subscription Price ($/month)</label>
+          <!-- Minimum changed to 1.00 -->
+          <input type="number" id="priceInput" class="form-control" min="1.00" max="99.99" step="0.01" value="19.99" required style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);">
+        </div>
+        <button type="submit" class="btn btn-primary">Update Price</button>
+      </form>
+      <button id="applyBtn" class="btn btn-success" style="display: none;">Apply to List Journal</button>
+    </div>
+  </div>
+
+  <!-- Trader Selector -->
+  <div id="traderSelectorContainer" class="mb-3" style="display:none;">
+    <label for="traderSelect" class="form-label" style="color: var(--text);"><strong>View Journal Of:</strong></label>
+    <select id="traderSelect" class="form-select" style="max-width:300px; background-color: var(--surface); border: 1px solid var(--border); color: var(--text);">
+      <option value="personal">My Journal</option>
+    </select>
+    <span id="traderBadge" class="badge bg-info ms-2" style="display:none;"></span>
   </div>
 
   <!-- Filters -->
   <div class="d-flex filter-bar mb-3 flex-wrap align-items-center">
-    <input id="searchInput" type="text" class="form-control" placeholder="Search trades..." style="max-width:200px;">
-    <select id="filterType" class="form-select" style="max-width:160px;">
+    <input id="searchInput" type="text" class="form-control" placeholder="Search trades..." style="max-width:200px; background-color: var(--surface); border: 1px solid var(--border); color: var(--text);" data-bs-theme="auto">
+    <select id="filterType" class="form-select" style="max-width:160px; background-color: var(--surface); border: 1px solid var(--border); color: var(--text);" data-bs-theme="auto">
       <option value="all">Type: All</option>
       <option value="win">Wins</option>
       <option value="loss">Losses</option>
     </select>
-    <select id="assetTypeFilter" class="form-select" style="max-width:160px;">
+    <select id="assetTypeFilter" class="form-select" style="max-width:160px; background-color: var(--surface); border: 1px solid var(--border); color: var(--text);" data-bs-theme="auto">
       <option value="all">Asset Type: All</option>
       <option value="forex">Forex</option>
       <option value="crypto">Crypto</option>
     </select>
-    <select id="sessionFilter" class="form-select" style="max-width:160px;">
+    <select id="sessionFilter" class="form-select" style="max-width:160px; background-color: var(--surface); border: 1px solid var(--border); color: var(--text);" data-bs-theme="auto">
       <option value="all">Session: All</option>
       <option value="London">London</option>
       <option value="New York">New York</option>
@@ -47,7 +73,7 @@
       <option value="Sydney">Sydney</option>
       <option value="UTC">UTC</option>
     </select>
-    <select id="strategyFilter" class="form-select" style="max-width:160px;">
+    <select id="strategyFilter" class="form-select" style="max-width:160px; background-color: var(--surface); border: 1px solid var(--border); color: var(--text);" data-bs-theme="auto">
       <option value="all">Strategy: All</option>
       <option value="Breakout">Breakout</option>
       <option value="Scalp">Scalp</option>
@@ -55,64 +81,75 @@
       <option value="RSI Divergence">RSI Divergence</option>
       <option value="Swing Trading">Swing Trading</option>
     </select>
-    <input id="dateStart" type="date" class="form-control" style="max-width:150px;">
-    <input id="dateEnd" type="date" class="form-control" style="max-width:150px;">
-    <select id="sortSelect" class="form-select" style="max-width:160px;">
-      <option value="dateDesc">Sort: Date ↓</option>
-      <option value="plHigh">P/L ↓ (highest first)</option>
-      <option value="plLow">P/L ↑ (lowest first)</option>
+    <input id="dateStart" type="date" class="form-control" style="max-width:150px; background-color: var(--surface); border: 1px solid var(--border); color: var(--text);" data-bs-theme="auto">
+    <input id="dateEnd" type="date" class="form-control" style="max-width:150px; background-color: var(--surface); border: 1px solid var(--border); color: var(--text);" data-bs-theme="auto">
+    <select id="sortSelect" class="form-select" style="max-width:160px; background-color: var(--surface); border: 1px solid var(--border); color: var(--text);" data-bs-theme="auto">
+      <option value="dateDesc">Sort: Date Down</option>
+      <option value="plHigh">P/L Down (highest first)</option>
+      <option value="plLow">P/L Up (lowest first)</option>
       <option value="symbol">Symbol A-Z</option>
     </select>
-    <select id="pageSize" class="form-select" style="max-width:100px;">
+    <select id="pageSize" class="form-select" style="max-width:100px; background-color: var(--surface); border: 1px solid var(--border); color: var(--text);" data-bs-theme="auto">
       <option value="10">10/trades</option>
       <option value="20">20</option>
       <option value="50">50</option>
     </select>
     <button id="clearFilters" class="btn btn-outline-secondary btn-sm">Clear</button>
-    <div class="ms-auto">
+    <div class="ms-auto d-flex align-items-center gap-2">
       <span id="tradeCountBadge" class="badge bg-primary" style="display:none;"></span>
+      <span id="showingTrades" class="text-muted small" style="display:none;"></span>
     </div>
   </div>
 
-  <!-- Trade list (infinite scroll container) -->
+  <!-- Trade list -->
   <div id="tradesList" style="position: relative;"></div>
-  <div id="loadingMore" class="text-center py-3" style="display:none;">Loading more...</div>
+  <div id="loadingSpinner" class="text-center py-3" style="display:none;">
+    <div class="spinner-border text-primary" role="status">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+  </div>
   <div id="emptyState" class="empty-state" style="display:none;">
     <i class="bi bi-journal-text empty-icon"></i>
-    <p>Your journal's a blank canvas—log a trade to begin!</p>
-    <a href="/upload" class="btn btn-primary">Upload Trade</a>
+    <p id="emptyMessage">Your journal's a blank canvas—log a trade to begin!</p>
+    <a href="/upload" class="btn btn-primary" id="uploadBtn">Upload Trade</a>
   </div>
+
+  <!-- Pagination -->
+  <nav aria-label="Trade pagination" id="paginationContainer" style="display:none;">
+    <ul class="pagination justify-content-center"></ul>
+  </nav>
+
   <div class="footer-text">Powered by your AI co-pilot</div>
 </main>
 
-<!-- Trade Detail Modal (for edit-like review) -->
-<div class="modal fade" id="tradeModal" tabindex="-1">
+<!-- Trade Detail Modal -->
+<div class="modal fade" id="tradeModal" tabindex="-1" data-bs-theme="auto">
   <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-    <div class="modal-content card-radius">
-      <div class="modal-header">
-        <h5 class="modal-title">Trade Details & Edit</h5>
+    <div class="modal-content card-radius" style="background: var(--surface); border: 1px solid var(--border);">
+      <div class="modal-header" style="background: var(--surface-variant); border-bottom: 1px solid var(--border);">
+        <h5 class="modal-title" id="modalTitle" style="color: var(--text);">Trade Details</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
         <div class="row g-3">
           <div class="col-sm-6">
-            <label for="mDate" class="form-label"><strong>Date & Time</strong> <small class="text-muted">(YYYY-MM-DD HH:MM, UTC)</small></label>
-            <input id="mDate" class="form-control" type="datetime-local" placeholder="Select date and time of trade entry">
+            <label for="mDate" class="form-label" style="color: var(--text);"><strong>Date & Time</strong> <small class="text-muted">(YYYY-MM-DD HH:MM, UTC)</small></label>
+            <input id="mDate" class="form-control" type="datetime-local" placeholder="Select date and time of trade entry" style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);" data-bs-theme="auto">
           </div>
           <div class="col-sm-6">
-            <label for="mSymbol" class="form-label"><strong>Symbol</strong> <small class="text-muted">(e.g., EURUSD, BTCUSD)</small></label>
-            <input id="mSymbol" class="form-control" type="text" placeholder="Enter trading pair symbol">
+            <label for="mSymbol" class="form-label" style="color: var(--text);"><strong>Symbol</strong> <small class="text-muted">(e.g., EURUSD, BTCUSD)</small></label>
+            <input id="mSymbol" class="form-control" type="text" placeholder="Enter trading pair symbol" style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);" data-bs-theme="auto">
           </div>
           <div class="col-sm-6">
-            <label for="mAssetType" class="form-label"><strong>Asset Type</strong></label>
-            <select id="mAssetType" class="form-select">
+            <label for="mAssetType" class="form-label" style="color: var(--text);"><strong>Asset Type</strong></label>
+            <select id="mAssetType" class="form-select" style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);" data-bs-theme="auto">
               <option value="forex">Forex</option>
               <option value="crypto">Crypto</option>
             </select>
           </div>
           <div class="col-sm-6">
-            <label for="mSession" class="form-label"><strong>Session</strong> <small class="text-muted">(Trading session)</small></label>
-            <select id="mSession" class="form-select">
+            <label for="mSession" class="form-label" style="color: var(--text);"><strong>Session</strong> <small class="text-muted">(Trading session)</small></label>
+            <select id="mSession" class="form-select" style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);" data-bs-theme="auto">
               <option value="">Select session</option>
               <option value="London">London</option>
               <option value="New York">New York</option>
@@ -122,8 +159,8 @@
             </select>
           </div>
           <div class="col-sm-6">
-            <label for="mStrategy" class="form-label"><strong>Strategy</strong> <small class="text-muted">(Trading approach used)</small></label>
-            <select id="mStrategy" class="form-select">
+            <label for="mStrategy" class="form-label" style="color: var(--text);"><strong>Strategy</strong> <small class="text-muted">(Trading approach used)</small></label>
+            <select id="mStrategy" class="form-select" style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);" data-bs-theme="auto">
               <option value="">Unknown</option>
               <option value="Breakout">Breakout</option>
               <option value="Scalp">Scalp</option>
@@ -133,72 +170,72 @@
             </select>
           </div>
           <div class="col-sm-6">
-            <label for="mDirection" class="form-label"><strong>Direction</strong></label>
-            <select id="mDirection" class="form-select">
+            <label for="mDirection" class="form-label" style="color: var(--text);"><strong>Direction</strong></label>
+            <select id="mDirection" class="form-select" style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);" data-bs-theme="auto">
               <option value="LONG">Long</option>
               <option value="SHORT">Short</option>
             </select>
           </div>
           <div class="col-sm-6">
-            <label for="mEntry" class="form-label"><strong>Entry Price</strong> <small class="text-muted">(Price at which you entered the trade)</small></label>
-            <input id="mEntry" class="form-control" type="number" step="0.0001" placeholder="e.g., 1.0850">
+            <label for="mEntry" class="form-label" style="color: var(--text);"><strong>Entry Price</strong> <small class="text-muted">(Price at which you entered the trade)</small></label>
+            <input id="mEntry" class="form-control" type="number" step="0.0001" placeholder="e.g., 1.0850" style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);" data-bs-theme="auto">
           </div>
           <div class="col-sm-6">
-            <label for="mExit" class="form-label"><strong>Exit Price</strong> <small class="text-muted">(Price at which you exited the trade)</small></label>
-            <input id="mExit" class="form-control" type="number" step="0.0001" placeholder="e.g., 1.0900">
+            <label for="mExit" class="form-label" style="color: var(--text);"><strong>Exit Price</strong> <small class="text-muted">(Price at which you exited the trade)</small></label>
+            <input id="mExit" class="form-control" type="number" step="0.0001" placeholder="e.g., 1.0900" style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);" data-bs-theme="auto">
           </div>
           <div class="col-sm-6">
-            <label for="mSize" class="form-label"><strong>Position Size</strong> <small class="text-muted">(Trade volume, e.g., lots or units)</small></label>
-            <input id="mSize" class="form-control" type="number" step="0.0001" placeholder="e.g., 0.1 (for 0.1 lot)">
+            <label for="mSize" class="form-label" style="color: var(--text);"><strong>Position Size</strong> <small class="text-muted">(Trade volume, e.g., lots or units)</small></label>
+            <input id="mSize" class="form-control" type="number" step="0.0001" placeholder="e.g., 0.1 (for 0.1 lot)" style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);" data-bs-theme="auto">
           </div>
           <div class="col-sm-6">
-            <label for="mRisk" class="form-label"><strong>Risk %</strong> <small class="text-muted">(Percentage of account risked, 0-100)</small></label>
-            <input id="mRisk" class="form-control" type="number" step="0.01" min="0" max="100" placeholder="e.g., 1.0">
+            <label for="mRisk" class="form-label" style="color: var(--text);"><strong>Risk %</strong> <small class="text-muted">(Percentage of account risked, 0-100)</small></label>
+            <input id="mRisk" class="form-control" type="number" step="0.01" min="0" max="100" placeholder="e.g., 1.0" style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);" data-bs-theme="auto">
           </div>
           <div class="col-sm-6">
-            <label for="mSL" class="form-label"><strong>Stop Loss (SL)</strong> <small class="text-muted">(Price level for stop loss)</small></label>
-            <input id="mSL" class="form-control" type="number" step="0.0001" placeholder="e.g., 1.0800">
+            <label for="mSL" class="form-label" style="color: var(--text);"><strong>Stop Loss (SL)</strong> <small class="text-muted">(Price level for stop loss)</small></label>
+            <input id="mSL" class="form-control" type="number" step="0.0001" placeholder="e.g., 1.0800" style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);" data-bs-theme="auto">
           </div>
           <div class="col-sm-6">
-            <label for="mTP" class="form-label"><strong>Take Profit (TP)</strong> <small class="text-muted">(Price level for take profit)</small></label>
-            <input id="mTP" class="form-control" type="number" step="0.0001" placeholder="e.g., 1.0950">
+            <label for="mTP" class="form-label" style="color: var(--text);"><strong>Take Profit (TP)</strong> <small class="text-muted">(Price level for take profit)</small></label>
+            <input id="mTP" class="form-control" type="number" step="0.0001" placeholder="e.g., 1.0950" style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);" data-bs-theme="auto">
           </div>
           <div class="col-sm-6">
-            <label for="mLeverage" class="form-label"><strong>Leverage</strong> <small class="text-muted">(Multiplier, 1-100, e.g., 10 for 10x)</small></label>
-            <input id="mLeverage" class="form-control" type="number" min="1" max="100" step="0.1" placeholder="e.g., 10">
+            <label for="mLeverage" class="form-label" style="color: var(--text);"><strong>Leverage</strong> <small class="text-muted">(Multiplier, 1-100, e.g., 10 for 10x)</small></label>
+            <input id="mLeverage" class="form-control" type="number" min="1" max="100" step="0.1" placeholder="e.g., 10" style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);" data-bs-theme="auto">
           </div>
           <div class="col-sm-6">
-            <label for="mRiskAmount" class="form-label"><strong>Risk Amount ($)</strong> <small class="text-muted">(Absolute risk in USD)</small></label>
-            <input id="mRiskAmount" class="form-control" type="number" step="0.01" min="0" placeholder="e.g., 50.00">
+            <label for="mRiskAmount" class="form-label" style="color: var(--text);"><strong>Risk Amount ($)</strong> <small class="text-muted">(Absolute risk in USD)</small></label>
+            <input id="mRiskAmount" class="form-control" type="number" step="0.01" min="0" placeholder="e.g., 50.00" style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);" data-bs-theme="auto">
           </div>
           <div class="col-sm-6">
-            <label for="mRewardAmount" class="form-label"><strong>Reward Amount ($)</strong> <small class="text-muted">(Expected or realized reward in USD)</small></label>
-            <input id="mRewardAmount" class="form-control" type="number" step="0.01" min="0" placeholder="e.g., 100.00">
+            <label for="mRewardAmount" class="form-label" style="color: var(--text);"><strong>Reward Amount ($)</strong> <small class="text-muted">(Expected or realized reward in USD)</small></label>
+            <input id="mRewardAmount" class="form-control" type="number" step="0.01" min="0" placeholder="e.g., 100.00" style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);" data-bs-theme="auto">
           </div>
           <div class="col-sm-6">
-            <label for="mRRRatio" class="form-label"><strong>R:R Ratio</strong> <small class="text-muted">(Risk:Reward ratio, e.g., 1:2)</small></label>
-            <input id="mRRRatio" class="form-control" type="number" step="0.01" min="0" placeholder="e.g., 2.0">
+            <label for="mRRRatio" class="form-label" style="color: var(--text);"><strong>R:R Ratio</strong> <small class="text-muted">(Risk:Reward ratio, e.g., 1:2)</small></label>
+            <input id="mRRRatio" class="form-control" type="number" step="0.01" min="0" placeholder="e.g., 2.0" style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);" data-bs-theme="auto">
           </div>
           <div class="col-12">
-            <label class="form-label"><strong>P/L</strong> <small class="text-muted">(Profit/Loss - auto-calculated on save)</small></label>
-            <div id="mPL" class="fw-bold p-2 rounded" style="background: var(--surface); border: 1px solid var(--border);">N/A</div>
+            <label class="form-label" style="color: var(--text);"><strong>P/L</strong> <small class="text-muted">(Profit/Loss - auto-calculated on save)</small></label>
+            <div id="mPL" class="fw-bold p-2 rounded" style="background: var(--surface-variant); border: 1px solid var(--border);">N/A</div>
           </div>
           <div class="col-12">
-            <label for="mNotes" class="form-label"><strong>Notes</strong> <small class="text-muted">(Any additional thoughts or lessons learned)</small></label>
-            <textarea id="mNotes" class="form-control" rows="3" placeholder="Enter notes about this trade..."></textarea>
+            <label for="mNotes" class="form-label" style="color: var(--text);"><strong>Notes</strong> <small class="text-muted">(Any additional thoughts or lessons learned)</small></label>
+            <textarea id="mNotes" class="form-control" rows="3" placeholder="Enter notes about this trade..." style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);" data-bs-theme="auto"></textarea>
           </div>
           <div class="col-12">
-            <label class="form-label"><strong>AI Suggestion</strong></label>
+            <label class="form-label" style="color: var(--text);"><strong>AI Suggestion</strong></label>
             <div id="mSuggestion" class="insight-box">Loading...</div>
           </div>
           <div class="col-12">
-            <label class="form-label"><strong>Chart</strong> <small class="text-muted">(Screenshot of the trade setup)</small></label>
+            <label class="form-label" style="color: var(--text);"><strong>Chart</strong> <small class="text-muted">(Screenshot of the trade setup)</small></label>
             <img id="mChart" src="" alt="Trade Chart" class="img-fluid chart-preview" style="display:none;" onerror="this.style.display='none'; document.getElementById('mChartPlaceholder').style.display='block';">
             <div id="mChartPlaceholder" class="chart-preview-placeholder">No chart available</div>
           </div>
         </div>
       </div>
-      <div class="modal-footer">
+      <div class="modal-footer" style="background: var(--surface-variant); border-top: 1px solid var(--border);">
         <button id="saveEdit" class="btn btn-primary">Save Changes</button>
         <button id="deleteTrade" class="btn btn-danger">Delete</button>
       </div>
@@ -206,37 +243,23 @@
   </div>
 </div>
 {% endblock %}
-{% block scripts %}
-<style>
-  /* Journal-specific styles (unchanged for brevity) */
-  .stat-card { padding:16px; border-radius:var(--radius); background:var(--surface); box-shadow:var(--shadow); position: relative; overflow:hidden; }
+
+{% block scripts %}<style>
+  .stat-card { padding:16px; border-radius:var(--radius); background:var(--surface); box-shadow:var(--shadow); position: relative; overflow:hidden; color: var(--text); }
   .stat-card .accent { position:absolute; top:0; left:0; height:6px; width:44px; border-bottom-right-radius:8px; }
-  .stat-value { font-size:1.4rem; font-weight:700; margin-top:6px; }
+  .stat-value { font-size:1.4rem; font-weight:700; margin-top:6px; color: var(--text); }
   .filter-bar { gap:10px; }
   .trade-card {
-    height: auto;
-    min-height: 200px;
-    display: flex;
-    flex-direction: column;
-    padding: 16px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--surface);
-    transition: all .2s ease;
-    cursor: pointer;
-    margin-bottom: 16px;
-    position: relative;
+    height: auto; min-height: 200px; display: flex; flex-direction: column; padding: 16px;
+    border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
+    transition: all .2s ease; cursor: pointer; margin-bottom: 16px; position: relative;
+    color: var(--text);
   }
-  .trade-card:hover { box-shadow: var(--shadow-lg); }
+  .trade-card.readonly { cursor: default; }
+  .trade-card.readonly:hover { box-shadow: none; }
   .trade-card .session-badge {
-    position: absolute;
-    top: 12px;
-    left: 12px;
-    font-size: .75rem;
-    padding: 4px 8px;
-    border-radius: 999px;
-    font-weight: 600;
-    z-index: 2;
+    position: absolute; top: 12px; left: 12px; font-size: .75rem; padding: 4px 8px;
+    border-radius: 999px; font-weight: 600; z-index: 2;
   }
   .session-london { background: rgba(139,92,246,0.12); color: var(--violet); }
   .session-new-york { background: rgba(var(--success-rgb), 0.12); color: var(--success); }
@@ -244,234 +267,146 @@
   .session-sydney { background: rgba(var(--danger-rgb), 0.12); color: var(--danger); }
   .session-utc { background: rgba(75, 192, 192, 0.12); color: #36A2EB; }
   .trade-card .actions {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    display: flex;
-    gap: 4px;
-    opacity: 0;
-    transition: opacity .2s ease;
-    z-index: 2;
+    position: absolute; top: 12px; right: 12px; display: flex; gap: 4px; opacity: 0;
+    transition: opacity .2s ease; z-index: 2;
   }
   .trade-card:hover .actions { opacity: 1; }
-  .actions button {
-    background: none;
-    border: none;
-    color: var(--muted);
-    font-size: .9rem;
-    padding: 4px;
-  }
-  .trade-card .content-wrapper {
-    padding-top: 32px;
-    flex: 1;
-  }
-  .trade-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 8px;
-  }
-  .trade-symbol {
-    font-weight: 600;
-    font-size: 1.1rem;
-    margin: 0;
-  }
-  .trade-date {
-    font-size: .85rem;
-    color: var(--muted);
-    margin: 0;
-  }
-  .center {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-top: 8px;
-  }
-  .chart-thumb {
-    width: 80px;
-    height: 60px;
-    border-radius: 4px;
-    object-fit: cover;
-    background: var(--border);
-    flex-shrink: 0;
-  }
-  .chart-thumb-placeholder {
-    width: 80px;
-    height: 60px;
-    border-radius: 4px;
-    background: var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.75rem;
-    color: var(--muted);
-    flex-shrink: 0;
-  }
-  .metrics-row {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .pl-bar {
-    height: 8px;
-    background: var(--border);
-    border-radius: 4px;
-    overflow: hidden;
-  }
-  .pl-fill {
-    height: 100%;
-    width: 0%;
-    transition: width .3s ease;
-  }
+  .trade-card.readonly .actions { display: none; }
+  .actions button { background: none; border: none; color: var(--muted); font-size: .9rem; padding: 4px; }
+  .trade-card .content-wrapper { padding-top: 32px; flex: 1; }
+  .trade-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+  .trade-symbol { font-weight: 600; font-size: 1.1rem; margin: 0; color: var(--text); }
+  .trade-date { font-size: .85rem; color: var(--muted); margin: 0; }
+  .center { flex: 1; display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+  .chart-thumb { width: 80px; height: 60px; border-radius: 4px; object-fit: cover; background: var(--border); flex-shrink: 0; }
+  .chart-thumb-placeholder { width: 80px; height: 60px; border-radius: 4px; background: var(--border); display: flex; align-items: center; justify-content: center; font-size: 0.75rem; color: var(--muted); flex-shrink: 0; }
+  .metrics-row { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+  .pl-bar { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+  .pl-fill { height: 100%; width: 0%; transition: width .3s ease; }
   .pl-positive-fill { background: var(--success); }
   .pl-negative-fill { background: var(--danger); }
   .win-loss-icon { font-size: 1.2rem; }
-  .trade-entry-exit {
-    font-size: .9rem;
+  .trade-entry-exit { font-size: .9rem; color: var(--text); }
+  .bottom { display: flex; flex-direction: column; gap: 8px; margin-top: auto; }
+  .ai-snippet { font-size: .85rem; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .tags { display: flex; gap: 4px; flex-wrap: wrap; }
+  .tag-chip { font-size: .75rem; padding: 2px 6px; background: rgba(var(--muted-rgb), 0.12); color: var(--muted); border-radius: 4px; }
+  .empty-state { text-align: center; padding: 40px; color: var(--muted); }
+  .empty-state button { margin-top: 16px; }
+  .footer-text { text-align: center; font-size: .8rem; color: var(--muted); margin-top: 40px; }
+  .insight-box { background: rgba(var(--brand-rgb), 0.05); padding: 12px; border-radius: 8px; margin-top: 20px; font-style: italic; border-left: 3px solid var(--brand); color: var(--text); }
+  .chart-preview { height: auto; max-height: 500px; width: 100%; object-fit: contain; border-radius: 8px; }
+  .chart-preview-placeholder { height: 200px; background: var(--border); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--muted); font-style: italic; }
+
+  /* Ensure form controls keep native select arrow and correct placeholder/text colors */
+  .form-select, .form-control, textarea {
+    appearance: auto;
+    -webkit-appearance: menulist-button;
+    -moz-appearance: auto;
+    background-color: var(--surface);
     color: var(--text);
   }
-  .bottom {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-top: auto;
-  }
-  .ai-snippet {
-    font-size: .85rem;
-    color: var(--muted);
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-  .tags {
-    display: flex;
-    gap: 4px;
-    flex-wrap: wrap;
-  }
-  .tag-chip {
-    font-size: .75rem;
-    padding: 2px 6px;
-    background: rgba(var(--muted-rgb), 0.12);
-    color: var(--muted);
-    border-radius: 4px;
-  }
-  .empty-state {
-    text-align: center;
-    padding: 40px;
-    color: var(--muted);
-  }
-  .empty-state button {
-    margin-top: 16px;
-  }
-  .footer-text {
-    text-align: center;
-    font-size: .8rem;
-    color: var(--muted);
-    margin-top: 40px;
-  }
-  .insight-box {
-    background: rgba(var(--brand-rgb), 0.05);
-    padding: 12px;
-    border-radius: 8px;
-    margin-top: 20px;
-    font-style: italic;
-    border-left: 3px solid var(--brand);
-  }
-  .chart-preview {
-    height: auto;
-    max-height: 500px;
-    width: 100%;
-    object-fit: contain;
-    border-radius: 8px;
-  }
-  .chart-preview-placeholder {
-    height: 200px;
-    background: var(--border);
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--muted);
-    font-style: italic;
-  }
-  [data-theme="dark"] .form-select,
-  [data-theme="dark"] .form-control {
+
+  /* Preserve browser arrow on Edge/IE */
+  .form-select::-ms-expand { display: block; }
+
+  /* Make placeholder visible and consistent */
+  .form-control::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
+
+  /* Dark theme overrides (keeps arrow because we use background-color not background shorthand) */
+  [data-theme="dark"] .form-select, [data-theme="dark"] .form-control, [data-theme="dark"] textarea, [data-theme="dark"] .btn {
     background-color: var(--surface) !important;
     border-color: var(--border) !important;
     color: var(--text) !important;
   }
-  [data-theme="dark"] .form-select option {
-    background-color: var(--surface) !important;
-    color: var(--text) !important;
-  }
-  [data-theme="dark"] .form-control::placeholder {
+  [data-theme="dark"] .form-control::placeholder, [data-theme="dark"] textarea::placeholder {
     color: var(--muted) !important;
+    opacity: 1;
   }
-  [data-theme="dark"] input[type="date"] {
-    background-color: var(--surface) !important;
-    color: var(--text) !important;
-  }
-  [data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
-    filter: invert(1);
-  }
-</style>
 
-<script>
+  [data-theme="dark"] .alert { background-color: var(--surface-variant) !important; border-color: var(--border) !important; color: var(--text) !important; }
+  [data-theme="dark"] .badge { background-color: rgba(var(--on-surface-rgb), 0.12) !important; color: var(--text) !important; }
+  [data-theme="dark"] .card { background: var(--surface) !important; border-color: var(--border) !important; color: var(--text) !important; }
+  [data-theme="dark"] .modal-content { background: var(--surface) !important; border-color: var(--border) !important; color: var(--text) !important; }
+  [data-theme="dark"] .pagination .page-link { background: var(--surface) !important; border-color: var(--border) !important; color: var(--text) !important; }
+</style><script>
   let page = 1;
   let loading = false;
-  let isRefreshing = false; // High: Prevent races during refreshes
-  let hasMore = true;
-  let currentFilters = {
-    search: '',
-    filter_type: 'all',
-    asset_type: '',
-    session: '',
-    strategy: '',
-    date_from: '',
-    date_to: '',
-    sort: 'dateDesc',
-    page_size: 10, // Low: Default page size
-  };
-  let debounceTimer; // Medium: For debounced search
+  let isRefreshing = false;
+  let currentSource = 'personal';
+  let currentTraderId = null;
+  let currentTraderName = null;
+  let currentFilters = { search: '', filter_type: 'all', asset_type: '', session: '', strategy: '', date_from: '', date_to: '', sort: 'dateDesc', page_size: 10 };
+  let debounceTimer;
+  let totalTrades = 0;
+  let totalPages = 0;
+  let isOwner = true;
 
-  let currentTradeData = null;
-
-  async function loadTrades(append = true) {
-    if (loading || !hasMore || (isRefreshing && append)) return; // High: Skip append during refresh
-    loading = true;
+  async function loadActiveTraders() {
     try {
-      const params = new URLSearchParams({
-        ...currentFilters,
-        page,
-        page_size: currentFilters.page_size,
-      });
-      const res = await fetch(`/journal/trades?${params}`);
-      if (!res.ok) throw new Error('Failed to fetch trades');
-      const data = await res.json();
-      if (!append) {
-        document.getElementById('tradesList').innerHTML = '';
+      const res = await fetch('/journal/subscriptions/active');
+      if (!res.ok) return;
+      const subs = await res.json();
+      const select = document.getElementById('traderSelect');
+      const container = document.getElementById('traderSelectorContainer');
+      if (subs.length > 0) {
+        subs.forEach(s => {
+          const opt = document.createElement('option');
+          opt.value = `trader_${s.trader_id}`;
+          opt.textContent = `${s.trader_name}'s Journal`;
+          select.appendChild(opt);
+        });
+        container.style.display = 'block';
       }
-      data.trades.forEach(t => {
-        renderTradeCard(t);
-      });
-      page++;
-      hasMore = data.trades.length === currentFilters.page_size;
+    } catch (err) { console.error(err); }
+  }
+
+  async function loadTrades() {
+    if (loading) return;
+    loading = true;
+    document.getElementById('loadingSpinner').style.display = 'block';
+    try {
+      const params = new URLSearchParams({ ...currentFilters, page, page_size: currentFilters.page_size });
+      if (currentSource === 'trader') {
+        params.append('source', 'trader');
+        params.append('trader_id', currentTraderId);
+      }
+      const res = await fetch(`/journal/trades?${params}`);
+      if (!res.ok) throw new Error('Failed');
+      const data = await res.json();
+
+      isOwner = data.source === 'personal';
+      currentTraderName = data.trader_name || null;
+
+      document.getElementById('tradesList').innerHTML = '';
+      data.trades.forEach(t => renderTradeCard(t, !isOwner));
+      totalTrades = data.total;
+      totalPages = Math.ceil(data.total / currentFilters.page_size);
       updateStatsFromData(data);
-      document.getElementById('tradeCountBadge').textContent = `${data.total} trades`;
-      document.getElementById('tradeCountBadge').style.display = 'inline-block';
+      updateTradeCount();
+      renderPagination();
       toggleEmptyState(data.total === 0);
+      updateTraderBadge();
     } catch (err) {
       showErrorToast('Failed to load trades');
     } finally {
       loading = false;
       isRefreshing = false;
+      document.getElementById('loadingSpinner').style.display = 'none';
     }
   }
 
-  function renderTradeCard(t) {
+  function updateTraderBadge() {
+    const badge = document.getElementById('traderBadge');
+    if (!isOwner && currentTraderName) {
+      badge.textContent = `Viewing ${currentTraderName}'s Journal`;
+      badge.style.display = 'inline-block';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+
+  function renderTradeCard(t, readonly = false) {
     const pl = t.pnl || 0;
     const plPercent = Math.min(Math.abs(pl) / 100 * 100, 100);
     const sessionDisplay = t.session || 'N/A';
@@ -482,16 +417,18 @@
     const hasChart = t.chart_url && t.chart_url !== '';
     const assetTypeStr = t.asset_type ? t.asset_type.charAt(0).toUpperCase() + t.asset_type.slice(1) : 'N/A';
     const leverageStr = t.leverage ? `${t.leverage.toFixed(1)}x` : 'N/A';
+
     const card = document.createElement('div');
-    card.className = 'trade-card';
+    card.className = `trade-card ${readonly ? 'readonly' : ''}`;
     card.dataset.id = t.id;
     card.innerHTML = `
       <span class="session-badge ${sessionClass}">${sessionDisplay}</span>
+      ${!readonly ? `
       <div class="actions">
         <button onclick="editTrade(${t.id})"><i class="bi bi-pencil"></i></button>
         <button onclick="deleteTrade(${t.id})"><i class="bi bi-trash"></i></button>
-      </div>
-      <div class="content-wrapper">
+      </div>` : ''}
+      <div class="content-wrapper" onclick="editTrade(${t.id})" style="${readonly ? 'cursor: default;' : ''}">
         <div class="trade-header">
           <div class="trade-symbol">${t.symbol || 'N/A'}</div>
           <div class="trade-date">${dateStr}</div>
@@ -521,14 +458,12 @@
     document.getElementById('tradesList').appendChild(card);
   }
 
-  // Critical: New helpers for in-place updates
   function updateTradeCardInList(id, updatedData) {
     const card = document.querySelector(`[data-id="${id}"]`);
     if (card) {
       card.remove();
-      renderTradeCard(updatedData);
+      renderTradeCard(updatedData, !isOwner);
     }
-    // If off-page, do nothing (or partial refresh if needed)
   }
 
   function removeTradeCardFromList(id) {
@@ -540,11 +475,17 @@
     const params = new URLSearchParams(currentFilters);
     params.append('page', '1');
     params.append('page_size', '1');
+    if (currentSource === 'trader') {
+      params.append('source', 'trader');
+      params.append('trader_id', currentTraderId);
+    }
     const res = await fetch(`/journal/trades?${params}`);
     const data = await res.json();
     updateStatsFromData(data);
-    document.getElementById('tradeCountBadge').textContent = `${data.total} trades`;
-    document.getElementById('tradeCountBadge').style.display = 'inline-block';
+    totalTrades = data.total;
+    totalPages = Math.ceil(data.total / currentFilters.page_size);
+    updateTradeCount();
+    renderPagination();
   }
 
   function updateStatsFromData(data) {
@@ -555,21 +496,86 @@
     document.getElementById('statTotal').textContent = data.total;
   }
 
+  function updateTradeCount() {
+    document.getElementById('tradeCountBadge').textContent = `${totalTrades} trades`;
+    document.getElementById('tradeCountBadge').style.display = totalTrades > 0 ? 'inline-block' : 'none';
+    const start = (page - 1) * currentFilters.page_size + 1;
+    const end = Math.min(page * currentFilters.page_size, totalTrades);
+    document.getElementById('showingTrades').textContent = `Showing ${start}-${end} of ${totalTrades} trades`;
+    document.getElementById('showingTrades').style.display = totalTrades > 0 ? 'inline' : 'none';
+  }
+
   function toggleEmptyState(empty) {
-    document.getElementById('emptyState').style.display = empty ? 'block' : 'none';
+    const el = document.getElementById('emptyState');
+    const msg = document.getElementById('emptyMessage');
+    const btn = document.getElementById('uploadBtn');
+    if (empty) {
+      if (isOwner) {
+        msg.textContent = "Your journal's a blank canvas—log a trade to begin!";
+        btn.style.display = 'inline-block';
+      } else {
+        msg.textContent = "This trader has no journal entries yet.";
+        btn.style.display = 'none';
+      }
+      el.style.display = 'block';
+    } else {
+      el.style.display = 'none';
+    }
+    document.getElementById('paginationContainer').style.display = empty ? 'none' : 'block';
+  }
+
+  function renderPagination() {
+    const ul = document.querySelector('#paginationContainer ul');
+    if (!ul) return;
+    ul.innerHTML = '';
+
+    const prev = document.createElement('li');
+    prev.className = `page-item ${page === 1 ? 'disabled' : ''}`;
+    prev.innerHTML = `<a class="page-link" href="#" data-page="${page - 1}">Previous</a>`;
+    ul.appendChild(prev);
+
+    const max = 5;
+    let start = Math.max(1, page - Math.floor(max / 2));
+    let end = Math.min(totalPages, start + max - 1);
+    if (end - start < max - 1) start = Math.max(1, end - max + 1);
+
+    if (start > 1) {
+      ul.innerHTML += `<li class="page-item"><a class="page-link" href="#" data-page="1">1</a></li>`;
+      if (start > 2) ul.innerHTML += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+    }
+
+    for (let i = start; i <= end; i++) {
+      ul.innerHTML += `<li class="page-item ${i === page ? 'active' : ''}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
+    }
+
+    if (end < totalPages) {
+      if (end < totalPages - 1) ul.innerHTML += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+      ul.innerHTML += `<li class="page-item"><a class="page-link" href="#" data-page="${totalPages}">${totalPages}</a></li>`;
+    }
+
+    const next = document.createElement('li');
+    next.className = `page-item ${page === totalPages ? 'disabled' : ''}`;
+    next.innerHTML = `<a class="page-link" href="#" data-page="${page + 1}">Next</a>`;
+    ul.appendChild(next);
+
+    ul.querySelectorAll('.page-link').forEach(link => {
+      link.addEventListener('click', e => {
+        e.preventDefault();
+        const p = parseInt(e.target.dataset.page);
+        if (p && p !== page && p >= 1 && p <= totalPages) {
+          page = p;
+          loadTrades();
+        }
+      });
+    });
   }
 
   function applyFilters(resetPage = true) {
-    if (resetPage) {
-      page = 1;
-      isRefreshing = true; // High: Set refresh flag
-    }
-    hasMore = true;
-    loadTrades(!resetPage);
+    if (resetPage) { page = 1; isRefreshing = true; }
+    loadTrades();
   }
 
-  // Medium: Debounced search
-  document.getElementById('searchInput').addEventListener('input', (e) => {
+  document.getElementById('searchInput').addEventListener('input', e => {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
       currentFilters.search = e.target.value;
@@ -577,86 +583,67 @@
     }, 300);
   });
 
-  // Low: Page size listener
-  document.getElementById('pageSize').addEventListener('change', (e) => {
+  document.getElementById('pageSize').addEventListener('change', e => {
     currentFilters.page_size = parseInt(e.target.value);
     applyFilters(true);
   });
 
-  // Other filter listeners
-  document.getElementById('filterType').addEventListener('change', (e) => { 
-    currentFilters.filter_type = e.target.value; 
-    applyFilters(); 
+  ['filterType', 'assetTypeFilter', 'sessionFilter', 'strategyFilter', 'dateStart', 'dateEnd', 'sortSelect'].forEach(id => {
+    document.getElementById(id).addEventListener('change', e => {
+      const map = { filterType: 'filter_type', assetTypeFilter: 'asset_type', sessionFilter: 'session', strategyFilter: 'strategy', dateStart: 'date_from', dateEnd: 'date_to', sortSelect: 'sort' };
+      currentFilters[map[id]] = e.target.value === 'all' ? '' : e.target.value;
+      applyFilters();
+    });
   });
-  document.getElementById('assetTypeFilter').addEventListener('change', (e) => { 
-    currentFilters.asset_type = e.target.value === 'all' ? '' : e.target.value; 
-    applyFilters(); 
-  });
-  document.getElementById('sessionFilter').addEventListener('change', (e) => { 
-    currentFilters.session = e.target.value === 'all' ? '' : e.target.value; 
-    applyFilters(); 
-  });
-  document.getElementById('strategyFilter').addEventListener('change', (e) => { 
-    currentFilters.strategy = e.target.value === 'all' ? '' : e.target.value; 
-    applyFilters(); 
-  });
-  document.getElementById('dateStart').addEventListener('change', (e) => { 
-    currentFilters.date_from = e.target.value; 
-    applyFilters(); 
-  });
-  document.getElementById('dateEnd').addEventListener('change', (e) => { 
-    currentFilters.date_to = e.target.value; 
-    applyFilters(); 
-  });
-  document.getElementById('sortSelect').addEventListener('change', (e) => { 
-    currentFilters.sort = e.target.value; 
-    applyFilters(); 
-  });
+
   document.getElementById('clearFilters').addEventListener('click', () => {
-    document.getElementById('searchInput').value = '';
-    document.getElementById('filterType').value = 'all';
-    document.getElementById('assetTypeFilter').value = 'all';
-    document.getElementById('sessionFilter').value = 'all';
-    document.getElementById('strategyFilter').value = 'all';
-    document.getElementById('dateStart').value = '';
-    document.getElementById('dateEnd').value = '';
-    document.getElementById('sortSelect').value = 'dateDesc';
-    document.getElementById('pageSize').value = '10';
-    currentFilters = { 
-      search: '', 
-      filter_type: 'all', 
-      asset_type: '', 
-      session: '', 
-      strategy: '', 
-      date_from: '', 
-      date_to: '', 
-      sort: 'dateDesc',
-      page_size: 10
-    };
+    document.querySelectorAll('#searchInput, #filterType, #assetTypeFilter, #sessionFilter, #strategyFilter, #dateStart, #dateEnd, #sortSelect, #pageSize').forEach(el => {
+      el.value = el.id === 'pageSize' ? '10' : (el.id.includes('Filter') || el.id === 'sortSelect') ? 'all' : '';
+    });
+    currentFilters = { search: '', filter_type: 'all', asset_type: '', session: '', strategy: '', date_from: '', date_to: '', sort: 'dateDesc', page_size: 10 };
     applyFilters();
   });
 
-  // Infinite scroll with race guard
-  window.addEventListener('scroll', () => {
-    if (loading || !hasMore || isRefreshing) return;
-    if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 200) {
-      document.getElementById('loadingMore').style.display = 'block';
-      loadTrades(true).then(() => document.getElementById('loadingMore').style.display = 'none');
-    }
+  document.getElementById('traderSelect').addEventListener('change', e => {
+    const val = e.target.value;
+    currentSource = val === 'personal' ? 'personal' : 'trader';
+    currentTraderId = val === 'personal' ? null : val.split('_')[1];
+    applyFilters(true);
   });
 
-  // FIXED: populateModal with lowercase asset_type for select matching
+  async function editTrade(id) {
+    try {
+      const res = await fetch(`/journal/trades/${id}`);
+      if (!res.ok) throw new Error('Failed');
+      const t = await res.json();
+
+      const modal = new bootstrap.Modal(document.getElementById('tradeModal'));
+      document.getElementById('modalTitle').textContent = isOwner ? 'Trade Details & Edit' : 'Trade Details (Read-Only)';
+      document.getElementById('saveEdit').style.display = isOwner ? 'inline-block' : 'none';
+      document.getElementById('deleteTrade').style.display = isOwner ? 'inline-block' : 'none';
+
+      // Disable all inputs/selects/textarea when not owner
+      document.querySelectorAll('#tradeModal input, #tradeModal select, #tradeModal textarea').forEach(el => {
+        el.disabled = !isOwner;
+      });
+
+      modal.show();
+      modal._element.addEventListener('shown.bs.modal', () => populateModal(t), { once: true });
+
+      if (isOwner) {
+        document.getElementById('saveEdit').onclick = () => saveTrade(id, modal);
+        document.getElementById('deleteTrade').onclick = () => confirmDelete(id, modal);
+      }
+    } catch (err) {
+      showErrorToast('Failed to load trade');
+    }
+  }
+
   function populateModal(t) {
-    // Date: UTC handling
     const utcDate = t.trade_date ? new Date(t.trade_date + 'Z').toISOString().slice(0, 16) : '';
     document.getElementById('mDate').value = utcDate;
-    
-    // Latest: Normalize symbol on load
     document.getElementById('mSymbol').value = (t.symbol || '').toUpperCase().trim();
-    
-    // FIXED: Lowercase asset_type to match select options (forex/crypto)
     document.getElementById('mAssetType').value = (t.asset_type || 'forex').toLowerCase();
-    
     document.getElementById('mSession').value = t.session || '';
     document.getElementById('mStrategy').value = t.strategy || '';
     document.getElementById('mDirection').value = t.direction || 'LONG';
@@ -666,246 +653,208 @@
     document.getElementById('mRisk').value = t.risk_percentage || '';
     document.getElementById('mSL').value = t.sl_price || '';
     document.getElementById('mTP').value = t.tp_price || '';
-    const levValue = t.leverage && t.leverage >= 1 && t.leverage <= 100 ? t.leverage : '';
-    document.getElementById('mLeverage').value = levValue;
+    document.getElementById('mLeverage').value = t.leverage && t.leverage >= 1 ? t.leverage : '';
     document.getElementById('mRiskAmount').value = t.risk_amount || '';
     document.getElementById('mRewardAmount').value = t.reward_amount || '';
     document.getElementById('mRRRatio').value = t.r_r_ratio || '';
     document.getElementById('mPL').innerHTML = t.pnl ? `<span class="${t.pnl >= 0 ? 'text-success' : 'text-danger'}">${t.pnl >= 0 ? '+' : ''}$${t.pnl.toFixed(2)}</span>` : 'N/A';
     document.getElementById('mNotes').value = t.notes || '';
-    
-    // Medium: Enhanced suggestion handling
-    const suggestionEl = document.getElementById('mSuggestion');
-    if (t.suggestion && t.suggestion.trim()) {
-      suggestionEl.textContent = t.suggestion;
-    } else {
-      suggestionEl.innerHTML = '<em>No AI suggestion available yet.</em> <button class="btn btn-sm btn-outline-brand ms-2" onclick="generateSuggestion(' + t.id + ')">Generate Now</button>';
-    }
-    
-    // Chart with onerror (Low)
-    const chartEl = document.getElementById('mChart');
-    const placeholderEl = document.getElementById('mChartPlaceholder');
-    if (t.chart_url && t.chart_url !== '') {
-      chartEl.src = t.chart_url;
-      chartEl.style.display = 'block';
-      placeholderEl.style.display = 'none';
-    } else {
-      chartEl.style.display = 'none';
-      placeholderEl.style.display = 'block';
+    document.getElementById('mSuggestion').textContent = t.suggestion || 'No AI suggestion available.';
+
+    const chart = document.getElementById('mChart');
+    const placeholder = document.getElementById('mChartPlaceholder');
+    if (t.chart_url) { 
+      chart.src = t.chart_url; 
+      chart.style.display = 'block'; 
+      placeholder.style.display = 'none'; 
+    } else { 
+      chart.style.display = 'none'; 
+      placeholder.style.display = 'block'; 
     }
   }
 
-  async function generateSuggestion(tradeId) {
-    try {
-      const suggestionEl = document.getElementById('mSuggestion');
-      suggestionEl.innerHTML = '<div class="spinner-border spinner-border-sm me-2" role="status"></div>Generating...';
-      // TODO: Replace with real endpoint /journal/trades/{id}/generate-suggestion
-      setTimeout(() => {
-        suggestionEl.innerHTML = 'AI Suggestion: Consider reviewing your risk management for this setup. (Generated - integrate backend for real LLM)';
-      }, 2000);
-    } catch (err) {
-      showErrorToast('Failed to generate suggestion');
+  async function saveTrade(id, modal) {
+    const entry = parseFloat(document.getElementById('mEntry').value);
+    const exit = parseFloat(document.getElementById('mExit').value);
+    const sl = parseFloat(document.getElementById('mSL').value);
+    const tp = parseFloat(document.getElementById('mTP').value);
+    const dir = document.getElementById('mDirection').value;
+    const rawSymbol = document.getElementById('mSymbol').value.trim();
+    const symbol = rawSymbol.toUpperCase();
+    const asset = document.getElementById('mAssetType').value;
+    const risk = parseFloat(document.getElementById('mRisk').value);
+    const leverage = parseFloat(document.getElementById('mLeverage').value);
+
+    if (risk && (risk < 0 || risk > 100)) return showErrorToast('Risk % must be 0–100');
+    if (leverage && (leverage < 1 || leverage > 100)) return showErrorToast('Leverage must be 1–100');
+    if (entry && sl && ((dir === 'LONG' && entry < sl) || (dir === 'SHORT' && entry > sl))) return showErrorToast('Invalid SL');
+    if (entry && tp && ((dir === 'LONG' && entry > tp) || (dir === 'SHORT' && entry < tp))) return showErrorToast('Invalid TP');
+    const symbolRegex = /^[A-Z]{3,}\/?[A-Z]{3,}$/;
+    if (!symbol || !symbolRegex.test(symbol)) return showErrorToast(`Invalid symbol: ${rawSymbol}`);
+
+    const localStr = document.getElementById('mDate').value;
+    const updateData = {
+      trade_date: localStr ? new Date(localStr + ':00').toISOString() : null,
+      symbol, asset_type: asset,
+      session: document.getElementById('mSession').value || null,
+      strategy: document.getElementById('mStrategy').value || 'Manual',
+      direction: dir,
+      entry_price: entry || null,
+      exit_price: exit || null,
+      position_size: parseFloat(document.getElementById('mSize').value) || null,
+      risk_percentage: risk || null,
+      sl_price: sl || null,
+      tp_price: tp || null,
+      leverage: isNaN(leverage) ? null : leverage,
+      risk_amount: parseFloat(document.getElementById('mRiskAmount').value) || null,
+      reward_amount: parseFloat(document.getElementById('mRewardAmount').value) || null,
+      r_r_ratio: parseFloat(document.getElementById('mRRRatio').value) || null,
+      notes: document.getElementById('mNotes').value.trim(),
+    };
+
+    Object.keys(updateData).forEach(k => { if (updateData[k] === '') updateData[k] = null; });
+
+    const res = await fetch(`/journal/trades/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updateData)
+    });
+
+    if (res.ok) {
+      const updated = await res.json();
+      updateTradeCardInList(id, updated);
+      updateStatsAfterChange();
+      showToast('Changes saved.');
+      modal.hide();
+    } else {
+      const err = await res.json().catch(() => ({}));
+      showErrorToast(err.detail || 'Failed to save');
     }
   }
 
-  // Critical: Fixed editTrade with onclick, in-place updates, TZ send, and latest symbol fix
-  async function editTrade(id) {
-    try {
-      const res = await fetch(`/journal/trades/${id}`);
-      if (!res.ok) throw new Error(`Failed to fetch trade: ${res.status}`);
-      const t = await res.json();
-      currentTradeData = t;
-
-      const modalEl = document.getElementById('tradeModal');
-      const modal = new bootstrap.Modal(modalEl);
-      
-      modalEl.addEventListener('shown.bs.modal', function populateOnShow() {
-        populateModal(t);
-        modalEl.removeEventListener('shown.bs.modal', populateOnShow);
-      }, { once: true });
-
-      // Critical: Use onclick to overwrite handlers (no multiples)
-      const saveBtn = document.getElementById('saveEdit');
-      saveBtn.onclick = async (e) => {
-        e.preventDefault();
-        // Latest: Full client-side validation with symbol normalization
-        const entry = parseFloat(document.getElementById('mEntry').value);
-        const sl = parseFloat(document.getElementById('mSL').value);
-        const tp = parseFloat(document.getElementById('mTP').value);
-        const dir = document.getElementById('mDirection').value;
-        const rawSymbol = document.getElementById('mSymbol').value.trim();
-        const symbol = rawSymbol.toUpperCase();  // Normalize casing
-        const asset = document.getElementById('mAssetType').value;
-        const risk = parseFloat(document.getElementById('mRisk').value);
-        const leverageValue = parseFloat(document.getElementById('mLeverage').value);
-
-        if (risk && (risk < 0 || risk > 100)) {
-          showErrorToast('Risk % must be between 0 and 100.');
-          return;
-        }
-        if (!isNaN(leverageValue) && (leverageValue < 1 || leverageValue > 100)) {
-          showErrorToast('Leverage must be between 1 and 100.');
-          return;
-        }
-        if (entry && sl && ((dir === 'LONG' && entry < sl) || (dir === 'SHORT' && entry > sl))) {
-          showErrorToast(`Invalid SL: For ${dir}, SL should be ${dir === 'LONG' ? 'below' : 'above'} entry price.`);
-          return;
-        }
-        if (entry && tp && ((dir === 'LONG' && entry > tp) || (dir === 'SHORT' && entry < tp))) {
-          showErrorToast(`Invalid TP: For ${dir}, TP should be ${dir === 'LONG' ? 'above' : 'below'} entry price.`);
-          return;
-        }
-        // Updated regex: Allows optional /, flexible lengths for forex/crypto (e.g., EURUSD, EUR/USD, BTCUSDT, BTC/USDT)
-        const symbolRegex = /^[A-Z]{3,}\/?[A-Z]{3,}$/;
-        if (asset === 'forex' && (!symbol || !symbolRegex.test(symbol))) {
-          showErrorToast(`Invalid forex symbol: "${rawSymbol}". Use e.g., EURUSD or EUR/USD (uppercase, no extras).`);
-          return;
-        }
-        if (asset === 'crypto' && (!symbol || !symbolRegex.test(symbol))) {
-          showErrorToast(`Invalid crypto symbol: "${rawSymbol}". Use e.g., BTCUSD or BTC/USDT (uppercase, no extras).`);
-          return;
-        }
-
-        // High: Warn on nullifying core fields
-        if ((entry === null || document.getElementById('mEntry').value === '') && t.entry_price) {
-          if (!confirm('Clearing entry price will reset P/L. Continue?')) return;
-        }
-        // Similar for exit_price, etc. (add as needed)
-
-        // Preview P/L (match backend formula, simplified)
-        const exitVal = parseFloat(document.getElementById('mExit').value);
-        const size = parseFloat(document.getElementById('mSize').value);
-        if (entry && exitVal && size && !isNaN(entry) && !isNaN(exitVal) && !isNaN(size)) {
-          let delta = dir === 'LONG' ? (exitVal - entry) : (entry - exitVal);
-          const lev = leverageValue || 1;
-          let previewPL = delta * size * lev;
-          // Medium [Model Update]: Basic asset adjust (refine as needed)
-          if (asset === 'forex') {
-            const pipFactor = /JPY/.test(symbol) ? 100 : 10000;
-            previewPL = Math.round((Math.abs(delta) * pipFactor) * size * 10 * lev * 100) / 100; // Approx pip value for 0.1 lot
-          }
-          document.getElementById('mPL').innerHTML = `<span class="text-info">Preview: ${previewPL >= 0 ? '+' : ''}$${previewPL.toFixed(2)}</span>`;
-        }
-
-        const localStr = document.getElementById('mDate').value;
-        const updateData = {
-          trade_date: localStr ? new Date(localStr + ':00').toISOString() : null, // Critical: Send UTC
-          symbol: symbol,  // Use normalized
-          asset_type: asset,
-          session: document.getElementById('mSession').value || null,
-          strategy: document.getElementById('mStrategy').value || 'Manual',
-          direction: dir,
-          entry_price: entry || null,
-          exit_price: exitVal || null,
-          position_size: size || null,
-          risk_percentage: risk || null,
-          sl_price: sl || null,
-          tp_price: tp || null,
-          leverage: isNaN(leverageValue) ? null : leverageValue,
-          risk_amount: parseFloat(document.getElementById('mRiskAmount').value) || null,
-          reward_amount: parseFloat(document.getElementById('mRewardAmount').value) || null,
-          r_r_ratio: parseFloat(document.getElementById('mRRRatio').value) || null,
-          notes: document.getElementById('mNotes').value.trim(),
-        };
-
-        // Remove empty strings
-        Object.keys(updateData).forEach(key => {
-          if (updateData[key] === '') updateData[key] = null;
-        });
-
-        const updateRes = await fetch(`/journal/trades/${id}`, {
-          method: 'PUT',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify(updateData)
-        });
-
-        if (updateRes.ok) {
-          const updatedTrade = await updateRes.json();
-          // Critical: In-place update
-          updateTradeCardInList(id, updatedTrade);
-          updateStatsAfterChange();
-          document.getElementById('mPL').innerHTML = updatedTrade.pnl ? `<span class="${updatedTrade.pnl >= 0 ? 'text-success' : 'text-danger'}">${updatedTrade.pnl >= 0 ? '+' : ''}$${updatedTrade.pnl.toFixed(2)}</span>` : 'N/A';
-          showToast('Changes saved successfully. P/L updated.');
-          modal.hide();
-        } else {
-          let errorMsg = 'Failed to save changes. Please check your inputs.';
-          try {
-            const errorData = await updateRes.json();
-            if (errorData.detail) {
-              if (Array.isArray(errorData.detail)) {
-                errorMsg = 'Validation errors: ' + errorData.detail.map(e => `${e.loc}: ${e.msg}`).join('; ');
-              } else {
-                errorMsg = `Error: ${errorData.detail}`;
-              }
-            }
-          } catch {}
-          showErrorToast(errorMsg);
-        }
-      };
-
-      // Critical: onclick for delete
-      const deleteBtn = document.getElementById('deleteTrade');
-      deleteBtn.onclick = async (e) => {
-        e.preventDefault();
-        if (confirm('Delete this trade permanently? This cannot be undone.')) {
-          const deleteRes = await fetch(`/journal/trades/${id}`, { method: 'DELETE' });
-          if (deleteRes.ok) {
-            // Critical: In-place remove
-            removeTradeCardFromList(id);
-            updateStatsAfterChange();
-            showToast('Trade deleted.');
-            modal.hide();
-          } else {
-            showErrorToast('Failed to delete trade. Please try again.');
-          }
-        }
-      };
-
-      modal.show();
-    } catch (err) {
-      console.error('Edit trade error:', err);
-      showErrorToast(`Failed to load trade details: ${err.message}`);
+  async function confirmDelete(id, modal) {
+    if (confirm('Delete permanently?')) {
+      await deleteTrade(id);
+      modal.hide();
     }
   }
 
   async function deleteTrade(id) {
-    if (confirm('Delete this trade permanently? This cannot be undone.')) {
-      try {
-        const deleteRes = await fetch(`/journal/trades/${id}`, { method: 'DELETE' });
-        if (deleteRes.ok) {
-          removeTradeCardFromList(id);
-          updateStatsAfterChange();
-          showToast('Trade deleted.');
-        } else {
-          showErrorToast('Failed to delete trade. Please try again.');
-        }
-      } catch (err) {
-        showErrorToast('Failed to delete trade. Please try again.');
+    if (!isOwner) return;
+    const res = await fetch(`/journal/trades/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      removeTradeCardFromList(id);
+      updateStatsAfterChange();
+      showToast('Trade deleted.');
+    } else {
+      showErrorToast('Failed to delete');
+    }
+  }
+
+  function showErrorToast(msg) {
+    const toast = bootstrap.Toast.getOrCreateInstance(document.getElementById('errorToast'));
+    document.querySelector('#errorToast .toast-body').innerHTML = `<i class="bi bi-x-circle-fill me-2"></i>${msg}`;
+    toast.show();
+  }
+
+  function showToast(msg) {
+    const toast = bootstrap.Toast.getOrCreateInstance(document.getElementById('saveToast'));
+    document.querySelector('#saveToast .toast-body').innerHTML = `<i class="bi bi-check-circle-fill me-2"></i>${msg}`;
+    toast.show();
+  }
+
+  async function loadEligibility() {
+    try {
+      const res = await fetch('/journal/eligibility');
+      if (!res.ok) return;
+      const data = await res.json();
+      const section = document.getElementById('marketplaceSection');
+      const statusDiv = document.getElementById('eligibilityStatus');
+      const applyBtn = document.getElementById('applyBtn');
+      const priceForm = document.getElementById('priceForm');
+      const priceInput = document.getElementById('priceInput');
+
+      section.style.display = 'block';
+
+      // Ensure client side min is set to 1.00
+      priceInput.min = 1.00;
+      priceInput.max = 99.99;
+
+      if (data.is_trader) {
+        statusDiv.innerHTML = `<div class="alert alert-success" style="background: var(--success-container); border: 1px solid var(--success); color: var(--on-success-container);">Your journal is listed! Win Rate: ${data.current_win_rate}%, Trades: ${data.current_trades}</div>`;
+        priceForm.style.display = 'block';
+        // Use marketplace_price if provided, otherwise keep current
+        priceInput.value = (typeof data.marketplace_price !== 'undefined' && data.marketplace_price !== null) ? parseFloat(data.marketplace_price).toFixed(2) : priceInput.value;
+        applyBtn.style.display = 'none';
+      } else if (data.is_trader_pending) {
+        statusDiv.innerHTML = `<div class="alert alert-info" style="background: var(--info-container); border: 1px solid var(--info); color: var(--on-info-container);">Application under review. Hang tight. We will notify you within 24 to 48 hours.</div>`;
+        applyBtn.style.display = 'none';
+        priceForm.style.display = 'none';
+      } else if (data.eligible) {
+        statusDiv.innerHTML = `<div class="alert alert-info" style="background: var(--info-container); border: 1px solid var(--info); color: var(--on-info-container);">You are eligible. Win Rate: ${data.current_win_rate}% (${data.required_win_rate}% req.), Trades: ${data.current_trades} (${data.required_trades} req.)</div>`;
+        applyBtn.style.display = 'inline-block';
+        applyBtn.onclick = applyTrader;
+        priceForm.style.display = 'none';
+      } else {
+        statusDiv.innerHTML = `<div class="alert alert-warning" style="background: var(--warning-container); border: 1px solid var(--warning); color: var(--on-warning-container);">Not yet eligible. Need ${data.required_trades - data.current_trades} more trades and ${data.required_win_rate - data.current_win_rate}% higher win rate.</div>`;
+        applyBtn.style.display = 'none';
+        priceForm.style.display = 'none';
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async function applyTrader() {
+    if (confirm('Apply to list your journal in the marketplace?')) {
+      const res = await fetch('/journal/apply-trader', { method: 'POST' });
+      if (res.ok) {
+        const resp = await res.json();
+        showToast(resp.message);
+        loadEligibility();  // Refresh
+      } else {
+        const err = await res.json();
+        showErrorToast(err.detail);
       }
     }
   }
 
-  function showErrorToast(message) {
-    const errorToast = new bootstrap.Toast(document.getElementById('errorToast'));
-    document.getElementById('errorToast').querySelector('.toast-body').innerHTML = `<i class="bi bi-x-circle-fill me-2"></i>${message}`;
-    errorToast.show();
-  }
+  document.getElementById('priceForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const priceInput = document.getElementById('priceInput');
+    const price = parseFloat(priceInput.value);
 
-  function showToast(message) {
-    const toast = new bootstrap.Toast(document.getElementById('saveToast'));
-    document.getElementById('saveToast').querySelector('.toast-body').innerHTML = `<i class="bi bi-check-circle-fill me-2"></i>${message}`;
-    toast.show();
-  }
+    // Client side validation. Server should still validate.
+    const minPrice = parseFloat(priceInput.min) || 1.00;
+    const maxPrice = parseFloat(priceInput.max) || 99.99;
 
-  // Override chat suggestions (unchanged)
+    if (isNaN(price)) return showErrorToast('Invalid price');
+    if (price < minPrice) {
+      priceInput.value = minPrice.toFixed(2);
+      return showErrorToast(`Minimum price is $${minPrice.toFixed(2)}`);
+    }
+    if (price > maxPrice) {
+      priceInput.value = maxPrice.toFixed(2);
+      return showErrorToast(`Maximum price is $${maxPrice.toFixed(2)}`);
+    }
+
+    const res = await fetch('/journal/marketplace-price', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ price })
+    });
+    if (res.ok) {
+      const resp = await res.json();
+      showToast(resp.message);
+    } else {
+      const err = await res.json().catch(() => ({}));
+      showErrorToast(err.detail || 'Failed to update price');
+    }
+  });
+
   document.addEventListener('DOMContentLoaded', () => {
-    const newBtn = document.createElement('button');
-    newBtn.className = 'suggestion-btn';
-    newBtn.textContent = 'Summarize journal';
-    newBtn.onclick = () => sendSuggestion('Summarize my recent journal entries');
-    const suggestions = document.querySelector('.quick-suggestions');
-    if (suggestions) suggestions.appendChild(newBtn);
-    loadTrades();
+    loadActiveTraders().then(loadTrades);
+    loadEligibility();
   });
 </script>
 {% endblock %}

@@ -1,7 +1,7 @@
 # /home/ukov/itrade/server/router/profile.py
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Body
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, delete
+from sqlalchemy import select, update, delete, desc
 from typing import List, Optional, Dict, Any
 import logging
 from pydantic import BaseModel, validator
@@ -13,7 +13,6 @@ from database import get_session
 from models import models
 import auth
 from models.schemas import ProfileResponse, TradeResponse
-from router.payments import get_current_subscription  
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -34,23 +33,21 @@ class OnboardRequest(BaseModel):
     notes: Optional[str] = None
     timeframes: Optional[List[str]] = []
 
+# UPDATED: Aligned keys with frontend (psych_zone, preferred_strategies, preferred_timeframes, etc.)
 class ProfileUpdateRequest(BaseModel):
+    psych_zone: Optional[str] = None
+    preferred_strategies: Optional[str] = None
+    preferred_timeframes: Optional[List[str]] = None
     bio: Optional[str] = None
-    trading_style: Optional[str] = None
-    goals: Optional[str] = None
-    trading_zones: Optional[str] = None
-    strategies: Optional[str] = None
     strategy: Optional[str] = None
     strategy_desc: Optional[str] = None
     notes: Optional[str] = None
     risk_tolerance: Optional[int] = None
-    max_risk_per_trade: Optional[float] = None
     risk_per_trade: Optional[float] = None
     daily_loss_percent: Optional[float] = None
     daily_loss_limit: Optional[float] = None
     stop_loss: Optional[bool] = None
     no_revenge: Optional[bool] = None
-    timeframes: Optional[List[str]] = None
     account_balance: Optional[float] = None
     initial_deposit: Optional[float] = None
 
@@ -80,6 +77,10 @@ async def _compute_profile_stats(db: AsyncSession, user_id: int):
             max_idx = pnls.index(max(pnls))
             best_trade = {
                 "pnl": pnls[max_idx],
+                "pnl_abs": abs(pnls[max_idx]),
+                # OPTIONAL TWEAK: For explicit '-' on negative "best" trades (least loss)
+                # "pnl_sign": '+' if pnls[max_idx] > 0 else '-' if pnls[max_idx] < 0 else '',
+                "pnl_sign": '+' if pnls[max_idx] >= 0 else '',
                 "symbol": rows[max_idx].symbol
             }
 
@@ -145,6 +146,9 @@ async def get_profile(
                     return default
             return val
         
+        # FIXED: Serialize created_at to ISO string for JSON compatibility
+        created_at_str = current_user.created_at.isoformat() if current_user.created_at else None
+        
         return {
             "id": current_user.id,
             "username": current_user.username,
@@ -156,6 +160,7 @@ async def get_profile(
             "psych_zone": getattr(current_user, "psych_zone", ""),
             "strategy": getattr(current_user, "strategy", ""),
             "strategy_desc": getattr(current_user, "strategy_desc", ""),
+            "preferred_strategies": getattr(current_user, "preferred_strategies", "Momentum, Breakouts"),
             "account_balance": getattr(current_user, "account_balance", 10000.0),
             "initial_deposit": getattr(current_user, "initial_deposit", 10000.0),
             "risk_per_trade": getattr(current_user, "risk_per_trade", 1.0),
@@ -166,7 +171,7 @@ async def get_profile(
             "notes": getattr(current_user, "notes", ""),
             "preferred_timeframes": safe_json_getattr(current_user, "preferred_timeframes", []),
             "risk_tolerance": getattr(current_user, "risk_tolerance", 5),
-            "created_at": current_user.created_at,
+            "created_at": created_at_str,  # FIXED: ISO string
             **stats
         }
     except Exception as e:
@@ -181,26 +186,24 @@ async def update_profile(
 ):
     """Update the current user's profile data."""
     correlation_id = f"profile_update_{datetime.utcnow().timestamp()}"
-    logger.info("Updating profile: user=%s", current_user.id, extra={"corr_id": correlation_id})
+    logger.info("Updating profile: user=%s, data=%s", current_user.id, profile_data.dict(exclude_unset=True), extra={"corr_id": correlation_id})
 
     try:
+        # UPDATED: field_map now directly uses frontend keys; added JSON for preferred_timeframes
         field_map = {
+            "psych_zone": ("psych_zone", lambda x: x),
+            "preferred_strategies": ("preferred_strategies", lambda x: x),
+            "preferred_timeframes": ("preferred_timeframes", lambda x: json.dumps(x) if x else None),  # JSON serialize list
             "bio": ("bio", lambda x: x),
-            "trading_style": ("trading_style", lambda x: x),
-            "goals": ("goals", lambda x: x),
-            "trading_zones": ("psych_zone", lambda x: x),
-            "strategies": ("strategy_desc", lambda x: x),
             "strategy": ("strategy", lambda x: x),
             "strategy_desc": ("strategy_desc", lambda x: x),
             "notes": ("notes", lambda x: x),
             "risk_tolerance": ("risk_tolerance", int),
-            "max_risk_per_trade": ("risk_per_trade", float),
             "risk_per_trade": ("risk_per_trade", float),
             "daily_loss_percent": ("daily_loss_percent", float),
             "daily_loss_limit": ("daily_loss_limit", float),
             "stop_loss": ("stop_loss", bool),
             "no_revenge": ("no_revenge", bool),
-            "timeframes": ("preferred_timeframes", lambda x: json.dumps(x or [])),
             "account_balance": ("account_balance", float),
             "initial_deposit": ("initial_deposit", float),
         }
@@ -212,7 +215,8 @@ async def update_profile(
                 try:
                     converted = converter(val)
                     update_dict[db_field] = converted
-                except (ValueError, TypeError):
+                except (ValueError, TypeError) as e:
+                    logger.warning(f"Conversion error for {request_field}: {e}")
                     raise HTTPException(status_code=400, detail=f"Invalid value for {request_field}")
 
         # Special validation for account_balance and initial_deposit
@@ -247,7 +251,10 @@ async def update_profile(
                     return default
             return val
         
-        return {
+        # FIXED: Serialize created_at to ISO string for JSON compatibility
+        created_at_str = current_user.created_at.isoformat() if current_user.created_at else None
+        
+        response_data = {
             "id": current_user.id,
             "username": current_user.username,
             "full_name": current_user.full_name,
@@ -258,6 +265,7 @@ async def update_profile(
             "psych_zone": getattr(current_user, "psych_zone", ""),
             "strategy": getattr(current_user, "strategy", ""),
             "strategy_desc": getattr(current_user, "strategy_desc", ""),
+            "preferred_strategies": getattr(current_user, "preferred_strategies", "Momentum, Breakouts"),
             "account_balance": getattr(current_user, "account_balance", 10000.0),
             "initial_deposit": getattr(current_user, "initial_deposit", 10000.0),
             "risk_per_trade": getattr(current_user, "risk_per_trade", 1.0),
@@ -268,9 +276,11 @@ async def update_profile(
             "notes": getattr(current_user, "notes", ""),
             "preferred_timeframes": safe_json_getattr(current_user, "preferred_timeframes", []),
             "risk_tolerance": getattr(current_user, "risk_tolerance", 5),
-            "created_at": current_user.created_at,
+            "created_at": created_at_str,  # FIXED: ISO string
             **stats
         }
+        logger.info("Profile updated successfully: user=%s", current_user.id, extra={"corr_id": correlation_id})
+        return response_data
     except ValueError as ve:
         logger.warning(f"Validation error in profile update: {ve}", extra={"corr_id": correlation_id})
         raise HTTPException(status_code=400, detail=str(ve))
@@ -315,9 +325,10 @@ async def onboard_profile(
                 stop_loss=onboard_data.stopLoss,
                 no_revenge=onboard_data.noRevenge,
                 notes=onboard_data.notes,
-                preferred_timeframes=json.dumps(onboard_data.timeframes or []),
+                preferred_timeframes=onboard_data.timeframes or [],  # Pass list directly for JSON column
                 risk_tolerance=risk_tolerance,
-                recommendations="{}",
+                preferred_strategies="Momentum, Breakouts",
+                recommendations={},  # Pass dict for JSON column
                 bio=onboard_data.notes,
                 trading_style=trading_style,
                 goals=goals,
@@ -325,7 +336,8 @@ async def onboard_profile(
             )
         )
         await db.commit()
-        # Removed: await db.refresh(current_user)  # Unnecessary here; prevents potential 500 errors
+        await db.refresh(current_user)  # Refresh to ensure latest data
+        logger.info(f"Updated user profile after onboarding: {current_user.id}", extra={"corr_id": correlation_id})
         return {"success": True, "message": "Profile onboarded successfully"}
     except ValueError as ve:
         logger.warning(f"Validation error in onboarding: {ve}", extra={"corr_id": correlation_id})
@@ -373,43 +385,63 @@ async def get_current_subscription_endpoint(
 ):
     """Get the current user's subscription details."""
     try:
-        # Assume get_current_subscription from payments router or implement here
-        sub = await get_current_subscription(db, current_user.id)  # Or your implementation
-        if sub:
+        # Inline logic from subscriptions.py get_current_subscription
+        # Get the latest subscription
+        query = (
+            select(models.Subscription)
+            .where(models.Subscription.user_id == current_user.id)
+            .order_by(desc(models.Subscription.start_date))
+            .limit(1)
+        )
+        result = await db.execute(query)
+        sub = result.scalars().first()
+
+        if not sub or sub.status not in ["active", "pending"]:
             return {
-                "plan": sub.plan_type.split('_')[0] if sub.plan_type else 'starter',
-                "status": sub.status,
-                "interval": sub.plan_type.split('_')[1] if '_' in sub.plan_type else 'monthly',
-                "amount": sub.amount_usd,
-                "next_billing": sub.next_billing_date.isoformat() if sub.next_billing_date else None,
-                "subscription_id": sub.nowpayments_sub_id
+                "status": "free",
+                "plan": "starter"
             }
-        else:
-            return {"plan": "starter", "status": "free"}
+
+        # Parse plan_type e.g., 'pro_monthly' -> plan='pro', interval='monthly'
+        plan_parts = sub.plan_type.split("_") if "_" in sub.plan_type else [sub.plan_type, "monthly"]
+        plan = plan_parts[0]
+        interval = plan_parts[1] if len(plan_parts) > 1 else "monthly"
+
+        status = "active" if sub.status == "active" else sub.status
+
+        return {
+            "status": status,
+            "plan": plan,
+            "interval": interval,
+            "amount": float(sub.amount_usd),
+            "next_billing": sub.next_billing_date.isoformat() if sub.next_billing_date else None,
+            "subscription_id": sub.id
+        }
     except Exception as e:
         logger.error(f"Failed to fetch subscription: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch subscription")
 
 @router.post("/subscriptions/{sub_id}/cancel")
 async def cancel_subscription_endpoint(
-    sub_id: str,
+    sub_id: int,
     db: AsyncSession = Depends(get_session),
-    current_user: models.User = Depends(auth.get_current_user)
+    current_user: models.User = Depends(auth.get_current_user),
 ):
     """Cancel the user's subscription."""
     try:
-        # Implement cancellation logic, e.g., update status to 'canceled' and notify NowPayments if needed
-        await db.execute(
-            update(models.Subscription)
-            .where(
-                models.Subscription.nowpayments_sub_id == sub_id,
-                models.Subscription.user_id == current_user.id
-            )
-            .values(status='canceled', updated_at=datetime.utcnow())
-        )
+        sub = await db.get(models.Subscription, sub_id)
+        if not sub or sub.user_id != current_user.id:
+            raise HTTPException(status_code=404, detail="Subscription not found")
+        if sub.status != "active":
+            raise HTTPException(status_code=400, detail="Only active subscriptions can be cancelled")
+
+        sub.status = "cancelled"
+        sub.updated_at = datetime.utcnow()
         await db.commit()
-        # Optional: Call NowPayments API to cancel
-        return {"success": True, "message": "Subscription canceled"}
+
+        return {"success": True, "message": "Subscription cancelled successfully"}
+    except HTTPException:
+        raise
     except Exception as e:
         await db.rollback()
         logger.error(f"Failed to cancel subscription: {e}")

@@ -360,9 +360,8 @@ async def compute_insights(current_user: models.User, db: AsyncSession, prompt: 
 
         # Only compute full insights if we have stored or are generating/regenerating
         if ai_part is not None or not is_initial:
-            # Use account_balance from user model as starting balance
-            account_balance = getattr(current_user, 'account_balance', 10000.0)
-            initial_balance = account_balance
+            # Use initial_deposit from user model as starting balance
+            initial_deposit = getattr(current_user, 'initial_deposit', 10000.0)
 
             # Compute basic metrics always (fresh)
             # Parse dates
@@ -370,12 +369,13 @@ async def compute_insights(current_user: models.User, db: AsyncSession, prompt: 
                 t.parsed_date = get_trade_datetime(t)
             parsed_trades = [t for t in trades if t.parsed_date is not None]
 
-            # Equity curve computation (multiplicative for % PnL)
+            # Equity curve computation (ADDITIVE for absolute PnL)
             if not parsed_trades:
                 current_date = datetime.now()
                 labels = [current_date.strftime('%Y-%m-%d')]
-                datasets = {sess: {'data': [initial_balance]} for sess in ['all', 'sydney', 'tokyo', 'london', 'newyork']}
+                datasets = {sess: {'data': [initial_deposit]} for sess in ['all', 'sydney', 'tokyo', 'london', 'newyork']}
                 equity_curve = {'labels': labels, 'datasets': datasets}
+                logger.warning("No dated trades for equity curve; using flat line at initial deposit: %.2f", initial_deposit)
             else:
                 # Sort trades by date
                 parsed_trades.sort(key=lambda t: t.parsed_date)
@@ -418,39 +418,32 @@ async def compute_insights(current_user: models.User, db: AsyncSession, prompt: 
                 all_days = [min_date + timedelta(days=i) for i in range(delta_days)]
                 labels = [d.strftime('%Y-%m-%d') for d in all_days]
 
-                # Datasets
+                # Datasets (ADDITIVE: current += sum(pnl) per day)
                 datasets = {}
 
                 # For 'all'
-                current_cum = initial_balance
+                current_cum_all = initial_deposit
                 equity_data_all = []
                 for day_obj in all_days:
                     day = day_obj.date()
-                    day_mult = 1.0
-                    if day in daily_groups_all:
-                        for t in daily_groups_all[day]:
-                            pnl_pct = (t.pnl or 0) / 100.0
-                            day_mult *= (1 + pnl_pct)
-                    current_cum *= day_mult
-                    equity_data_all.append(round(current_cum, 2))
+                    day_pnl_sum = sum(t.pnl or 0 for t in daily_groups_all[day])
+                    current_cum_all += day_pnl_sum
+                    equity_data_all.append(round(current_cum_all, 2))
                 datasets['all'] = {'data': equity_data_all}
 
                 # For each session
                 for sess in sessions:
-                    current_cum_s = initial_balance
+                    current_cum_s = initial_deposit
                     equity_data_s = []
                     for day_obj in all_days:
                         day = day_obj.date()
-                        day_mult = 1.0
-                        if day in session_daily[sess]:
-                            for t in session_daily[sess][day]:
-                                pnl_pct = (t.pnl or 0) / 100.0
-                                day_mult *= (1 + pnl_pct)
-                        current_cum_s *= day_mult
+                        day_pnl_sum = sum(t.pnl or 0 for t in session_daily[sess][day])
+                        current_cum_s += day_pnl_sum
                         equity_data_s.append(round(current_cum_s, 2))
                     datasets[sess] = {'data': equity_data_s}
 
                 equity_curve = {'labels': labels, 'datasets': datasets}
+                logger.info("Computed equity curve: start=%.2f, end (all)=%.2f over %d days", initial_deposit, equity_data_all[-1], len(labels))
 
             # Session data (aggregates)
             session_groups = defaultdict(list)
@@ -593,6 +586,8 @@ async def compute_insights(current_user: models.User, db: AsyncSession, prompt: 
             ai_insights['bullets'] = ai_insights.get('actions', [])
             ai_insights['advanced_metrics'] = advanced
             ai_insights['symbol_allocation'] = symbol_allocation
+            ai_insights['initial_deposit'] = initial_deposit  # Expose for UI notes
+            ai_insights['current_balance'] = initial_deposit + sum(pnls)  # Computed final
             insights_based_on = old_total if old_total is not None else total_trades
         else:
             # Initial load, no stored: empty ai_insights

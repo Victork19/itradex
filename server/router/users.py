@@ -2,6 +2,7 @@ from pathlib import Path
 from datetime import timedelta
 from typing import Union, Any, Optional
 import json
+import urllib.parse  # For URI parsing
 
 from fastapi import APIRouter, Depends, Request, Form, HTTPException, status, Cookie
 from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse
@@ -165,14 +166,24 @@ async def login_form(
     redirect.set_cookie("access_token", access_token, httponly=True, max_age=max_age, secure=False, samesite="lax")
     return redirect
 
-# Google OAuth login redirect (UPDATED: Handle referral_code via state)
+# Google OAuth login redirect (UPDATED: More robust redirect_uri construction + logging)
 @router.get("/google/login")
 async def google_login(request: Request):
     referral_code = request.query_params.get('referral_code')
     state = None
     if referral_code:
         state = json.dumps({'ref': referral_code})
-    redirect_uri = str(request.url_for('google_callback'))
+    
+    # Use url_for for path, but construct full URI explicitly to avoid scheme/host mismatches
+    # Adjust BASE_URL in settings.py if needed (e.g., 'http://localhost:8000' for dev)
+    base_url = getattr(settings, 'BASE_URL', str(request.url.scheme) + '://' + str(request.url.netloc))
+    redirect_path = str(request.url_for('google_callback'))  # FIXED: Convert URL object to str
+    redirect_uri = urllib.parse.urljoin(base_url, redirect_path)
+    
+    # Log for debugging (remove in prod)
+    print(f"Generated redirect_uri: {redirect_uri}")
+    print(f"Request base: {base_url}")
+    
     return await oauth.google.authorize_redirect(request, redirect_uri, state=state)
 
 # Google OAuth callback (UPDATED: Extract referral_code from state and handle for new users)
@@ -194,9 +205,14 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_sessi
                 raise  # Re-raise if not the expected KeyError
         
     except Exception as e:
+        # More specific error logging
+        error_msg = f"Google authentication failed: {str(e)}"
+        print(error_msg)  # Log for debugging
+        if "redirect_uri_mismatch" in str(e).lower():
+            error_msg = "Redirect URI mismatch. Check Google Console authorized URIs match your app's base URL."
         return templates.TemplateResponse(
             "index.html",
-            {"request": request, "error": f"Google authentication failed: {str(e)}", "tab": "login"},
+            {"request": request, "error": error_msg, "tab": "login"},
             status_code=400
         )
 
@@ -273,3 +289,138 @@ async def logout(
     if access_token:
         redirect.delete_cookie("access_token")
     return redirect
+
+
+#     INFO:     127.0.0.1:58726 - "GET /users/google/login HTTP/1.1" 500 Internal Server Error
+# ERROR:    Exception in ASGI application
+# Traceback (most recent call last):
+#   File "/home/ukov/.local/lib/python3.11/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
+#     yield
+#   File "/home/ukov/.local/lib/python3.11/site-packages/httpx/_transports/default.py", line 394, in handle_async_request
+#     resp = await self._pool.handle_async_request(req)
+#            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#   File "/home/ukov/.local/lib/python3.11/site-packages/httpcore/_async/connection_pool.py", line 256, in handle_async_request
+#     raise exc from None
+#   File "/home/ukov/.local/lib/python3.11/site-packages/httpcore/_async/connection_pool.py", line 236, in handle_async_request
+#     response = await connection.handle_async_request(
+#                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#   File "/home/ukov/.local/lib/python3.11/site-packages/httpcore/_async/connection.py", line 101, in handle_async_request
+#     raise exc
+#   File "/home/ukov/.local/lib/python3.11/site-packages/httpcore/_async/connection.py", line 78, in handle_async_request
+#     stream = await self._connect(request)
+#              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#   File "/home/ukov/.local/lib/python3.11/site-packages/httpcore/_async/connection.py", line 124, in _connect
+#     stream = await self._network_backend.connect_tcp(**kwargs)
+#              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#   File "/home/ukov/.local/lib/python3.11/site-packages/httpcore/_backends/auto.py", line 31, in connect_tcp
+#     return await self._backend.connect_tcp(
+#            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#   File "/home/ukov/.local/lib/python3.11/site-packages/httpcore/_backends/anyio.py", line 113, in connect_tcp
+#     with map_exceptions(exc_map):
+#   File "/usr/lib/python3.11/contextlib.py", line 155, in __exit__
+#     self.gen.throw(typ, value, traceback)
+#   File "/home/ukov/.local/lib/python3.11/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+#     raise to_exc(exc) from exc
+# httpcore.ConnectTimeout
+
+# The above exception was the direct cause of the following exception:
+
+# Traceback (most recent call last):
+#   File "/home/ukov/.local/lib/python3.11/site-packages/uvicorn/protocols/http/httptools_impl.py", line 401, in run_asgi
+#     result = await app(  # type: ignore[func-returns-value]
+#              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#   File "/home/ukov/.local/lib/python3.11/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+#     return await self.app(scope, receive, send)
+#            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#   File "/home/ukov/.local/lib/python3.11/site-packages/fastapi/applications.py", line 1054, in __call__
+#     await super().__call__(scope, receive, send)
+#   File "/home/ukov/.local/lib/python3.11/site-packages/starlette/applications.py", line 113, in __call__
+#     await self.middleware_stack(scope, receive, send)
+#   File "/home/ukov/.local/lib/python3.11/site-packages/starlette/middleware/errors.py", line 187, in __call__
+#     raise exc
+#   File "/home/ukov/.local/lib/python3.11/site-packages/starlette/middleware/errors.py", line 165, in __call__
+#     await self.app(scope, receive, _send)
+#   File "/home/ukov/.local/lib/python3.11/site-packages/starlette/middleware/base.py", line 185, in __call__
+#     with collapse_excgroups():
+#   File "/usr/lib/python3.11/contextlib.py", line 155, in __exit__
+#     self.gen.throw(typ, value, traceback)
+#   File "/home/ukov/.local/lib/python3.11/site-packages/starlette/_utils.py", line 82, in collapse_excgroups
+#     raise exc
+#   File "/home/ukov/.local/lib/python3.11/site-packages/starlette/middleware/base.py", line 187, in __call__
+#     response = await self.dispatch_func(request, call_next)
+#                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#   File "/home/ukov/itrade/server/main.py", line 123, in auth_redirect_middleware
+#     response = await call_next(request)
+#                ^^^^^^^^^^^^^^^^^^^^^^^^
+#   File "/home/ukov/.local/lib/python3.11/site-packages/starlette/middleware/base.py", line 163, in call_next
+#     raise app_exc
+#   File "/home/ukov/.local/lib/python3.11/site-packages/starlette/middleware/base.py", line 149, in coro
+#     await self.app(scope, receive_or_disconnect, send_no_error)
+#   File "/home/ukov/.local/lib/python3.11/site-packages/starlette/middleware/sessions.py", line 85, in __call__
+#     await self.app(scope, receive, send_wrapper)
+#   File "/home/ukov/.local/lib/python3.11/site-packages/starlette/middleware/cors.py", line 85, in __call__
+#     await self.app(scope, receive, send)
+#   File "/home/ukov/.local/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 62, in __call__
+#     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+#   File "/home/ukov/.local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+#     raise exc
+#   File "/home/ukov/.local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+#     await app(scope, receive, sender)
+#   File "/home/ukov/.local/lib/python3.11/site-packages/starlette/routing.py", line 715, in __call__
+#     await self.middleware_stack(scope, receive, send)
+#   File "/home/ukov/.local/lib/python3.11/site-packages/starlette/routing.py", line 735, in app
+#     await route.handle(scope, receive, send)
+#   File "/home/ukov/.local/lib/python3.11/site-packages/starlette/routing.py", line 288, in handle
+#     await self.app(scope, receive, send)
+#   File "/home/ukov/.local/lib/python3.11/site-packages/starlette/routing.py", line 76, in app
+#     await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+#   File "/home/ukov/.local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+#     raise exc
+#   File "/home/ukov/.local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+#     await app(scope, receive, sender)
+#   File "/home/ukov/.local/lib/python3.11/site-packages/starlette/routing.py", line 73, in app
+#     response = await f(request)
+#                ^^^^^^^^^^^^^^^^
+#   File "/home/ukov/.local/lib/python3.11/site-packages/fastapi/routing.py", line 301, in app
+#     raw_response = await run_endpoint_function(
+#                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#   File "/home/ukov/.local/lib/python3.11/site-packages/fastapi/routing.py", line 212, in run_endpoint_function
+#     return await dependant.call(**values)
+#            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#   File "/home/ukov/itrade/server/router/users.py", line 176, in google_login
+#     return await oauth.google.authorize_redirect(request, redirect_uri, state=state)
+#            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#   File "/home/ukov/.local/lib/python3.11/site-packages/authlib/integrations/starlette_client/apps.py", line 36, in authorize_redirect
+#     rv = await self.create_authorization_url(redirect_uri, **kwargs)
+#          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#   File "/home/ukov/.local/lib/python3.11/site-packages/authlib/integrations/base_client/async_app.py", line 100, in create_authorization_url
+#     metadata = await self.load_server_metadata()
+#                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#   File "/home/ukov/.local/lib/python3.11/site-packages/authlib/integrations/base_client/async_app.py", line 79, in load_server_metadata
+#     resp = await client.request(
+#            ^^^^^^^^^^^^^^^^^^^^^
+#   File "/home/ukov/.local/lib/python3.11/site-packages/authlib/integrations/httpx_client/oauth2_client.py", line 119, in request
+#     return await super().request(method, url, auth=auth, **kwargs)
+#            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#   File "/home/ukov/.local/lib/python3.11/site-packages/httpx/_client.py", line 1540, in request
+#     return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+#            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#   File "/home/ukov/.local/lib/python3.11/site-packages/httpx/_client.py", line 1629, in send
+#     response = await self._send_handling_auth(
+#                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#   File "/home/ukov/.local/lib/python3.11/site-packages/httpx/_client.py", line 1657, in _send_handling_auth
+#     response = await self._send_handling_redirects(
+#                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#   File "/home/ukov/.local/lib/python3.11/site-packages/httpx/_client.py", line 1694, in _send_handling_redirects
+#     response = await self._send_single_request(request)
+#                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#   File "/home/ukov/.local/lib/python3.11/site-packages/httpx/_client.py", line 1730, in _send_single_request
+#     response = await transport.handle_async_request(request)
+#                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#   File "/home/ukov/.local/lib/python3.11/site-packages/httpx/_transports/default.py", line 393, in handle_async_request
+#     with map_httpcore_exceptions():
+#   File "/usr/lib/python3.11/contextlib.py", line 155, in __exit__
+#     self.gen.throw(typ, value, traceback)
+#   File "/home/ukov/.local/lib/python3.11/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
+#     raise mapped_exc(message) from exc
+# httpx.ConnectTimeout

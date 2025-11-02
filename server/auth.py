@@ -1,4 +1,4 @@
-# auth.py
+# server/auth.py
 import jwt
 from datetime import datetime, timedelta
 from passlib.context import CryptContext
@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from database import get_session
 from models import models
-from config import settings # http://127.0.0.1:8000/?ref=KPEBYHGZHX
+from config import settings 
 
 SECRET_KEY = settings.SECRET_KEY
 ALGORITHM = settings.ALGORITHM
@@ -72,3 +72,22 @@ async def get_current_user(
     if user is None:
         raise credentials_exception
     return user
+
+async def get_current_user_optional(
+    access_token: Optional[str] = Cookie(None),
+    db: AsyncSession = Depends(get_session)
+) -> Optional[models.User]:
+    if not access_token:
+        return None
+    try:
+        payload = decode_access_token(access_token)
+        user_id: int = int(payload.get("sub"))
+        if user_id is None:
+            return None
+        result = await db.execute(select(models.User).where(models.User.id == user_id))
+        user = result.scalars().first()
+        if user is None:
+            return None
+        return user
+    except (HTTPException, ValueError):
+        return None

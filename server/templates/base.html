@@ -1,4 +1,3 @@
-<!-- Updated base.html -->
 <!doctype html>
 <html lang="en" data-theme="light">
 <head>
@@ -11,6 +10,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
@@ -605,6 +606,7 @@
     /* Chat Offcanvas Styles */
     .chat-offcanvas {
       --bs-offcanvas-width: 400px;
+      z-index: 1065; /* Ensure it layers above FAB */
     }
     .chat-offcanvas .offcanvas-body {
       display: flex;
@@ -820,6 +822,7 @@
       z-index: 1060;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       animation: chatPulse 2s infinite;
+      cursor: pointer; /* Ensure clickable */
     }
     .chat-fab:hover {
       transform: scale(1.1) rotate(360deg);
@@ -962,8 +965,8 @@
   {% block mobile_fab %}{% endblock %}
 </div>
 
-<!-- Chat FAB -->
-<button class="chat-fab" id="chatFab" onclick="toggleChat()">
+<!-- Chat FAB (native Bootstrap trigger - no custom onclick) -->
+<button id="chatFab" class="chat-fab" type="button" data-bs-toggle="offcanvas" data-bs-target="#chatOffcanvas" aria-controls="chatOffcanvas">
   <i class="bi bi-chat-dots"></i>
 </button>
 
@@ -1033,7 +1036,6 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
   let profileData = {};
-  let chatOffcanvas = null;
   let chatMessagesEl = null;
   let chatInputEl = null;
   let chatSendBtn = null;
@@ -1041,12 +1043,12 @@
   let mediaRecorder = null;
   let audioChunks = [];
   let isRecording = false;
-  let audioContext = null;  // New: For volume analysis
+  let audioContext = null;
   let analyser = null;
   let dataArray = null;
-  let volumeInterval = null;  // For updating UI
+  let volumeInterval = null;
 
-  // Fetch profile data on load for initials
+  // Fetch profile data on load for initials (moved outside DOMContentLoaded to run immediately)
   async function loadProfileData() {
     try {
       const res = await fetch('/api/profile', { credentials: 'include' });
@@ -1130,40 +1132,20 @@
     sendChatMessage();
   }
 
-  // Chat functionality
-  function toggleChat() {
-    const chatEl = document.getElementById('chatOffcanvas');
-    chatOffcanvas = new bootstrap.Offcanvas(chatEl);
-    chatOffcanvas.show();
-    document.getElementById('chatFab').style.display = 'none'; // Hide FAB when open
-    initChat();
-  }
-
-  // Listen for offcanvas close to show FAB again
-  document.addEventListener('DOMContentLoaded', () => {
-    const chatEl = document.getElementById('chatOffcanvas');
-    chatEl.addEventListener('show.bs.offcanvas', () => {
-      document.getElementById('chatFab').style.display = 'none';
-    });
-    chatEl.addEventListener('hidden.bs.offcanvas', () => {
-      document.getElementById('chatFab').style.display = 'block'; // Show FAB when closed
-    });
-  });
-
+  // Chat init (called on offcanvas show)
   function initChat() {
-    if (!chatMessagesEl) {
-      chatMessagesEl = document.getElementById('chatMessages');
-      chatInputEl = document.getElementById('chatInput');
-      chatSendBtn = document.getElementById('chatSend');
-      chatVoiceBtn = document.getElementById('chatVoice');
-    }
+    if (chatMessagesEl) return; // Already initialized
+    chatMessagesEl = document.getElementById('chatMessages');
+    chatInputEl = document.getElementById('chatInput');
+    chatSendBtn = document.getElementById('chatSend');
+    chatVoiceBtn = document.getElementById('chatVoice');
 
     chatSendBtn.addEventListener('click', sendChatMessage);
     chatInputEl.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') sendChatMessage();
     });
 
-    // MediaRecorder for voice input (server-side transcription)
+    // Voice input setup (unchanged)
     chatVoiceBtn.addEventListener('click', handleVoiceToggle);
 
     async function handleVoiceToggle() {
@@ -1175,7 +1157,6 @@
         } catch (err) {
           console.error('Start recording failed:', err);
           showToast('Voice start failed. Check mic permissions and retry.');
-          // Auto-retry once after 2s
           setTimeout(() => {
             if (confirm('Retry voice input?')) handleVoiceToggle();
           }, 2000);
@@ -1187,13 +1168,12 @@
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ 
           audio: { 
-            echoCancellation: true,  // Reduces feedback instability
+            echoCancellation: true,
             noiseSuppression: true,
-            sampleRate: 16000  // Matches Whisper's preference for stability
+            sampleRate: 16000
           } 
         });
         
-        // New: Setup Web Audio for volume visualization
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
         const source = audioContext.createMediaStreamSource(stream);
         analyser = audioContext.createAnalyser();
@@ -1202,12 +1182,11 @@
         dataArray = new Uint8Array(bufferLength);
         source.connect(analyser);
 
-        // Start volume updates
         updateVolumeIndicator();
 
         mediaRecorder = new MediaRecorder(stream, { 
-          mimeType: 'audio/webm;codecs=opus',  // More stable codec
-          audioBitsPerSecond: 128000  // Balanced quality/stability
+          mimeType: 'audio/webm;codecs=opus',
+          audioBitsPerSecond: 128000
         });
         audioChunks = [];
 
@@ -1217,12 +1196,11 @@
 
         mediaRecorder.onerror = (e) => {
           console.error('Recorder error:', e);
-          stopRecording();  // Auto-stop on error
+          stopRecording();
           showToast('Recording interrupted. Try a quieter spot.');
         };
 
         mediaRecorder.onstop = async () => {
-          // Switch to processing state immediately after stop
           chatVoiceBtn.classList.remove('recording');
           chatVoiceBtn.classList.add('processing');
           chatVoiceBtn.innerHTML = '<i class="bi bi-hourglass-split"></i>';
@@ -1252,7 +1230,6 @@
               sendChatMessage();
             } else {
               showToast('No speech detected. Try speaking clearly.');
-              // Fallback: Prompt for manual text
               const manual = prompt('No audio detected. Type your message:');
               if (manual) {
                 chatInputEl.value = manual;
@@ -1262,7 +1239,6 @@
           } catch (err) {
             console.error('Transcription error:', err);
             showToast('Transcription failed—switching to text input.');
-            // Fallback prompt here too
           } finally {
             stream.getTracks().forEach(track => track.stop());
             cleanupAudioContext();
@@ -1270,13 +1246,12 @@
           }
         };
 
-        mediaRecorder.start(1000);  // Chunk every 1s for smoother buffering
+        mediaRecorder.start(1000);
         isRecording = true;
         chatVoiceBtn.classList.add('recording');
         chatVoiceBtn.title = 'Stop recording (max 10s)';
         chatVoiceBtn.innerHTML = '<i class="bi bi-stop-fill"></i>';
 
-        // Shorter timeout
         setTimeout(() => {
           if (isRecording) stopRecording();
         }, 10000);
@@ -1286,7 +1261,7 @@
         } else if (err.name === 'NotFoundError') {
           showToast('No microphone found. Use text input.');
         }
-        throw err;  // Re-throw for retry logic
+        throw err;
       }
     }
 
@@ -1295,7 +1270,6 @@
         mediaRecorder.stop();
       }
       isRecording = false;
-      // Do not reset UI here - handled in onstop
     }
 
     function resetVoiceButton() {
@@ -1311,7 +1285,6 @@
       if (audioContext) audioContext.close();
       const volumeIndicator = document.getElementById('volumeIndicator');
       if (volumeIndicator) {
-        // Reset bars
         document.querySelectorAll('.bar').forEach(bar => {
           bar.style.transform = 'scaleY(0)';
         });
@@ -1328,30 +1301,28 @@
         if (!analyser || !isRecording) return;
         analyser.getByteFrequencyData(dataArray);
         
-        // Calculate average volume (simple RMS-like)
         let sum = 0;
         for (let i = 0; i < dataArray.length; i++) {
           sum += dataArray[i] * dataArray[i];
         }
-        const avg = Math.sqrt(sum / dataArray.length) / 255;  // Normalize 0-1
+        const avg = Math.sqrt(sum / dataArray.length) / 255;
         
-        // Scale bars: Grow based on volume (0.2 quiet -> 1 loud)
-        const scale = Math.max(0.2, avg * 3);  // Amplify for visibility
+        const scale = Math.max(0.2, avg * 3);
         bars.forEach((bar, i) => {
-          const barScale = scale * (1 - i * 0.15);  // Cascade effect
+          const barScale = scale * (1 - i * 0.15);
           bar.style.transform = `scaleY(${barScale})`;
-          bar.style.background = avg > 0.5 ? 'var(--danger-gradient)' : 'var(--success-gradient)';  // Red if loud
+          bar.style.background = avg > 0.5 ? 'var(--danger-gradient)' : 'var(--success-gradient)';
         });
-      }, 100);  // Update 10x/sec for smoothness
+      }, 100);
     }
   }
 
   // Theme toggle with localStorage persistence
   const html = document.documentElement;
-  const themeToggle = document.getElementById('themeToggle');
-  const mobileThemeToggle = document.getElementById('mobileThemeToggle');
   const savedTheme = localStorage.getItem('theme') || 'light';
   html.setAttribute('data-theme', savedTheme);
+  const themeToggle = document.getElementById('themeToggle');
+  const mobileThemeToggle = document.getElementById('mobileThemeToggle');
   if (savedTheme === 'dark') {
     if (themeToggle) themeToggle.innerHTML = '<i class="bi bi-sun-fill"></i>';
     if (mobileThemeToggle) mobileThemeToggle.innerHTML = '<i class="bi bi-sun-fill"></i>';
@@ -1365,12 +1336,8 @@
     if (themeToggle) themeToggle.innerHTML = icon;
     if (mobileThemeToggle) mobileThemeToggle.innerHTML = icon;
   };
-  if (themeToggle) {
-    themeToggle.addEventListener('click', toggleTheme);
-  }
-  if (mobileThemeToggle) {
-    mobileThemeToggle.addEventListener('click', toggleTheme);
-  }
+  if (themeToggle) themeToggle.addEventListener('click', toggleTheme);
+  if (mobileThemeToggle) mobileThemeToggle.addEventListener('click', toggleTheme);
 
   // Logout
   document.querySelectorAll('#logoutBtn').forEach(btn => {
@@ -1396,18 +1363,39 @@
     el.style.animationDelay = `${i * 0.2}s`;
   });
 
-  // Toast example
+  // Toast helper
   function showToast(msg) {
     const toastEl = document.getElementById('saveToast');
     toastEl.querySelector('.toast-body').innerHTML = `<i class="bi bi-check-circle-fill me-2"></i>${msg}`;
     new bootstrap.Toast(toastEl).show();
   }
 
-  // Initial load
+  // Chat offcanvas events (FAB visibility + init) - moved outside DOMContentLoaded for immediate execution
+  const chatEl = document.getElementById('chatOffcanvas');
+  const chatFab = document.getElementById('chatFab');
+  if (chatEl && chatFab) {
+    chatEl.addEventListener('show.bs.offcanvas', () => {
+      console.log('Hiding chat FAB'); // Debug: remove after testing
+      chatFab.style.display = 'none';
+      initChat(); // Init on first show
+    });
+    chatEl.addEventListener('hidden.bs.offcanvas', () => {
+      console.log('Showing chat FAB'); // Debug: remove after testing
+      chatFab.style.display = 'block';
+    });
+  } else {
+    console.warn('Chat elements not found:', { chatEl, chatFab }); // Debug: remove after testing
+  }
+
+  // Load initials immediately (before any overwrites)
+  loadProfileData();
+
+  // Empty DOMContentLoaded (no longer needed for chat/initials)
   document.addEventListener('DOMContentLoaded', () => {
-    loadProfileData();
+    // Any future shared logic can go here
   });
 </script>
 {% block scripts %}{% endblock %}
+
 </body>
 </html>

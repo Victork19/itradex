@@ -1,0 +1,358 @@
+# subscriptions.py 
+from fastapi import APIRouter, Depends, HTTPException, Request, status, Header
+from fastapi.responses import HTMLResponse, RedirectResponse
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, update, desc
+from datetime import datetime, timedelta
+from typing import Any
+
+from templates_config import templates
+from models.models import User, Subscription, Payment  # FIXED: Direct import for clarity
+from database import get_session
+import auth
+from config import settings
+
+# Shared helpers
+from .payments import get_nowpayments_token, create_direct_invoice  # FIXED: Assume payments.py is sibling module
+
+router = APIRouter(prefix="/subscriptions", tags=["Subscriptions"])
+
+
+# ----------------------------------------------------------------------
+# Helper – is the invoice still alive?
+# ----------------------------------------------------------------------
+def _invoice_is_fresh(payment: Payment) -> bool:
+    """
+    NowPayments invoices expire after ~1 hour.
+    We keep the original link as long as it is younger than 55 minutes.
+    """
+    if not payment.created_at:
+        return False
+    age = datetime.utcnow() - payment.created_at
+    return age < timedelta(minutes=55)
+
+
+# ----------------------------------------------------------------------
+# Helper: Render "Pay Now" button HTML (reusable for HTMX)
+# ----------------------------------------------------------------------
+def _render_pay_now_button(invoice_url: str, message: str = "Pay Now") -> str:
+    return f'''
+    <a href="{invoice_url}" class="btn btn-success action-btn w-100" target="_blank">
+        <i class="bi bi-credit-card me-1"></i> {message}
+    </a>
+    <span class="text-success small ms-2">{message} link ready!</span>
+    '''
+
+
+# ----------------------------------------------------------------------
+# GET /subscriptions/
+# ----------------------------------------------------------------------
+@router.get("/", response_class=HTMLResponse)
+async def list_subscriptions(
+    request: Request,
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(auth.get_current_user)
+):
+    subs_res = await db.execute(
+        select(Subscription)
+        .where(Subscription.user_id == current_user.id)
+        .order_by(desc(Subscription.start_date))
+    )
+    subs = subs_res.scalars().all()
+
+    enriched = []
+    total_monthly = total_payments = successful = 0.0
+
+    for sub in subs:
+        # trader name
+        trader = await db.get(User, sub.trader_id) if sub.trader_id else None
+        trader_name = trader.full_name or trader.username if trader else "Platform Plan"
+
+        # FIXED: Improved display for marketplace
+        display_plan = f"Marketplace: {trader_name}" if sub.trader_id else sub.plan_type.replace("_", " ").title()
+
+        # payments (last 10 for UI)
+        pays_res = await db.execute(
+            select(Payment)
+            .where(Payment.subscription_id == sub.id)
+            .order_by(desc(Payment.created_at))
+        )
+        payments = pays_res.scalars().all()
+
+        # FIXED: Include partials in total_paid (assumes amount_paid_usd added to Payment model)
+        # TODO: If not added, fallback to 0 for partials or implement rate fetch
+        paid = round(sum(
+            p.amount_usd if p.status in ["finished", "finished_auto"] 
+            else (getattr(p, 'amount_paid_usd', 0) if p.status == "partially_paid" else 0)
+            for p in payments
+        ), 2)
+
+        start = sub.start_date.strftime("%b %d, %Y") if sub.start_date else "N/A"
+        next_b = sub.next_billing_date.strftime("%b %d, %Y") if sub.next_billing_date else "N/A"
+
+        if sub.status == "active":
+            total_monthly += sub.amount_usd
+        total_payments += len(payments)
+        successful += len([p for p in payments if p.status in ["finished", "finished_auto"]])
+
+        # Pay URL for pending states if fresh
+        pay_url = None
+        fake_payment = type("obj", (), {"created_at": sub.updated_at, "invoice_url": sub.renewal_url})
+        if sub.status in ["pending", "pending_renewal"] and sub.renewal_url and _invoice_is_fresh(fake_payment):
+            pay_url = sub.renewal_url
+
+        enriched.append({
+            "id": sub.id,
+            "trader_name": trader_name,
+            "plan_type": display_plan,  # FIXED: Better display
+            "amount_usd": sub.amount_usd,
+            "status": sub.status,
+            "start_date": start,
+            "next_billing": next_b,
+            "total_paid": paid,
+            "renewal_url": sub.renewal_url,
+            "pay_url": pay_url,
+            "payments": [
+                {
+                    "id": p.id,
+                    "amount_usd": p.amount_usd,
+                    "status": p.status,
+                    "paid_at": p.paid_at.strftime("%b %d, %Y") if p.paid_at else "Pending",
+                    "invoice_url": p.invoice_url,
+                    "fresh": _invoice_is_fresh(p) if p.invoice_url else False,
+                    # FIXED: Partial progress (assumes amount_paid_usd in model; set in webhook)
+                    "partial_amount": getattr(p, 'amount_paid_usd', f"{p.amount_paid_crypto} {p.crypto_currency}") if p.status == "partially_paid" else None,
+                    "progress": f"{(getattr(p, 'amount_paid_usd', 0) / p.amount_usd * 100):.0f}%" if p.status == "partially_paid" and p.amount_usd > 0 and hasattr(p, 'amount_paid_usd') else "Partial (USD pending)",
+                } for p in payments[-10:]
+            ],
+            "has_more_payments": len(payments) > 10,
+        })
+
+    success_rate = round((successful / total_payments * 100), 1) if total_payments else 0.0
+
+    return templates.TemplateResponse(
+        "subscriptions.html",
+        {
+            "request": request,
+            "subscriptions": enriched,
+            "current_user": current_user,
+            "now": datetime.utcnow(),
+            "stats": {
+                "active_count": len([s for s in subs if s.status == "active"]),
+                "monthly_total": round(total_monthly, 2),
+                "total_payments": int(total_payments),
+                "success_rate": success_rate,
+            },
+        },
+    )
+
+
+# ----------------------------------------------------------------------
+# POST /subscriptions/{sub_id}/cancel
+# ----------------------------------------------------------------------
+@router.post("/{sub_id}/cancel")
+async def cancel_subscription(
+    sub_id: int,
+    request: Request,  # Add Request to detect HTMX
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(auth.get_current_user),
+):
+    sub = await db.get(Subscription, sub_id)
+    if not sub or sub.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+    if sub.status != "active":
+        raise HTTPException(status_code=400, detail="Only active subscriptions can be cancelled")
+
+    sub.status = "cancelled"
+    sub.updated_at = datetime.utcnow()
+    await db.commit()
+
+    # HTMX-friendly: Return partial HTML for the card if HTMX, else redirect
+    if request.headers.get("HX-Request"):
+        return HTMLResponse(
+            '''
+            <div class="alert alert-danger d-flex align-items-center">
+                <i class="bi bi-check-circle me-2"></i>
+                <span>Subscription cancelled successfully.</span>
+            </div>
+            ''',
+            status_code=200
+        )
+    else:
+        return RedirectResponse(url="/subscriptions/", status_code=status.HTTP_303_SEE_OTHER)
+
+
+# ----------------------------------------------------------------------
+# POST /subscriptions/{sub_id}/renew   (manual renewal)
+# ----------------------------------------------------------------------
+@router.post("/{sub_id}/renew")
+async def manual_renew_subscription(
+    sub_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(auth.get_current_user),
+):
+    sub = await db.get(Subscription, sub_id)
+    if not sub or sub.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+    if sub.status not in ("active", "pending_renewal", "pending"):
+        raise HTTPException(status_code=400, detail="Not eligible for renewal")
+
+    is_htmx = request.headers.get("HX-Request") is not None
+
+    # If we already have a fresh renewal URL → just return the button
+    if sub.renewal_url:
+        fake_payment = type("obj", (), {"created_at": sub.updated_at, "invoice_url": sub.renewal_url})
+        if _invoice_is_fresh(fake_payment):
+            if is_htmx:
+                return HTMLResponse(_render_pay_now_button(sub.renewal_url, "Pay Now"))
+            else:
+                return RedirectResponse(url="/subscriptions/", status_code=status.HTTP_303_SEE_OTHER)
+
+    # FIXED: Use consistent order_id for renewals (matches webhook parsing)
+    token = await get_nowpayments_token()
+    order_id = f"{current_user.id}_{sub.plan_type}_renew"  # No manual/timestamp – reuse for consistency
+    invoice_url = await create_direct_invoice(
+        amount=sub.amount_usd,
+        order_id=order_id,
+        order_description=f"Manual renewal – Sub {sub.id}",
+        token=token,
+        success_params=f"&sub_id={sub.id}",
+    )
+
+    # Create Payment (now with order_id)
+    payment = Payment(
+        user_id=current_user.id,
+        subscription_id=sub.id,
+        amount_usd=sub.amount_usd,
+        status="generated",
+        order_id=order_id,  # Now valid!
+        invoice_url=invoice_url,
+        created_at=datetime.utcnow(),  # Explicit for safety
+    )
+    db.add(payment)
+
+    sub.renewal_url = invoice_url
+    sub.status = "pending_renewal"
+    sub.updated_at = datetime.utcnow()
+    await db.commit()
+
+    if is_htmx:
+        return HTMLResponse(_render_pay_now_button(invoice_url, "New invoice ready!"))
+    else:
+        return RedirectResponse(url="/subscriptions/", status_code=status.HTTP_303_SEE_OTHER)
+
+
+# ----------------------------------------------------------------------
+# POST /subscriptions/{sub_id}/retry   (regenerate any pending/failed)
+# ----------------------------------------------------------------------
+@router.post("/{sub_id}/retry")
+async def retry_or_regenerate_payment(
+    sub_id: int,
+    request: Request,  # FIXED: Add Request for consistency (though not used yet)
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(auth.get_current_user),
+):
+    sub = await db.get(Subscription, sub_id)
+    if not sub or sub.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+
+    # Find the newest payment that needs a new invoice
+    res = await db.execute(
+        select(Payment)
+        .where(
+            Payment.subscription_id == sub_id,
+            Payment.status.in_(["failed", "pending", "generated"]),
+        )
+        .order_by(desc(Payment.created_at))
+    )
+    payment = res.scalars().first()
+    if not payment:
+        raise HTTPException(status_code=400, detail="No payment to regenerate")
+
+    # --------------------------------------------------------------
+    # If the existing URL is still fresh → just return it
+    # --------------------------------------------------------------
+    if payment.invoice_url and _invoice_is_fresh(payment):
+        return HTMLResponse(
+            f'''
+            <a href="{payment.invoice_url}" class="btn btn-sm btn-success action-btn" target="_blank">
+                <i class="bi bi-credit-card"></i> Pay Now
+            </a>
+            <span class="text-success small ms-2">Valid link</span>
+            '''
+        )
+
+    # --------------------------------------------------------------
+    # FIXED: Use consistent order_id based on sub type (matches webhook parsing)
+    # --------------------------------------------------------------
+    is_renewal = sub.status == "pending_renewal"
+    base_order_id = sub.order_id or f"{current_user.id}_{sub.plan_type}"
+    if is_renewal and not base_order_id.endswith("_renew"):
+        base_order_id += "_renew"
+    # Use base without timestamp for consistency (NowPayments handles duplicates via payment_id)
+
+    token = await get_nowpayments_token()
+    invoice_url = await create_direct_invoice(
+        amount=payment.amount_usd,
+        order_id=base_order_id,  # FIXED: Consistent
+        order_description=f"Regenerated payment – Sub {sub.id}",
+        token=token,
+        success_params=f"&sub_id={sub.id}",
+    )
+
+    payment.status = "generated"  # Reset to generated
+    payment.invoice_url = invoice_url
+    payment.order_id = base_order_id  # FIXED: Update to consistent
+    payment.updated_at = datetime.utcnow()
+    await db.commit()
+
+    return HTMLResponse(
+        f'''
+        <a href="{invoice_url}" class="btn btn-sm btn-success action-btn" target="_blank">
+            <i class="bi bi-credit-card"></i> Pay Now
+        </a>
+        <span class="text-success small ms-2">New invoice generated!</span>
+        '''
+    )
+
+@router.get("/current")
+async def get_current_subscription(
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(auth.get_current_user)
+):
+    # Get the latest subscription
+    query = (
+        select(Subscription)
+        .where(Subscription.user_id == current_user.id)
+        .order_by(desc(Subscription.start_date))
+        .limit(1)
+    )
+    result = await db.execute(query)
+    sub = result.scalars().first()
+
+    if not sub or sub.status not in ["active", "pending"]:
+        return {
+            "status": "free",
+            "plan": "starter"
+        }
+
+    # FIXED: Handle marketplace plan_type parsing
+    if sub.plan_type.startswith("marketplace_"):
+        plan = "marketplace"
+        interval = sub.plan_type.split("_")[-1]  # e.g., 'monthly'
+    else:
+        plan_parts = sub.plan_type.split("_") if "_" in sub.plan_type else [sub.plan_type, "monthly"]
+        plan = plan_parts[0]
+        interval = plan_parts[1] if len(plan_parts) > 1 else "monthly"
+
+    status = "active" if sub.status == "active" else sub.status
+
+    return {
+        "status": status,
+        "plan": plan,
+        "interval": interval,
+        "amount": float(sub.amount_usd),
+        "next_billing": sub.next_billing_date.isoformat() if sub.next_billing_date else None,
+        "subscription_id": sub.id
+    }

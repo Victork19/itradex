@@ -1,10 +1,6 @@
-<!-- Updated profile.html -->
 {% extends "base.html" %}
-
 {% block title %}Profile{% endblock %}
-
-{% block extra_styles %}
-<style>
+{% block extra_styles %}<style>
   :root {
     --bs-body-bg: var(--bg);
     --bs-body-color: var(--text);
@@ -17,8 +13,7 @@
     --bs-info: var(--info);
     --bs-link-color: var(--brand);
     --bs-link-hover-color: var(--brand-dark);
-  }
-  [data-theme="dark"] {
+  }  [data-theme="dark"] {
     --bs-body-bg: var(--bg);
     --bs-body-color: var(--text);
     --bs-secondary-color: var(--muted);
@@ -31,115 +26,91 @@
     --bs-link-color: var(--brand);
     --bs-link-hover-color: var(--brand-dark);
     color-scheme: dark;
-  }
-  [data-theme="dark"] .text-muted {
+  }  [data-theme="dark"] .text-muted {
     color: var(--muted);
-  }
-  [data-theme="dark"] .text-black,
+  }  [data-theme="dark"] .text-black,
   [data-theme="dark"] .text-dark {
     color: var(--text) !important;
-  }
-  [data-theme="dark"] .modal {
+  }  [data-theme="dark"] .modal {
     color: var(--text);
-  }
-  [data-theme="dark"] .modal-content {
+  }  [data-theme="dark"] .modal-content {
     background-color: var(--surface);
     border-color: var(--border);
     color: var(--text);
-  }
-  [data-theme="dark"] .modal-header {
+  }  [data-theme="dark"] .modal-header {
     border-bottom: 1px solid var(--border);
-  }
-  [data-theme="dark"] .modal-footer {
+  }  [data-theme="dark"] .modal-footer {
     border-top: 1px solid var(--border);
-  }
-  [data-theme="dark"] .form-control {
+  }  [data-theme="dark"] .form-control {
     background-color: var(--surface);
     border-color: var(--border);
     color: var(--text);
-  }
-  [data-theme="dark"] .form-control:focus {
+  }  [data-theme="dark"] .form-control:focus {
     border-color: var(--brand);
     box-shadow: 0 0 0 0.25rem rgba(47, 107, 255, 0.25);
-  }
-  [data-theme="dark"] .form-label {
+  }  [data-theme="dark"] .form-label {
     color: var(--text);
-  }
-  [data-theme="dark"] .accordion-button {
+  }  [data-theme="dark"] .accordion-button {
     background: var(--surface);
     color: var(--text);
-  }
-  [data-theme="dark"] .accordion-button:not(.collapsed) {
-    background: linear-gradient(135deg, rgba(47,107,255,0.1) 0%, rgba(47,107,255,0.05) 100%);
+  }  [data-theme="dark"] .accordion-button:not(.collapsed) {
+    background: linear-gradient(135deg, rgba(47, 107, 255, 0.1) 0%, rgba(47, 107, 255, 0.05) 100%);
     color: var(--brand);
-  }
-  [data-theme="dark"] .dropdown-menu {
+  }  [data-theme="dark"] .dropdown-menu {
     background-color: var(--surface) !important;
     border: 1px solid var(--border) !important;
     color: var(--text) !important;
-  }
-  [data-theme="dark"] .dropdown-item {
+  }  [data-theme="dark"] .dropdown-item {
     color: var(--text) !important;
     padding: 0.5rem 1rem;
-  }
-  [data-theme="dark"] .dropdown-item:hover {
+  }  [data-theme="dark"] .dropdown-item:hover {
     background-color: rgba(47, 107, 255, 0.1) !important;
     color: var(--brand) !important;
-  }
-  [data-theme="dark"] .dropdown-divider {
+  }  [data-theme="dark"] .dropdown-divider {
     border-top: 1px solid var(--border) !important;
-  }
-  [data-theme="dark"] .offcanvas .nav-link {
+  }  [data-theme="dark"] .offcanvas .nav-link {
     color: var(--muted) !important;
-  }
-  [data-theme="dark"] .offcanvas .nav-link:hover {
+  }  [data-theme="dark"] .offcanvas .nav-link:hover {
     color: var(--brand) !important;
-  }
-  [data-theme="dark"] .tooltip .tooltip-inner {
+  }  [data-theme="dark"] .tooltip .tooltip-inner {
     color: var(--text);
     background-color: var(--surface);
-  }
-  [data-theme="dark"] .tooltip.bs-tooltip-auto[data-popper-placement*="top"] .tooltip-arrow::before,
+  }  [data-theme="dark"] .tooltip.bs-tooltip-auto[data-popper-placement*="top"] .tooltip-arrow::before,
   [data-theme="dark"] .tooltip.bs-tooltip-auto[data-popper-placement*="bottom"] .tooltip-arrow::before,
   [data-theme="dark"] .tooltip.bs-tooltip-auto[data-popper-placement*="left"] .tooltip-arrow::before,
   [data-theme="dark"] .tooltip.bs-tooltip-auto[data-popper-placement*="right"] .tooltip-arrow::before {
     border-color: var(--border);
-  }
-  .hero-card {
+  }  .hero-card {
     display: flex;
     align-items: center;
     gap: 20px;
     padding: 20px;
     border-radius: var(--radius);
     box-shadow: var(--shadow);
-    background: linear-gradient(135deg, var(--surface) 0%, rgba(47,107,255,0.02) 100%);
+    background: linear-gradient(135deg, var(--surface) 0%, rgba(47, 107, 255, 0.02) 100%);
     transition: all 0.3s ease;
     position: relative;
     overflow: hidden;
-  }
-  .hero-card::after {
+  }  .hero-card::after {
     content: '';
     position: absolute;
     top: 0;
     right: 0;
     width: 150px;
     height: 150px;
-    background: radial-gradient(circle, rgba(47,107,255,0.1) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(47, 107, 255, 0.1) 0%, transparent 70%);
     border-radius: 50%;
-  }
-  .hero-card img {
+  }  .hero-card img {
     width: 80px;
     height: 80px;
     border-radius: 50%;
     border: 3px solid var(--brand);
-    box-shadow: 0 6px 15px rgba(47,107,255,0.2);
+    box-shadow: 0 6px 15px rgba(47, 107, 255, 0.2);
     transition: transform 0.3s ease;
     z-index: 1;
-  }
-  .hero-card:hover img {
+  }  .hero-card:hover img {
     transform: scale(1.05);
-  }
-  .hero-card .name {
+  }  .hero-card .name {
     font-size: 1.5rem;
     font-weight: 800;
     background: var(--gradient);
@@ -147,28 +118,23 @@
     -webkit-text-fill-color: transparent;
     background-clip: text;
     margin-bottom: 2px;
-  }
-  .hero-card .email {
+  }  .hero-card .email {
     color: var(--muted);
     font-size: 0.9rem;
     margin-bottom: 4px;
-  }
-  .hero-card .stats {
+  }  .hero-card .stats {
     display: flex;
     gap: 16px;
     font-size: 0.85rem;
     color: var(--muted);
-  }
-  .hero-card .stats .stat-item {
+  }  .hero-card .stats .stat-item {
     display: flex;
     align-items: center;
     gap: 4px;
-  }
-  .hero-card .stats .stat-value {
+  }  .hero-card .stats .stat-value {
     font-weight: 600;
     color: var(--text);
-  }
-  .stat-card {
+  }  .stat-card {
     padding: 24px;
     border-radius: var(--radius);
     box-shadow: var(--shadow);
@@ -177,8 +143,7 @@
     position: relative;
     overflow: hidden;
     transition: box-shadow 0.3s ease;
-  }
-  .stat-card::before {
+  }  .stat-card::before {
     content: '';
     position: absolute;
     top: 0;
@@ -189,14 +154,11 @@
     opacity: 0;
     transition: opacity 0.3s ease;
     z-index: -1;
-  }
-  .stat-card:hover {
-    box-shadow: 0 20px 40px rgba(15,23,42,0.15);
-  }
-  .stat-card:hover::before {
+  }  .stat-card:hover {
+    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.15);
+  }  .stat-card:hover::before {
     opacity: 0.05;
-  }
-  .stat-card .accent {
+  }  .stat-card .accent {
     position: absolute;
     top: 0;
     left: 0;
@@ -204,39 +166,34 @@
     width: 60px;
     border-top-left-radius: var(--radius);
     border-bottom-right-radius: 16px;
-  }
-  .stat-value {
+  }  .stat-value {
     font-size: 1.6rem;
     font-weight: 800;
     margin-top: 12px;
-  }
-  .muted {
+  }  .muted {
     color: var(--muted);
-  }
-  .chart-wrapper {
+  }  .chart-wrapper {
     position: relative;
     width: 100%;
     aspect-ratio: 16/9;
     max-height: 360px;
     border-radius: 16px;
     overflow: hidden;
-    box-shadow: inset 0 2px 8px rgba(0,0,0,0.05);
-  }
-  .form-label {
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.05);
+  }  .form-label {
     font-weight: 600;
     color: var(--text);
-  }
-  textarea.form-control, input.form-control {
+  }  textarea.form-control,
+  input.form-control {
     border-radius: 16px;
     border: 2px solid var(--border);
     transition: border-color 0.3s ease, box-shadow 0.3s ease;
     padding: 12px 16px;
-  }
-  textarea.form-control:focus, input.form-control:focus {
+  }  textarea.form-control:focus,
+  input.form-control:focus {
     border-color: var(--brand);
-    box-shadow: 0 0 0 0.2rem rgba(47,107,255,0.1);
-  }
-  .badge-pill {
+    box-shadow: 0 0 0 0.2rem rgba(47, 107, 255, 0.1);
+  }  .badge-pill {
     border-radius: 25px;
     padding: 0.4rem 1rem;
     font-size: 0.9rem;
@@ -244,47 +201,37 @@
     color: var(--text);
     transition: all 0.3s ease;
     font-weight: 500;
-  }
-  .badge-pill:hover {
+  }  .badge-pill:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  }
-  [data-theme="dark"] .badge-pill {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }  [data-theme="dark"] .badge-pill {
     background: linear-gradient(135deg, #252b3a 0%, #1f2937 100%);
     color: #E5E7EB;
-  }
-  .danger-btns button {
+  }  .danger-btns button {
     border-radius: 16px;
     font-weight: 600;
     transition: all 0.3s ease;
-  }
-  .danger-btns button:hover {
+  }  .danger-btns button:hover {
     transform: translateY(-2px);
-  }
-  .accordion-button {
+  }  .accordion-button {
     font-weight: 700;
     background: var(--surface);
     color: var(--text);
     transition: all 0.3s ease;
     border-radius: var(--radius) var(--radius) 0 0;
     position: relative;
-  }
-  .accordion-button:not(.collapsed) {
-    background: linear-gradient(135deg, rgba(47,107,255,0.1) 0%, rgba(47,107,255,0.05) 100%);
+  }  .accordion-button:not(.collapsed) {
+    background: linear-gradient(135deg, rgba(47, 107, 255, 0.1) 0%, rgba(47, 107, 255, 0.05) 100%);
     color: var(--brand);
-    box-shadow: inset 0 -2px 4px rgba(47,107,255,0.1);
-  }
-  .accordion-button:hover {
-    background: linear-gradient(135deg, rgba(47,107,255,0.15) 0%, rgba(47,107,255,0.08) 100%);
-  }
-  .accordion-body {
+    box-shadow: inset 0 -2px 4px rgba(47, 107, 255, 0.1);
+  }  .accordion-button:hover {
+    background: linear-gradient(135deg, rgba(47, 107, 255, 0.15) 0%, rgba(47, 107, 255, 0.08) 100%);
+  }  .accordion-body {
     padding: 2rem;
-    background: linear-gradient(180deg, var(--surface) 0%, rgba(248,250,252,0.5) 100%);
-  }
-  [data-theme="dark"] .accordion-body {
-    background: linear-gradient(180deg, var(--surface) 0%, rgba(26,31,43,0.5) 100%);
-  }
-  .slider {
+    background: linear-gradient(180deg, var(--surface) 0%, rgba(248, 250, 252, 0.5) 100%);
+  }  [data-theme="dark"] .accordion-body {
+    background: linear-gradient(180deg, var(--surface) 0%, rgba(26, 31, 43, 0.5) 100%);
+  }  .slider {
     -webkit-appearance: none;
     width: 100%;
     height: 10px;
@@ -294,11 +241,9 @@
     margin: 12px 0;
     transition: background 0.3s ease;
     cursor: pointer;
-  }
-  .slider:hover {
-    background: linear-gradient(90deg, rgba(47,107,255,0.3) 0%, var(--brand) 50%, rgba(47,107,255,0.3) 100%);
-  }
-  .slider::-webkit-slider-thumb {
+  }  .slider:hover {
+    background: linear-gradient(90deg, rgba(47, 107, 255, 0.3) 0%, var(--brand) 50%, rgba(47, 107, 255, 0.3) 100%);
+  }  .slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
     width: 24px;
@@ -307,18 +252,15 @@
     background: var(--brand);
     cursor: pointer;
     transition: all 0.3s ease;
-    box-shadow: 0 2px 8px rgba(47,107,255,0.3);
-  }
-  .slider::-webkit-slider-thumb:hover {
+    box-shadow: 0 2px 8px rgba(47, 107, 255, 0.3);
+  }  .slider::-webkit-slider-thumb:hover {
     transform: scale(1.3);
-    box-shadow: 0 4px 12px rgba(47,107,255,0.4);
-  }
-  .zone-selector {
+    box-shadow: 0 4px 12px rgba(47, 107, 255, 0.4);
+  }  .zone-selector {
     display: flex;
     gap: 12px;
     flex-wrap: wrap;
-  }
-  .zone-btn {
+  }  .zone-btn {
     flex: 1;
     min-width: 110px;
     padding: 12px 16px;
@@ -330,85 +272,68 @@
     font-weight: 600;
     position: relative;
     overflow: hidden;
-  }
-  .zone-btn::before {
+  }  .zone-btn::before {
     content: '';
     position: absolute;
     top: 0;
     left: -100%;
     width: 100%;
     height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
     transition: left 0.5s;
-  }
-  .zone-btn:hover::before {
+  }  .zone-btn:hover::before {
     left: 100%;
-  }
-  .zone-btn:hover {
+  }  .zone-btn:hover {
     border-color: var(--brand);
     transform: translateY(-3px);
-    box-shadow: 0 8px 20px rgba(47,107,255,0.15);
-  }
-  .zone-btn.selected {
+    box-shadow: 0 8px 20px rgba(47, 107, 255, 0.15);
+  }  .zone-btn.selected {
     background: var(--gradient);
     color: white;
     border-color: var(--brand);
-    box-shadow: 0 8px 20px rgba(47,107,255,0.3);
-  }
-  .modal-fullscreen .modal-dialog {
+    box-shadow: 0 8px 20px rgba(47, 107, 255, 0.3);
+  }  .modal-fullscreen .modal-dialog {
     max-width: 100%;
     margin: 0;
-  }
-  .modal-fullscreen .modal-content {
+  }  .modal-fullscreen .modal-content {
     height: 100vh;
     border-radius: 0;
     border: none;
     background: var(--bg);
-  }
-  .modal-header {
+  }  .modal-header {
     background: var(--surface);
     border-bottom: 1px solid var(--border);
     border-radius: var(--radius) var(--radius) 0 0;
-  }
-  .performance-summary {
+  }  .performance-summary {
     text-align: center;
     padding: 2rem;
-    background: linear-gradient(135deg, rgba(47,107,255,0.05) 0%, rgba(34,197,94,0.05) 100%);
+    background: linear-gradient(135deg, rgba(47, 107, 255, 0.05) 0%, rgba(34, 197, 94, 0.05) 100%);
     border-radius: var(--radius);
     border: 1px solid var(--border);
-  }
-  .performance-summary .btn {
+  }  .performance-summary .btn {
     margin-top: 1rem;
-  }
-  .btn-outline-info {
+  }  .btn-outline-info {
     border-color: var(--info);
     color: var(--info);
-  }
-  .btn-outline-info:hover {
+  }  .btn-outline-info:hover {
     background: var(--info);
     color: white;
-  }
-  .btn-outline-warning {
+  }  .btn-outline-warning {
     border-color: var(--warning);
     color: var(--warning);
-  }
-  .btn-outline-warning:hover {
+  }  .btn-outline-warning:hover {
     background: var(--warning);
     color: white;
-  }
-  .btn-outline-danger {
+  }  .btn-outline-danger {
     border-color: var(--danger);
     color: var(--danger);
-  }
-  .btn-outline-danger:hover {
+  }  .btn-outline-danger:hover {
     background: var(--danger-gradient);
     border-color: transparent;
-  }
-  .btn-danger {
+  }  .btn-danger {
     background: var(--danger-gradient);
     border: none;
-  }
-  .saving-indicator {
+  }  .saving-indicator {
     display: inline-block;
     width: 16px;
     height: 16px;
@@ -417,165 +342,206 @@
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin-left: 8px;
-  }
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-  /* Mobile offcanvas nav optimization */
+  }  @keyframes
+ spin {
+    0% {
+      transform: rotate(0deg);
+    }100% {
+  transform: rotate(360deg);
+}  }  /* Mobile offcanvas nav optimization */
   .offcanvas-body .nav-link {
     position: relative;
     padding: 10px 0;
     color: var(--muted);
     font-weight: 500;
     transition: color .25s ease;
-  }
-  .offcanvas-body .nav-link::after {
-    content:'';
-    position:absolute;
-    left:0; bottom:0;
-    width:100%; height:2px;
-    background:var(--brand);
-    border-radius:2px;
+  }  .offcanvas-body .nav-link::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: 2px;
+    background: var(--brand);
+    border-radius: 2px;
     transform: scaleX(0);
-    transform-origin:left;
+    transform-origin: left;
     transition: transform .3s ease;
-  }
-  .offcanvas-body .nav-link:hover,
+  }  .offcanvas-body .nav-link:hover,
   .offcanvas-body .nav-link.active {
     color: var(--brand);
-  }
-  .offcanvas-body .nav-link:hover::after,
+  }  .offcanvas-body .nav-link:hover::after,
   .offcanvas-body .nav-link.active::after {
     transform: scaleX(1);
-  }
-  .offcanvas-body .navbar-nav { gap: 12px; }
-  @media (max-width: 768px) {
+  }  .offcanvas-body .navbar-nav {
+    gap: 12px;
+  }  @media
+ (max-width: 768px) {
     .accordion-body {
       padding: 1.5rem;
-    }
-    .modal-dialog {
-      margin: 0;
-    }
+    }.modal-dialog {
+  margin: 0;
+}
+
+.hero-card {
+  flex-direction: column;
+  text-align: center;
+  gap: 12px;
+  padding: 16px;
+}
+
+.hero-card img {
+  width: 70px;
+  height: 70px;
+}
+
+.hero-card .name {
+  font-size: 1.3rem;
+}
+
+.hero-card .stats {
+  justify-content: center;
+  gap: 12px;
+}
+
+.stat-card {
+  padding: 20px;
+}
+
+.stat-value {
+  font-size: 1.4rem;
+}
+
+.chart-wrapper {
+  max-height: 300px;
+}
+
+.btn {
+  padding: 10px 20px;
+  font-size: 0.9rem;
+}
+
+.zone-selector {
+  gap: 8px;
+}
+
+.zone-btn {
+  min-width: 90px;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+}
+
+.d-flex.flex-wrap.gap-3 .flex-fill {
+  flex: 1 1 45%;
+}
+
+.d-flex.flex-wrap.gap-3 .flex-fill:nth-child(1),
+.d-flex.flex-wrap.gap-3 .flex-fill:nth-child(2) {
+  margin-bottom: 8px;
+}  }  @media
+ (max-width: 576px) {
     .hero-card {
-      flex-direction: column;
-      text-align: center;
-      gap: 12px;
       padding: 16px;
-    }
-    .hero-card img {
-      width: 70px;
-      height: 70px;
-    }
-    .hero-card .name {
-      font-size: 1.3rem;
-    }
-    .hero-card .stats {
-      justify-content: center;
-      gap: 12px;
-    }
-    .stat-card {
-      padding: 20px;
-    }
-    .stat-value {
-      font-size: 1.4rem;
-    }
-    .chart-wrapper {
-      max-height: 300px;
-    }
-    .btn {
-      padding: 10px 20px;
-      font-size: 0.9rem;
-    }
-    .zone-selector {
-      gap: 8px;
-    }
-    .zone-btn {
-      min-width: 90px;
-      padding: 10px 12px;
-      font-size: 0.9rem;
-    }
-    .d-flex.flex-wrap.gap-3 .flex-fill {
-      flex: 1 1 45%;
-    }
-    .d-flex.flex-wrap.gap-3 .flex-fill:nth-child(1),
-    .d-flex.flex-wrap.gap-3 .flex-fill:nth-child(2) {
-      margin-bottom: 8px;
-    }
-  }
-  @media (max-width: 576px) {
-    .hero-card {
-      padding: 16px;
-    }
-    .hero-card .name {
-      font-size: 1.2rem;
-    }
-    .hero-card .stats {
-      flex-direction: column;
-      gap: 8px;
-    }
-    .stat-card {
-      padding: 16px;
-    }
-    .stat-value {
-      font-size: 1.3rem;
-    }
-    .card-radius.p-5 {
-      padding: 1.5rem !important;
-    }
-    .accordion-body {
-      padding: 1.25rem;
-    }
-    .d-flex.flex-wrap.gap-3 .flex-fill {
-      flex: 1 1 100%;
-    }
+    }.hero-card .name {
+  font-size: 1.2rem;
+}
+
+.hero-card .stats {
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stat-card {
+  padding: 16px;
+}
+
+.stat-value {
+  font-size: 1.3rem;
+}
+
+.card-radius.p-5 {
+  padding: 1.5rem !important;
+}
+
+.accordion-body {
+  padding: 1.25rem;
+}
+
+.d-flex.flex-wrap.gap-3 .flex-fill {
+  flex: 1 1 100%;
+}  }  .accordion-button::after {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23666'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e") !important;
+  }  [data-theme="dark"] .accordion-button::after {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23aaa'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e") !important;
+  }  .accordion-button:not(.collapsed)::after {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23666'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e") !important;
+    transform: rotate(-180deg);
+  }  [data-theme="dark"] .accordion-button:not(.collapsed)::after {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23aaa'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e") !important;
+    transform: rotate(-180deg);
   }
 </style>
 {% endblock %}
-
-{% block content %}
-<main class="container py-5">
+{% block content %}<main class="container py-5">
   <!-- Hero -->
   <div class="hero-card mb-4">
-    <img id="userAvatar" src="https://via.placeholder.com/80/2F6BFF/FFFFFF?text=👤" alt="avatar"/>
+    <img id="userAvatar"
+      src="https://ui-avatars.com/api/?name={{ (profile_data.full_name or profile_data.username or 'User') | urlencode }}&background=2F6BFF&color=fff&size=80"
+      alt="avatar" />
     <div>
-      <div class="name" id="userName">User</div>
-      <div class="email" id="userEmail">user@example.com</div>
+      <div class="name" id="userName">{{ profile_data.full_name or 'User' }}</div>
+      <div class="email" id="userEmail">{{ profile_data.email }}</div>
       <div class="stats">
-        <div class="stat-item"><i class="bi bi-journal-text"></i><span class="stat-value" id="totalTrades">0</span> Trades</div>
-        <div class="stat-item"><i class="bi bi-calendar"></i><span class="stat-value" id="activeStreak">0</span> Day Streak</div>
+        <div class="stat-item"><i class="bi bi-journal-text"></i><span class="stat-value" id="totalTrades">{{
+            profile_data.total_trades or 0 }}</span> Trades</div>
+        <div class="stat-item"><i class="bi bi-calendar"></i><span class="stat-value" id="activeStreak">{{
+            profile_data.active_streak or 0 }}</span> Day Streak</div>
       </div>
     </div>
-  </div>
-
-  <!-- Stats Grid -->
+  </div>  <!-- Stats Grid -->
   <div class="row g-4 mb-5">
     <div class="col-6 col-md-3">
       <div class="stat-card text-center">
         <div class="accent" style="background:var(--gradient)"></div>
-        <div class="muted small d-flex align-items-center justify-content-center gap-1"><i class="bi bi-graph-up"></i> Lifetime P/L <i class="bi bi-info-circle" data-bs-toggle="tooltip" title="Summed from journal logs"></i></div>
-        <div class="stat-value text-success" id="lifetimePnl">$0.00</div>
+        <div class="muted small d-flex align-items-center justify-content-center gap-1"><i class="bi bi-graph-up"></i>
+          Lifetime P/L <i class="bi bi-info-circle" data-bs-toggle="tooltip" title="Summed from journal logs"></i></div>
+        {% set pnl = profile_data.lifetime_pnl or 0 %}
+        {% set pnl_class = 'text-success' if pnl >= 0 else 'text-danger' %}
+        <div class="stat-value {{ pnl_class }}" id="lifetimePnl">${{ "%.2f"|format(pnl) }}</div>
       </div>
     </div>
     <div class="col-6 col-md-3">
       <div class="stat-card text-center">
         <div class="accent" style="background:var(--gradient)"></div>
-        <div class="muted small d-flex align-items-center justify-content-center gap-1"><i class="bi bi-award"></i> Win Rate</div>
-        <div class="stat-value text-info" id="winRate">0%</div>
+        <div class="muted small d-flex align-items-center justify-content-center gap-1"><i class="bi bi-award"></i> Win
+          Rate</div>
+        <div class="stat-value text-info" id="winRate">{{ "%.1f"|format(profile_data.win_rate or 0) }}%</div>
       </div>
     </div>
     <div class="col-6 col-md-3">
       <div class="stat-card text-center">
         <div class="accent" style="background:var(--success-gradient)"></div>
-        <div class="muted small d-flex align-items-center justify-content-center gap-1"><i class="bi bi-trophy"></i> Best Trade</div>
+        <div class="muted small d-flex align-items-center justify-content-center gap-1"><i class="bi bi-trophy"></i>
+          Best Trade</div>
+        {% if profile_data.best_trade %}
+        <div class="stat-value text-success" id="bestTrade">{{ profile_data.best_trade.pnl_sign }}${{
+          "%.2f"|format(profile_data.best_trade.pnl_abs) }} {{ profile_data.best_trade.symbol }}</div>
+        {% else %}
         <div class="stat-value text-success" id="bestTrade">N/A</div>
+        {% endif %}
       </div>
     </div>
     <div class="col-6 col-md-3">
       <div class="stat-card text-center">
         <div class="accent" style="background:var(--danger-gradient)"></div>
-        <div class="muted small d-flex align-items-center justify-content-center gap-1"><i class="bi bi-exclamation-triangle"></i> Worst Trade</div>
+        <div class="muted small d-flex align-items-center justify-content-center gap-1"><i
+            class="bi bi-exclamation-triangle"></i> Worst Trade</div>
+        {% if profile_data.worst_trade %}
+        <div class="stat-value text-danger" id="worstTrade">${{ "%.2f"|format(profile_data.worst_trade.pnl) }} {{
+          profile_data.worst_trade.symbol }}</div>
+        {% else %}
         <div class="stat-value text-danger" id="worstTrade">N/A</div>
+        {% endif %}
       </div>
     </div>
   </div>
@@ -587,9 +553,14 @@
     </div>
     <div class="performance-summary">
       <i class="bi bi-graph-up-arrow display-4 text-brand mb-3 d-block"></i>
-      <h5 class="fw-bold mb-2">Lifetime Growth: <span id="growthSummary">$0 (+0%)</span></h5>
-      <p class="text-muted mb-4">Based on your journal trades. Customize your starting balance below for accurate projections.</p>
-      <a href="/insights" class="btn btn-primary"><i class="bi bi-arrow-right me-2"></i> View Full Equity Curve in Insights</a>
+      {% set pnl = profile_data.lifetime_pnl or 0 %}
+      {% set balance = profile_data.initial_deposit or 10000 %}
+      {% set growth_pct = ((pnl / balance) * 100) | round(1) %}
+      {% set growth_class = 'text-success' if pnl >= 0 else 'text-danger' %}
+      <h5 class="fw-bold mb-2">Lifetime Growth: <span id="growthSummary" class="{{ growth_class }}">${{ "%.2f"|format(pnl) }} ({{ "%.1f"|format(growth_pct) }}%)</span></h5>
+      <p class="text-muted mb-4">From initial deposit of ${{ "%.0f"|format(balance) }}. Current balance: ${{ "%.2f"|format(profile_data.account_balance or balance) }}. Customize initial deposit for accurate projections.</p>
+      <a href="/insights" class="btn btn-primary"><i class="bi bi-arrow-right me-2"></i> View Full Equity Curve in
+        Insights</a>
     </div>
   </div>
 
@@ -604,109 +575,204 @@
       <div id="psychologySection" class="accordion-collapse collapse show" data-bs-parent="#profileAccordion">
         <div class="accordion-body">
           <div class="mb-4">
-            <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-compass"></i> Trading Zones</label>
+            <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-compass"></i> Trading
+              Zones</label>
             <div class="zone-selector" id="psychZoneSelector">
-              <div class="zone-btn" data-zone="aggressive"><i class="bi bi-lightning-charge text-warning me-1"></i>Aggressive Hunter</div>
-              <div class="zone-btn" data-zone="trend"><i class="bi bi-graph-up text-info me-1"></i>Trend Follower</div>
-              <div class="zone-btn" data-zone="cautious"><i class="bi bi-shield-check text-success me-1"></i>Cautious Scalper</div>
-              <div class="zone-btn" data-zone="reversal"><i class="bi bi-arrow-counterclockwise text-danger me-1"></i>Reversal Spotter</div>
+              <div class="zone-btn {% if profile_data.psych_zone == 'aggressive' %}selected{% endif %}"
+                data-zone="aggressive"><i class="bi bi-lightning-charge text-warning me-1"></i>Aggressive Hunter</div>
+              <div class="zone-btn {% if profile_data.psych_zone == 'trend' %}selected{% endif %}" data-zone="trend"><i
+                  class="bi bi-graph-up text-info me-1"></i>Trend Follower</div>
+              <div class="zone-btn {% if profile_data.psych_zone == 'cautious' %}selected{% endif %}"
+                data-zone="cautious"><i class="bi bi-shield-check text-success me-1"></i>Cautious Scalper</div>
+              <div class="zone-btn {% if profile_data.psych_zone == 'reversal' %}selected{% endif %}"
+                data-zone="reversal"><i class="bi bi-arrow-counterclockwise text-danger me-1"></i>Reversal Spotter</div>
             </div>
           </div>
           <div class="mb-4">
-            <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-graph-down"></i> Risk Tolerance (1-10)</label>
-            <input type="range" class="slider" min="1" max="10" value="5" id="riskToleranceSlider">
-            <div class="text-center fw-bold" id="riskToleranceValue" style="font-size:1.2rem; color:var(--brand);">5</div>
+            <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-chat-square-text"></i>
+              Notes</label>
+            <textarea class="form-control" rows="3" id="notes"
+              placeholder="Optional notes (e.g., 'I get FOMO in London session')">{{ profile_data.notes or '' }}</textarea>
+          </div>
+          <div class="mb-4">
+            <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-graph-down"></i> Risk Tolerance
+              (1-10)</label>
+            <input type="range" class="slider" min="1" max="10" value="{{ profile_data.risk_tolerance or 5 }}"
+              id="riskToleranceSlider">
+            <div class="text-center fw-bold" id="riskToleranceValue" style="font-size:1.2rem; color:var(--brand);">{{
+              profile_data.risk_tolerance or 5 }}</div>
           </div>
         </div>
       </div>
     </div>
     <div class="accordion-item card-radius mb-3" style="border:none;overflow:hidden;">
       <h2 class="accordion-header">
-        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#strategySection">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+          data-bs-target="#strategySection">
           <i class="bi bi-strategy me-2"></i> Strategy
         </button>
       </h2>
       <div id="strategySection" class="accordion-collapse collapse" data-bs-parent="#profileAccordion">
         <div class="accordion-body">
           <div class="mb-4">
-            <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-list-task"></i> Preferred Strategies</label>
-            <textarea class="form-control" rows="3" id="strategies" placeholder="e.g., Momentum, Breakouts, Scalping">Momentum, Breakouts</textarea>
+            <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-list-task"></i> Preferred
+              Strategies</label>
+            <textarea class="form-control" rows="3" id="strategies"
+              placeholder="e.g., Momentum, Breakouts">{{ profile_data.preferred_strategies or 'Momentum, Breakouts' }}</textarea>
           </div>
           <div class="mb-4">
-            <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-clock"></i> Timeframes</label>
-            <div class="zone-selector" id="timeframeSelector">
-              <div class="zone-btn" data-timeframe="5m"><i class="bi bi-stopwatch me-1"></i>5m</div>
-              <div class="zone-btn" data-timeframe="15m"><i class="bi bi-stopwatch me-1"></i>15m</div>
-              <div class="zone-btn" data-timeframe="1h"><i class="bi bi-stopwatch me-1"></i>1h</div>
-              <div class="zone-btn" data-timeframe="4h"><i class="bi bi-stopwatch me-1"></i>4h</div>
-              <div class="zone-btn" data-timeframe="1d"><i class="bi bi-stopwatch me-1"></i>1d</div>
-            </div>
-          </div>
+            <label class="form-label d-flex align-items-center gap-2">
+              <i class="bi bi-list-task"></i> Go-to Strategy
+            </label>
+
+        <input type="hidden" name="strategyName" id="strategyName" value="{{ profile_data.strategy or '' }}">
+
+        <div class="dropdown">
+          <button class="btn btn-outline-secondary dropdown-toggle form-control d-block w-100 text-start"
+            type="button" id="strategyDropdownBtn" data-bs-toggle="dropdown" aria-expanded="false"
+            style="border-radius: 16px; border: 2px solid var(--border); padding: 12px 16px;">
+            <span id="selectedStrategyDisplay">
+              {{ (profile_data.strategy|replace('_', ' ') or '')|title|default('Select a strategy...') }}
+            </span>
+          </button>
+          <ul class="dropdown-menu w-100" aria-labelledby="strategyDropdownBtn"
+            style="border-radius: 0 0 16px 16px; border-top: none;">
+            <li><a class="dropdown-item strategy-option" href="#" data-strat="Scalping" role="option">Scalping</a>
+            </li>
+            <li><a class="dropdown-item strategy-option" href="#" data-strat="Swing Trading" role="option">Swing Trading</a>
+            </li>
+            <li><a class="dropdown-item strategy-option" href="#" data-strat="Breakout" role="option">Breakout</a>
+            </li>
+            <li><a class="dropdown-item strategy-option" href="#" data-strat="Reversal" role="option">Reversal</a>
+            </li>
+            <li><a class="dropdown-item strategy-option" href="#" data-strat="RSI Divergence" role="option">RSI Divergence</a></li>
+          </ul>
         </div>
       </div>
-    </div>
-    <div class="accordion-item card-radius mb-3" style="border:none;overflow:hidden;">
-      <h2 class="accordion-header">
-        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#riskSection">
-          <i class="bi bi-shield-slash me-2"></i> Risk Rules
-        </button>
-      </h2>
-      <div id="riskSection" class="accordion-collapse collapse" data-bs-parent="#profileAccordion">
-        <div class="accordion-body">
-          <div class="mb-4">
-            <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-percent"></i> Max Risk per Trade (%)</label>
-            <input type="range" class="slider" min="0" max="5" step="0.5" value="1" id="maxRiskSlider">
-            <div class="text-center fw-bold" id="maxRiskValue" style="font-size:1.2rem; color:var(--brand);">1%</div>
-          </div>
-          <div class="mb-4">
-            <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-cash-stack"></i> Daily Loss Limit ($)</label>
-            <input type="number" class="form-control" value="500" id="dailyLoss" placeholder="Enter amount">
-          </div>
-        </div>
+      <div class="mb-4">
+        <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-text-paragraph"></i> Strategy
+          Description</label>
+        <textarea class="form-control" rows="3" id="strategyDesc"
+          placeholder="Describe your strategy or key parameters (e.g., 'EMA Crossover on 1h charts')">{{ profile_data.strategy_desc or '' }}</textarea>
       </div>
-    </div>
-    <div class="accordion-item card-radius mb-3" style="border:none;overflow:hidden;">
-      <h2 class="accordion-header">
-        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#accountSection">
-          <i class="bi bi-wallet2 me-2"></i> Account Settings
-        </button>
-      </h2>
-      <div id="accountSection" class="accordion-collapse collapse" data-bs-parent="#profileAccordion">
-        <div class="accordion-body">
-          <div class="mb-4">
-            <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-piggy-bank"></i> Initial Account Balance ($)</label>
-            <input type="number" class="form-control" id="initialBalance" min="0" step="100" placeholder="e.g., 10000" title="Used for equity curve projections in Insights">
-            <div class="form-text">This sets the starting capital for performance visualizations (default: $10,000).</div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="accordion-item card-radius mb-3" style="border:none;overflow:hidden;">
-      <h2 class="accordion-header">
-        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#subscriptionSection">
-          <i class="bi bi-credit-card me-2"></i> Subscriptions
-        </button>
-      </h2>
-      <div id="subscriptionSection" class="accordion-collapse collapse" data-bs-parent="#profileAccordion">
-        <div class="accordion-body">
-          <div id="subscriptionInfo">
-            <p>Loading subscription details...</p>
-          </div>
-          <button class="btn btn-outline-danger mt-3" id="cancelSubscription" style="display:none;"><i class="bi bi-x-circle me-2"></i> Cancel Subscription</button>
+      <div class="mb-4">
+        <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-clock"></i> Timeframes</label>
+        <div class="zone-selector" id="timeframeSelector">
+          <div class="zone-btn {% if '5m' in profile_data.preferred_timeframes %}selected{% endif %}"
+            data-timeframe="5m"><i class="bi bi-stopwatch me-1"></i>5m</div>
+          <div class="zone-btn {% if '15m' in profile_data.preferred_timeframes %}selected{% endif %}"
+            data-timeframe="15m"><i class="bi bi-stopwatch me-1"></i>15m</div>
+          <div class="zone-btn {% if '1h' in profile_data.preferred_timeframes %}selected{% endif %}"
+            data-timeframe="1h"><i class="bi bi-stopwatch me-1"></i>1h</div>
+          <div class="zone-btn {% if '4h' in profile_data.preferred_timeframes %}selected{% endif %}"
+            data-timeframe="4h"><i class="bi bi-stopwatch me-1"></i>4h</div>
+          <div class="zone-btn {% if '1d' in profile_data.preferred_timeframes %}selected{% endif %}"
+            data-timeframe="1d"><i class="bi bi-stopwatch me-1"></i>1d</div>
         </div>
       </div>
     </div>
   </div>
+</div>
+<div class="accordion-item card-radius mb-3" style="border:none;overflow:hidden;">
+  <h2 class="accordion-header">
+    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+      data-bs-target="#riskSection">
+      <i class="bi bi-shield-slash me-2"></i> Risk Rules
+    </button>
+  </h2>
+  <div id="riskSection" class="accordion-collapse collapse" data-bs-parent="#profileAccordion">
+    <div class="accordion-body">
+      <div class="mb-4">
+        <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-percent"></i> Max Risk per Trade
+          (%)</label>
+        <input type="range" class="slider" min="0" max="5" step="0.5" value="{{ profile_data.risk_per_trade or 1 }}"
+          id="maxRiskSlider">
+        <div class="text-center fw-bold" id="maxRiskValue" style="font-size:1.2rem; color:var(--brand);">{{
+          profile_data.risk_per_trade or 1 }}%</div>
+      </div>
+      <div class="mb-4">
+        <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-graph-down"></i> Daily Loss Limit
+          (%)</label>
+        <input type="range" class="slider" min="2" max="10" step="1"
+          value="{{ profile_data.daily_loss_percent or 5 }}" id="dailyLossPercentSlider">
+        <div class="text-center fw-bold" id="dailyLossPercentValue" style="font-size:1.2rem; color:var(--brand);">{{
+          profile_data.daily_loss_percent or 5 }}%</div>
+        <div class="form-text text-muted">Computed limit: <span id="computedDailyLimit">${{
+            "%.0f"|format(profile_data.computed_daily_limit or 500) }}</span> (based on account balance)</div>
+      </div>
+      <div class="mb-4">
+        <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-cash-stack"></i> Daily Loss Limit
+          ($)</label>
+        <input type="number" class="form-control" value="{{ profile_data.daily_loss_limit or 500 }}" id="dailyLoss"
+          placeholder="Enter amount">
+      </div>
+      <div class="mb-4">
+        <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-check-circle"></i> Safety
+          Rules</label>
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="stopLossCheck" {% if profile_data.stop_loss
+            %}checked{% endif %}>
+          <label class="form-check-label" for="stopLossCheck">Always use stop-loss</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="noRevengeCheck" {% if profile_data.no_revenge
+            %}checked{% endif %}>
+          <label class="form-check-label" for="noRevengeCheck">No revenge trading after losses</label>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="accordion-item card-radius mb-3" style="border:none;overflow:hidden;">
+  <h2 class="accordion-header">
+    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+      data-bs-target="#accountSection">
+      <i class="bi bi-wallet2 me-2"></i> Account Settings
+    </button>
+  </h2>
+  <div id="accountSection" class="accordion-collapse collapse" data-bs-parent="#profileAccordion">
+    <div class="accordion-body">
+      <div class="mb-4">
+        <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-piggy-bank"></i> Initial Account
+          Balance ($)</label>
+        <input type="number" class="form-control" id="initialBalance" min="0" step="100"
+          value="{{ profile_data.initial_deposit or 10000 }}" placeholder="e.g., 10000"
+          title="Used for equity curve projections in Insights">
+        <div class="form-text">This sets the starting capital for performance visualizations (default: $10,000).
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="accordion-item card-radius mb-3" style="border:none;overflow:hidden;">
+  <h2 class="accordion-header">
+    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+      data-bs-target="#subscriptionSection">
+      <i class="bi bi-credit-card me-2"></i> Subscriptions
+    </button>
+  </h2>
+  <div id="subscriptionSection" class="accordion-collapse collapse" data-bs-parent="#profileAccordion">
+    <div class="accordion-body">
+      <div id="subscriptionInfo" class="text-center py-3">
+        <div class="spinner-border" role="status" aria-hidden="true"></div>
+        <div class="mt-2 text-muted small">Loading subscription details</div>
+      </div>
+      <!-- Cancel button removed. Only manage link is shown when applicable. -->
+    </div>
+  </div>
+</div>  </div>
 
   <!-- Actions -->
   <div class="d-flex flex-wrap gap-3 mb-5">
     <button class="btn btn-primary flex-fill d-flex align-items-center justify-content-center gap-2" id="saveChanges">
       <i class="bi bi-save"></i> Save Changes
     </button>
-    <button class="btn btn-outline-secondary flex-fill d-flex align-items-center justify-content-center gap-2" id="resetDefaults">
+    <button class="btn btn-outline-secondary flex-fill d-flex align-items-center justify-content-center gap-2"
+      id="resetDefaults">
       <i class="bi bi-arrow-clockwise"></i> Reset to Defaults
     </button>
-    <button class="btn btn-outline-info flex-fill d-flex align-items-center justify-content-center gap-2" id="exportJournal">
+    <button class="btn btn-outline-info flex-fill d-flex align-items-center justify-content-center gap-2"
+      id="exportJournal">
       <i class="bi bi-download"></i> Export Journal
     </button>
   </div>
@@ -716,7 +782,8 @@
     <div class="fw-bold text-danger mb-4 d-flex align-items-center gap-2" style="font-size:1.2rem;">
       <i class="bi bi-exclamation-triangle-fill"></i> Danger Zone
     </div>
-    <button class="btn btn-outline-danger w-100 mb-3 d-flex align-items-center justify-content-center gap-2" id="logoutBtn2">
+    <button class="btn btn-outline-danger w-100 mb-3 d-flex align-items-center justify-content-center gap-2"
+      id="logoutBtn2">
       <i class="bi bi-box-arrow-right"></i> Log out
     </button>
     <button class="btn btn-danger w-100 d-flex align-items-center justify-content-center gap-2" id="deleteAccountBtn">
@@ -730,7 +797,8 @@
   <div class="modal-dialog modal-fullscreen-md-down">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title d-flex align-items-center gap-2" id="modalTitle"><i class="bi bi-pencil-square"></i> Edit Section</h5>
+        <h5 class="modal-title d-flex align-items-center gap-2" id="modalTitle"><i class="bi bi-pencil-square"></i> Edit
+          Section</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body p-4" id="modalBody">
@@ -751,7 +819,8 @@
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title d-flex align-items-center gap-2 text-danger"><i class="bi bi-exclamation-triangle"></i> Confirm Delete</h5>
+        <h5 class="modal-title d-flex align-items-center gap-2 text-danger"><i class="bi bi-exclamation-triangle"></i>
+          Confirm Delete</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
@@ -771,330 +840,436 @@
 <div class="position-fixed bottom-0 end-0 p-4" style="z-index:1080">
   <div id="autoSaveToast" class="toast align-items-center text-white border-0 shadow-lg" role="alert">
     <div class="d-flex" style="background:var(--success-gradient);border-radius:16px;padding:16px 20px">
-      <div class="toast-body d-flex align-items-center gap-2"><i class="bi bi-check-circle-fill"></i> Auto-saved changes.</div>
+      <div class="toast-body d-flex align-items-center gap-2"><i class="bi bi-check-circle-fill"></i> Auto-saved
+        changes.</div>
       <button type="button" class="btn-close btn-close-white ms-3" data-bs-dismiss="toast"></button>
     </div>
   </div>
 </div>
-{% endblock %}
 
-{% block scripts %}
+<!-- Error Toast -->
+<div class="position-fixed bottom-0 start-0 p-4" style="z-index:1080">
+  <div id="errorToast" class="toast align-items-center text-white border-0 shadow-lg" role="alert">
+    <div class="d-flex" style="background:var(--danger-gradient);border-radius:16px;padding:12px 16px">
+      <div class="toast-body text-white"><i class="bi bi-x-circle-fill me-2"></i><span></span></div>
+      <button type="button" class="btn-close btn-close-white ms-3" data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+</div>
+
 <script>
-  let saveTimeout;
+  // Attach initial server profile snapshot to global so functions can use it safely
+  window.profileData = {{ profile_data | tojson }};
 
-  // Debounced auto-save function
-  const debouncedSave = () => {
-    clearTimeout(saveTimeout);
-    saveTimeout = setTimeout(async () => {
-      await saveProfileData(true);  // true for auto-save
-    }, 1500);  // Save 1.5 seconds after last change
-  };
+  (function () {
+    let saveTimeout;
+    const delay = 1500;
 
-  // Auto-save profile data to server
-  async function saveProfileData(isAutoSave = false) {
-    const psychZoneSelector = document.getElementById('psychZoneSelector');
-    const psychZone = psychZoneSelector ? psychZoneSelector.querySelector('.zone-btn.selected')?.dataset.zone : null;
-    const timeframeSelector = document.getElementById('timeframeSelector');
-    const selectedTimeframes = Array.from(timeframeSelector?.querySelectorAll('.zone-btn.selected') || []).map(btn => btn.dataset.timeframe);
-    const strategiesValue = document.getElementById('strategies').value || '';
-    const riskToleranceValue = parseInt(document.getElementById('riskToleranceSlider').value, 10);
-    const maxRiskValue = parseFloat(document.getElementById('maxRiskSlider').value);
-    const dailyLossValue = parseFloat(document.getElementById('dailyLoss').value) || 500;
-    let data = {
-      trading_zones: psychZone,
-      risk_tolerance: riskToleranceValue,
-      strategies: strategiesValue,
-      timeframes: selectedTimeframes,
-      max_risk_per_trade: maxRiskValue,
-      daily_loss_limit: dailyLossValue
-    };
-    const initialBalance = parseFloat(document.getElementById('initialBalance').value) || 10000;
-    if (initialBalance > 0) {
-      data.account_balance = initialBalance;
+    // Helpers
+    function showErrorToast(message) {
+      const errorToast = document.getElementById('errorToast');
+      if (!errorToast) return;
+      const body = errorToast.querySelector('.toast-body span');
+      if (body) body.innerHTML = message;
+      const t = new bootstrap.Toast(errorToast, { delay: 3000 });
+      t.show();
     }
-    if (Object.keys(data).length === 0) return;  // Nothing to save
-    try {
-      const res = await fetch('/api/profile', {
-        method: 'PUT',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-      if (!res.ok) throw new Error('Failed to save profile');
-      const updatedData = await res.json();
-      profileData = updatedData;
-      populateGrowthSummary();
-      console.log('Saved profile data:', data);  // For debugging
-      if (isAutoSave) {
-        const autoSaveToast = new bootstrap.Toast(document.getElementById('autoSaveToast'), { delay: 1500 });
-        autoSaveToast.show();
+
+    function showSuccessToast(message) {
+      const successToast = document.getElementById('autoSaveToast');
+      if (!successToast) return;
+      successToast.querySelector('.toast-body').innerHTML = `<i class="bi bi-check-circle-fill me-2"></i>${message}`;
+      const t = new bootstrap.Toast(successToast, { delay: 3000 });
+      t.show();
+    }
+
+    function safeQuery(selector) {
+      try {
+        return document.querySelector(selector);
+      } catch (e) {
+        return null;
       }
-    } catch (err) {
-      console.error('Save failed:', err);
-      showErrorToast(err.message || 'Save failed');
     }
-  }
 
-  // Fetch profile data on load
-  async function loadProfileData() {
-    try {
-      const res = await fetch('/api/profile', { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to fetch profile');
-      profileData = await res.json();
+    // Populate DOM fields from profileData
+    function populateProfile() {
+      const pd = window.profileData || {};
+      const psychZone = pd.psych_zone || '';
+      document.querySelectorAll('#psychZoneSelector .zone-btn').forEach(b => b.classList.remove('selected'));
+      if (psychZone) {
+        const psychBtn = document.querySelector(`#psychZoneSelector [data-zone="${psychZone}"]`);
+        if (psychBtn) psychBtn.classList.add('selected');
+      }
+      const riskTolerance = pd.risk_tolerance || 5;
+      const rts = safeQuery('#riskToleranceSlider');
+      const rtv = safeQuery('#riskToleranceValue');
+      if (rts) rts.value = riskTolerance;
+      if (rtv) rtv.textContent = riskTolerance;
+      const notesEl = safeQuery('#notes');
+      if (notesEl) notesEl.value = pd.notes || '';
+
+      const strategiesEl = safeQuery('#strategies');
+      if (strategiesEl) strategiesEl.value = pd.preferred_strategies || 'Momentum, Breakouts';
+
+      const strategyName = safeQuery('#strategyName');
+      if (strategyName) strategyName.value = pd.strategy || '';
+      const strategyDesc = safeQuery('#strategyDesc');
+      if (strategyDesc) strategyDesc.value = pd.strategy_desc || '';
+
+      document.querySelectorAll('#timeframeSelector .zone-btn').forEach(b => b.classList.remove('selected'));
+      const timeframes = pd.preferred_timeframes || [];
+      timeframes.forEach(tf => {
+        const tfBtn = document.querySelector(`#timeframeSelector [data-timeframe="${tf}"]`);
+        if (tfBtn) tfBtn.classList.add('selected');
+      });
+
+      const riskPerTrade = pd.risk_per_trade || 1;
+      const mrt = safeQuery('#maxRiskSlider');
+      const mrtv = safeQuery('#maxRiskValue');
+      if (mrt) mrt.value = riskPerTrade;
+      if (mrtv) mrtv.textContent = `${riskPerTrade}%`;
+
+      const dlps = safeQuery('#dailyLossPercentSlider');
+      const dlpv = safeQuery('#dailyLossPercentValue');
+      if (dlps) dlps.value = pd.daily_loss_percent || 5;
+      if (dlpv) dlpv.textContent = `${pd.daily_loss_percent || 5}%`;
+
+      const dailyLoss = safeQuery('#dailyLoss');
+      if (dailyLoss) dailyLoss.value = pd.daily_loss_limit || 500;
+
+      const stopLoss = safeQuery('#stopLossCheck');
+      if (stopLoss) stopLoss.checked = pd.stop_loss || false;
+      const noRevenge = safeQuery('#noRevengeCheck');
+      if (noRevenge) noRevenge.checked = pd.no_revenge || false;
+
+      const initialBalance = safeQuery('#initialBalance');
+      const balance = pd.initial_deposit || 10000;
+      if (initialBalance) initialBalance.value = balance > 0 ? balance : 10000;
+
+      const selectedStrategyDisplay = safeQuery('#selectedStrategyDisplay');
+      if (selectedStrategyDisplay && strategyName && strategyName.value) {
+        selectedStrategyDisplay.textContent = strategyName.value;
+      }
+    }
+
+    function populateGrowthSummary() {
+      const pd = window.profileData || {};
+      const pnl = pd.lifetime_pnl || 0;
+      const balance = pd.initial_deposit || 10000;
+      const growthPct = balance ? ((pnl / balance) * 100).toFixed(1) : '0.0';
+      const summaryEl = safeQuery('#growthSummary');
+      if (!summaryEl) return;
+      summaryEl.innerHTML = `$${(pnl).toFixed(2)} (${growthPct}%)`;
+      summaryEl.className = `fw-bold ${pnl >= 0 ? 'text-success' : 'text-danger'}`;
+    }
+
+    // Debounced save
+    const debouncedSave = () => {
+      clearTimeout(saveTimeout);
+      const saveBtn = safeQuery('#saveChanges');
+      const originalText = saveBtn ? saveBtn.innerHTML : '';
+      if (saveBtn) {
+        saveBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Saving...';
+        saveBtn.disabled = true;
+      }
+      saveTimeout = setTimeout(async () => {
+        await saveProfileData(true);
+        if (saveBtn) {
+          saveBtn.innerHTML = originalText;
+          saveBtn.disabled = false;
+        }
+      }, delay);
+    };
+
+    // Save profile to server
+    async function saveProfileData(isAutoSave = false) {
+      try {
+        const psychZoneSelector = safeQuery('#psychZoneSelector');
+        const psychZone = psychZoneSelector ? psychZoneSelector.querySelector('.zone-btn.selected')?.dataset.zone : null;
+        const timeframeSelector = safeQuery('#timeframeSelector');
+        const selectedTimeframes = Array.from(timeframeSelector?.querySelectorAll('.zone-btn.selected') || []).map(btn => btn.dataset.timeframe);
+        const strategiesValue = (safeQuery('#strategies')?.value) || '';
+        const riskToleranceValue = parseInt(safeQuery('#riskToleranceSlider')?.value || '5', 10);
+        const maxRiskValue = parseFloat(safeQuery('#maxRiskSlider')?.value || '1');
+        const dailyLossValue = parseFloat(safeQuery('#dailyLoss')?.value) || 500;
+        const notes = safeQuery('#notes')?.value || '';
+        const strategy = safeQuery('#strategyName')?.value || '';
+        const strategyDesc = safeQuery('#strategyDesc')?.value || '';
+        const stopLoss = !!safeQuery('#stopLossCheck')?.checked;
+        const noRevenge = !!safeQuery('#noRevengeCheck')?.checked;
+        const dailyLossPercent = parseFloat(safeQuery('#dailyLossPercentSlider')?.value || '5');
+
+        let data = {
+          psych_zone: psychZone,
+          risk_tolerance: riskToleranceValue,
+          preferred_strategies: strategiesValue,
+          preferred_timeframes: selectedTimeframes,
+          risk_per_trade: maxRiskValue,
+          daily_loss_limit: dailyLossValue,
+          daily_loss_percent: dailyLossPercent,
+          notes: notes,
+          strategy: strategy,
+          strategy_desc: strategyDesc,
+          stop_loss: stopLoss,
+          no_revenge: noRevenge
+        };
+
+        const initialBalance = parseFloat(safeQuery('#initialBalance')?.value) || 10000;
+        if (initialBalance > 0) data.initial_deposit = initialBalance;
+
+        const res = await fetch('/api/profile', {
+          method: 'PUT',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        if (!res.ok) throw new Error('Failed to save profile');
+        const updated = await res.json();
+        window.profileData = updated;
+        populateGrowthSummary();
+        populateProfile();
+        if (isAutoSave) {
+          showSuccessToast('Auto-saved changes');
+        }
+      } catch (err) {
+        console.error(err);
+        showErrorToast(err.message || 'Save failed');
+      }
+    }
+
+    // Load subscription info
+    async function loadSubscription() {
+      const infoDiv = safeQuery('#subscriptionInfo');
+      if (infoDiv) {
+        infoDiv.innerHTML = '<div class="spinner-border" role="status" aria-hidden="true"></div><div class="mt-2 text-muted small">Loading subscription details</div>';
+      }
+      try {
+        const res = await fetch('/api/profile/subscriptions/current', { credentials: 'include' });
+        if (!res.ok) {
+          if (infoDiv) infoDiv.innerHTML = '<p class="text-muted">No subscription information available.</p><a href="/subscriptions" class="btn btn-primary">View plans</a>';
+          return;
+        }
+        const sub = await res.json();
+        if (!infoDiv) return;
+
+        const planName = sub.plan ? (sub.plan.charAt(0).toUpperCase() + sub.plan.slice(1)) : 'Starter';
+        const statusColor = sub.status === 'active' ? 'text-success' : 'text-warning';
+        const amount = typeof sub.amount === 'number' ? `$${sub.amount.toFixed(2)}` : 'N/A';
+        const nextBilling = sub.next_billing ? new Date(sub.next_billing).toLocaleDateString() : 'N/A';
+
+        infoDiv.innerHTML = `
+          <p><strong>Plan:</strong> ${planName} ${sub.interval ? '(' + sub.interval + ')' : ''}</p>
+          <p><strong>Status:</strong> <span class="${statusColor}">${(sub.status || 'Free').charAt(0).toUpperCase() + (sub.status || 'free').slice(1)}</span></p>
+          <p><strong>Amount:</strong> ${amount}</p>
+          <p><strong>Next Billing:</strong> ${nextBilling}</p>
+          <div class="d-flex gap-2 justify-content-center mt-2"></div>
+        `;
+
+        // If subscription can be managed, show the manage control only
+        const controls = infoDiv.querySelector('div.d-flex');
+        if (sub.status === 'active' && sub.subscription_id && controls) {
+          const manageBtn = document.createElement('a');
+          manageBtn.className = 'btn btn-outline-primary';
+          manageBtn.href = '/subscriptions';
+          manageBtn.innerHTML = '<i class="bi bi-gear me-2"></i> Manage Subscription';
+          controls.appendChild(manageBtn);
+        } else {
+          // Free or starter
+          const upgrade = document.createElement('a');
+          upgrade.className = 'btn btn-primary';
+          upgrade.href = '/plans';
+          upgrade.innerHTML = '<i class="bi bi-arrow-up-circle me-2"></i> Upgrade';
+          const wrapper = document.createElement('div');
+          wrapper.className = 'd-flex justify-content-center mt-3';
+          wrapper.appendChild(upgrade);
+          infoDiv.appendChild(wrapper);
+        }
+      } catch (err) {
+        console.error('Subscription load error', err);
+        if (infoDiv) infoDiv.innerHTML = '<p class="text-muted">Failed to load subscription details.</p><a href="/subscriptions" class="btn btn-primary">View plans</a>';
+      }
+    }
+
+    // Load full profile from server and refresh UI
+    async function loadProfileData() {
+      try {
+        const res = await fetch('/api/profile', { credentials: 'include' });
+        if (!res.ok) throw new Error('Failed to fetch profile');
+        window.profileData = await res.json();
+        populateProfile();
+        populateGrowthSummary();
+      } catch (err) {
+        console.error('Failed to load profile', err);
+        showErrorToast('Failed to load profile');
+      }
+    }
+
+    // DOM ready setup
+    document.addEventListener('DOMContentLoaded', () => {
+      // Tooltips
+      const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+      tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+      });
+
+      // Theme toggles if present
+      const themeToggle = safeQuery('#themeToggle');
+      const mobileThemeToggle = safeQuery('#mobileThemeToggle');
+      let savedTheme = localStorage.getItem('theme') || 'light';
+      document.documentElement.setAttribute('data-theme', savedTheme);
+
+      const updateIcons = () => {
+        const icon = savedTheme === 'dark' ? '<i class="bi bi-sun-fill"></i>' : '<i class="bi bi-moon-fill"></i>';
+        if (themeToggle) themeToggle.innerHTML = icon;
+        if (mobileThemeToggle) mobileThemeToggle.innerHTML = icon;
+      };
+      updateIcons();
+
+      const toggleTheme = () => {
+        const currentTheme = document.documentElement.getAttribute('data-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', newTheme);
+        localStorage.setItem('theme', newTheme);
+        savedTheme = newTheme;
+        updateIcons();
+      };
+
+      if (themeToggle) themeToggle.addEventListener('click', toggleTheme);
+      if (mobileThemeToggle) mobileThemeToggle.addEventListener('click', toggleTheme);
+
+      // Strategy dropdown setup
+      document.querySelectorAll('.strategy-option').forEach(item => {
+        item.addEventListener('click', function (e) {
+          e.preventDefault();
+          const value = this.dataset.strat;
+          const text = this.textContent.trim();
+          const hiddenInput = safeQuery('#strategyName');
+          const displaySpan = safeQuery('#selectedStrategyDisplay');
+          if (hiddenInput) hiddenInput.value = value;
+          if (displaySpan) displaySpan.textContent = text;
+          debouncedSave();
+        });
+      });
+
+      // Attach interactive handlers safely only if elements exist
+      const riskToleranceSlider = safeQuery('#riskToleranceSlider');
+      const riskToleranceValue = safeQuery('#riskToleranceValue');
+      if (riskToleranceSlider && riskToleranceValue) {
+        riskToleranceSlider.addEventListener('input', (e) => {
+          riskToleranceValue.textContent = e.target.value;
+          debouncedSave();
+        });
+      }
+
+      const maxRiskSlider = safeQuery('#maxRiskSlider');
+      const maxRiskValue = safeQuery('#maxRiskValue');
+      if (maxRiskSlider && maxRiskValue) {
+        maxRiskSlider.addEventListener('input', (e) => {
+          maxRiskValue.textContent = e.target.value + '%';
+          debouncedSave();
+        });
+      }
+
+      const dailyLossPercentSlider = safeQuery('#dailyLossPercentSlider');
+      const dailyLossPercentValue = safeQuery('#dailyLossPercentValue');
+      if (dailyLossPercentSlider && dailyLossPercentValue) {
+        dailyLossPercentSlider.addEventListener('input', (e) => {
+          dailyLossPercentValue.textContent = e.target.value + '%';
+          debouncedSave();
+        });
+      }
+
+      const dailyLoss = safeQuery('#dailyLoss');
+      if (dailyLoss) dailyLoss.addEventListener('input', debouncedSave);
+      const strategiesEl = safeQuery('#strategies');
+      if (strategiesEl) strategiesEl.addEventListener('blur', debouncedSave);
+      const notesEl = safeQuery('#notes');
+      if (notesEl) notesEl.addEventListener('blur', debouncedSave);
+      const strategyHidden = safeQuery('#strategyName');
+      if (strategyHidden) strategyHidden.addEventListener('blur', debouncedSave);
+      const strategyDesc = safeQuery('#strategyDesc');
+      if (strategyDesc) strategyDesc.addEventListener('blur', debouncedSave);
+      const initialBalance = safeQuery('#initialBalance');
+      if (initialBalance) initialBalance.addEventListener('blur', () => {
+        debouncedSave();
+      });
+      const stopLossCheck = safeQuery('#stopLossCheck');
+      if (stopLossCheck) stopLossCheck.addEventListener('change', debouncedSave);
+      const noRevengeCheck = safeQuery('#noRevengeCheck');
+      if (noRevengeCheck) noRevengeCheck.addEventListener('change', debouncedSave);
+
+      document.querySelectorAll('#psychZoneSelector .zone-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('#psychZoneSelector .zone-btn').forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
+          debouncedSave();
+        });
+      });
+
+      document.querySelectorAll('#timeframeSelector .zone-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          btn.classList.toggle('selected');
+          debouncedSave();
+        });
+      });
+
+      const saveBtn = safeQuery('#saveChanges');
+      if (saveBtn) {
+        saveBtn.addEventListener('click', async () => {
+          clearTimeout(saveTimeout);
+          await saveProfileData(false);
+          showSuccessToast('Saved changes.');
+          await loadProfileData();
+        });
+      }
+
+      const logoutBtn = safeQuery('#logoutBtn2');
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', async (e) => {
+          e.preventDefault();
+          try {
+            const res = await fetch('/api/profile/logout', {
+              method: 'POST',
+              credentials: 'include'
+            });
+            if (!res.ok) throw new Error('Failed to log out');
+            window.location.href = '/';
+          } catch (err) {
+            showErrorToast(err.message || 'Failed to log out');
+          }
+        });
+      }
+
+      const deleteAccountBtn = safeQuery('#deleteAccountBtn');
+      if (deleteAccountBtn) {
+        deleteAccountBtn.addEventListener('click', () => {
+          const confirmModal = new bootstrap.Modal(document.getElementById('confirmModal'));
+          confirmModal.show();
+        });
+      }
+
+      const confirmDelete = safeQuery('#confirmDelete');
+      if (confirmDelete) {
+        confirmDelete.addEventListener('click', async () => {
+          try {
+            const res = await fetch('/api/profile', {
+              method: 'DELETE',
+              credentials: 'include'
+            });
+            if (!res.ok) throw new Error('Failed to delete account');
+            bootstrap.Modal.getInstance(document.getElementById('confirmModal')).hide();
+            window.location.href = '/';
+          } catch (err) {
+            showErrorToast(err.message || 'Failed to delete account');
+          }
+        });
+      }
+
+      // Initial populate and loads
       populateProfile();
       populateGrowthSummary();
-      console.log('Loaded profile data:', profileData);  // For debugging persistence
-    } catch (err) {
-      console.error('Failed to load profile:', err);
-      showErrorToast(err.message);
-    }
-  }
-
-  // Fetch and display subscription data
-  async function loadSubscription() {
-    try {
-      const res = await fetch('/api/profile/subscriptions/current', { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to fetch subscription');
-      const sub = await res.json();
-      const infoDiv = document.getElementById('subscriptionInfo');
-      const cancelBtn = document.getElementById('cancelSubscription');
-      cancelBtn.style.display = 'none';
-
-      if (sub.status === 'free' || sub.plan === 'starter') {
-        infoDiv.innerHTML = `
-          <p>You are on the free Starter plan.</p>
-          <a href="/plans" class="btn btn-primary"><i class="bi bi-arrow-up-circle me-2"></i> Upgrade Now</a>
-        `;
-      } else {
-        const planName = sub.plan.charAt(0).toUpperCase() + sub.plan.slice(1);
-        const statusColor = sub.status === 'active' ? 'text-success' : 'text-warning';
-        infoDiv.innerHTML = `
-          <p><strong>Plan:</strong> ${planName} (${sub.interval})</p>
-          <p><strong>Status:</strong> <span class="${statusColor}">${sub.status.charAt(0).toUpperCase() + sub.status.slice(1)}</span></p>
-          <p><strong>Amount:</strong> $${sub.amount.toFixed(2)}</p>
-          <p><strong>Next Billing:</strong> ${sub.next_billing ? new Date(sub.next_billing).toLocaleDateString() : 'N/A'}</p>
-        `;
-        if (sub.status === 'active' && sub.subscription_id) {
-          cancelBtn.style.display = 'block';
-          cancelBtn.onclick = async () => {
-            const confirmModal = new bootstrap.Modal(document.getElementById('confirmModal'));
-            document.getElementById('confirmModal').querySelector('.modal-title').innerHTML = '<i class="bi bi-exclamation-triangle"></i> Confirm Cancellation';
-            document.getElementById('confirmModal').querySelector('.modal-body p').textContent = 'Are you sure you want to cancel your subscription? This cannot be undone.';
-            document.getElementById('confirmDelete').innerHTML = '<i class="bi bi-x-circle"></i> Cancel Subscription';
-            confirmModal.show();
-
-            // Override confirm button for cancellation
-            const originalConfirm = document.getElementById('confirmDelete').onclick;
-            document.getElementById('confirmDelete').onclick = async () => {
-              try {
-                const cancelRes = await fetch(`/api/profile/subscriptions/${sub.subscription_id}/cancel`, {
-                  method: 'POST',
-                  credentials: 'include'
-                });
-                if (!cancelRes.ok) throw new Error('Failed to cancel');
-                confirmModal.hide();
-                showSuccessToast('Subscription canceled successfully.');
-                loadSubscription();  // Refresh
-              } catch (err) {
-                showErrorToast('Failed to cancel subscription');
-              } finally {
-                document.getElementById('confirmDelete').onclick = originalConfirm;  // Restore
-              }
-            };
-          };
-        }
-      }
-    } catch (err) {
-      showErrorToast('Failed to load subscription details');
-    }
-  }
-
-  function populateProfile() {
-    // Hero section
-    document.getElementById('userName').textContent = profileData.full_name || 'User';
-    document.getElementById('userEmail').textContent = profileData.email;
-    const initials = (profileData.full_name || profileData.username || '').split(' ').map(n => n[0]).join('').toUpperCase().substring(0,2);
-    document.getElementById('userInitials').textContent = initials;
-    document.getElementById('userAvatar').src = `https://ui-avatars.com/api/?name=${encodeURIComponent(profileData.full_name || profileData.username || 'User')}&background=2F6BFF&color=fff&size=80`;
-    document.getElementById('totalTrades').textContent = profileData.total_trades || 0;
-    document.getElementById('activeStreak').textContent = profileData.active_streak || 0;
-
-    // Stats
-    const pnlEl = document.getElementById('lifetimePnl');
-    const pnl = parseFloat(profileData.lifetime_pnl) || 0;
-    pnlEl.textContent = `$${pnl.toFixed(2)}`;
-    pnlEl.className = `stat-value ${pnl >= 0 ? 'text-success' : 'text-danger'}`;
-    document.getElementById('winRate').textContent = `${profileData.win_rate ? parseFloat(profileData.win_rate).toFixed(1) : 0}%`;
-
-    if (profileData.best_trade) {
-      const bestPnl = parseFloat(profileData.best_trade.pnl);
-      const bestSign = bestPnl >= 0 ? '+' : '';
-      document.getElementById('bestTrade').innerHTML = `${bestSign}$${Math.abs(bestPnl).toFixed(2)} ${profileData.best_trade.symbol}`;
-    } else {
-      document.getElementById('bestTrade').textContent = 'N/A';
-    }
-    if (profileData.worst_trade) {
-      const worstPnl = parseFloat(profileData.worst_trade.pnl);
-      document.getElementById('worstTrade').textContent = `$${worstPnl.toFixed(2)} ${profileData.worst_trade.symbol}`;
-    } else {
-      document.getElementById('worstTrade').textContent = 'N/A';
-    }
-
-    // Psychology
-    const psychZone = profileData.psych_zone || '';
-    document.querySelectorAll('#psychZoneSelector .zone-btn').forEach(b => b.classList.remove('selected'));
-    if (psychZone) {
-      const psychBtn = document.querySelector(`#psychZoneSelector [data-zone="${psychZone}"]`);
-      if (psychBtn) psychBtn.classList.add('selected');
-    }
-    const riskTolerance = profileData.risk_tolerance || 5;
-    document.getElementById('riskToleranceSlider').value = riskTolerance;
-    document.getElementById('riskToleranceValue').textContent = riskTolerance;
-
-    // Strategy
-    document.getElementById('strategies').value = profileData.strategy_desc || profileData.strategy || 'Momentum, Breakouts';
-    document.querySelectorAll('#timeframeSelector .zone-btn').forEach(b => b.classList.remove('selected'));
-    const timeframes = profileData.preferred_timeframes || [];
-    timeframes.forEach(tf => {
-      const tfBtn = document.querySelector(`#timeframeSelector [data-timeframe="${tf}"]`);
-      if (tfBtn) tfBtn.classList.add('selected');
-    });
-
-    // Risk
-    const riskPerTrade = profileData.risk_per_trade || 1;
-    document.getElementById('maxRiskSlider').value = riskPerTrade;
-    document.getElementById('maxRiskValue').textContent = `${riskPerTrade}%`;
-    document.getElementById('dailyLoss').value = profileData.daily_loss_limit || 500;
-
-    // Account Settings
-    const balance = profileData.account_balance || 10000;
-    document.getElementById('initialBalance').value = balance > 0 ? balance : 10000;
-  }
-
-  // Populate growth summary
-  function populateGrowthSummary() {
-    const pnl = profileData.lifetime_pnl || 0;
-    const balance = profileData.account_balance || 10000;
-    const growthPct = (pnl / balance * 100).toFixed(1);
-    const summaryEl = document.getElementById('growthSummary');
-    summaryEl.textContent = `$${pnl.toFixed(2)} (+${growthPct}%)`;
-    summaryEl.className = `fw-bold ${pnl >= 0 ? 'text-success' : 'text-danger'}`;
-  }
-
-  function showErrorToast(message) {
-    const errorToast = document.getElementById('errorToast');
-    errorToast.querySelector('.toast-body').innerHTML = `<i class="bi bi-x-circle-fill me-2"></i>${message}`;
-    const toast = new bootstrap.Toast(errorToast);
-    toast.show();
-  }
-
-  function showSuccessToast(message) {
-    const successToast = document.getElementById('autoSaveToast');  // Reuse autoSaveToast for success
-    successToast.querySelector('.toast-body').innerHTML = `<i class="bi bi-check-circle-fill me-2"></i>${message}`;
-    const toast = new bootstrap.Toast(successToast, { delay: 3000 });
-    toast.show();
-  }
-
-  // Risk sliders update with auto-save
-  const riskToleranceSlider = document.getElementById('riskToleranceSlider');
-  const riskToleranceValue = document.getElementById('riskToleranceValue');
-  riskToleranceSlider.addEventListener('input', (e) => {
-    riskToleranceValue.textContent = e.target.value;
-    debouncedSave();
-  });
-
-  const maxRiskSlider = document.getElementById('maxRiskSlider');
-  const maxRiskValue = document.getElementById('maxRiskValue');
-  maxRiskSlider.addEventListener('input', (e) => {
-    maxRiskValue.textContent = e.target.value + '%';
-    debouncedSave();
-  });
-
-  // Daily loss input with auto-save
-  document.getElementById('dailyLoss').addEventListener('input', debouncedSave);
-
-  // Strategies textarea with auto-save on blur
-  document.getElementById('strategies').addEventListener('blur', debouncedSave);
-
-  // Initial balance with auto-save on blur
-  document.getElementById('initialBalance').addEventListener('blur', () => {
-    const val = parseFloat(document.getElementById('initialBalance').value) || 10000;
-    debouncedSave();
-  });
-
-  // Zone buttons - separate handlers for single vs multiple select with auto-save
-  // Psychology zone: single select
-  document.querySelectorAll('#psychZoneSelector .zone-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#psychZoneSelector .zone-btn').forEach(b => b.classList.remove('selected'));
-      btn.classList.add('selected');
-      debouncedSave();
-    });
-  });
-
-  // Timeframes: multiple select (toggle) with auto-save
-  document.querySelectorAll('#timeframeSelector .zone-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      btn.classList.toggle('selected');
-      debouncedSave();
-    });
-  });
-
-  // Manual save profile (immediate, with toast)
-  document.getElementById('saveChanges').addEventListener('click', async () => {
-    clearTimeout(saveTimeout);  // Cancel any pending auto-save
-    await saveProfileData(false);  // false for manual save
-    const saveToast = new bootstrap.Toast(document.getElementById('saveToast'), { delay: 2000 });
-    saveToast.show();
-    await loadProfileData();  // Refresh to ensure sync (e.g., stats)
-  });
-
-  // Logout for additional button
-  document.getElementById('logoutBtn2').addEventListener('click', async (e) => {
-    e.preventDefault();
-    try {
-      const res = await fetch('/api/profile/logout', {
-        method: 'POST',
-        credentials: 'include'
-      });
-      if (!res.ok) throw new Error('Failed to log out');
-      window.location.href = '/';
-    } catch (err) {
-      showErrorToast(err.message || 'Failed to log out');
-    }
-  });
-
-  // Delete account confirmation
-  document.getElementById('deleteAccountBtn').addEventListener('click', () => {
-    const confirmModal = new bootstrap.Modal(document.getElementById('confirmModal'));
-    confirmModal.show();
-  });
-
-  document.getElementById('confirmDelete').addEventListener('click', async () => {
-    try {
-      const res = await fetch('/api/profile', {
-        method: 'DELETE',
-        credentials: 'include'
-      });
-      if (!res.ok) throw new Error('Failed to delete account');
-      bootstrap.Modal.getInstance(document.getElementById('confirmModal')).hide();
-      window.location.href = '/';
-    } catch (err) {
-      showErrorToast(err.message || 'Failed to delete account');
-    }
-  });
-
-  // Tooltips init
-  const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-  tooltipTriggerList.map(function (tooltipTriggerEl) {
-    return new bootstrap.Tooltip(tooltipTriggerEl);
-  });
-
-  // Initial load
-  document.addEventListener('DOMContentLoaded', () => {
-    loadProfileData().then(() => {
       loadSubscription();
     });
-  });
+  })();
 </script>
 {% endblock %}

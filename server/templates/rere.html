@@ -1,1090 +1,260 @@
-<!doctype html>
-<html lang="en" data-theme="light">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>iTrade Journal — Onboarding</title>
-
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-  <style>
-    :root {
-      --brand: #2F6BFF;
-      --brand-dark: #1F55E0;
-      --success: #22C55E;
-      --danger: #EF4444;
-      --warning: #F59E0B;
-      --info: #06B6D4;
-      --bg: #F8FAFC;
-      --surface: #FFFFFF;
-      --text: #1E293B;
-      --muted: #64748B;
-      --border: #E2E8F0;
-      --radius: 20px;
-      --shadow: 0 10px 30px rgba(15,23,42,0.1);
-      --gradient: linear-gradient(135deg, #2F6BFF 0%, #1F55E0 100%);
-      --success-gradient: linear-gradient(135deg, #22C55E 0%, #16A34A 100%);
-      --danger-gradient: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
-    }
-    [data-theme="dark"] {
-      --bg: #0B0F16;
-      --surface: #1A1F2B;
-      --text: #E5E7EB;
-      --muted: #94A3B8;
-      --border: rgba(148,163,184,0.18);
-      --shadow: 0 10px 30px rgba(0,0,0,0.5);
-      --gradient: linear-gradient(135deg, #4B5563 0%, #374151 100%);
-      --success-gradient: linear-gradient(135deg, #16A34A 0%, #15803D 100%);
-      --danger-gradient: linear-gradient(135deg, #DC2626 0%, #B91C1C 100%);
-    }
-    body {
-      font-family: Inter, system-ui;
-      background: var(--bg);
-      color: var(--text);
-      line-height: 1.6;
-      transition: all 0.3s ease;
-      position: relative;
-      overflow-x: hidden;
-      min-height: 100vh;
-      padding: 0;
-      margin: 0;
-    }
-    body::before {
-      content: '';
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: radial-gradient(circle at 20% 80%, rgba(47,107,255,0.05) 0%, transparent 50%), 
-                  radial-gradient(circle at 80% 20%, rgba(34,197,94,0.05) 0%, transparent 50%);
-      pointer-events: none;
-      z-index: -1;
-    }
-    .onboarding-container {
-      position: relative;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-    .carousel-inner {
-      flex: 1;
-      display: flex;
-      overflow: hidden;
-      transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    .carousel-item {
-      min-width: 100%;
-      padding: 40px 20px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      color: var(--text);
-      box-sizing: border-box;
-    }
-    .progress-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 32px;
-      padding: 0 20px;
-      box-sizing: border-box;
-    }
-    .progress-dots {
-      display: flex;
-      gap: 12px;
-    }
-    .progress-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: var(--muted);
-      transition: all 0.3s ease;
-    }
-    .progress-dot.active {
-      background: var(--brand);
-      transform: scale(1.2);
-    }
-    .skip-btn {
-      background: none;
-      border: none;
-      color: var(--muted);
-      font-weight: 500;
-      font-size: 0.9rem;
-      cursor: pointer;
-      opacity: 0.5;
-      transition: opacity 0.3s ease;
-      padding: 0;
-    }
-    .skip-btn.enabled {
-      opacity: 1;
-      cursor: pointer;
-    }
-    .skip-btn:hover.enabled {
-      color: var(--brand);
-    }
-    .title {
-      font-size: clamp(1.8rem, 5vw, 2.5rem);
-      font-weight: 800;
-      text-align: center;
-      margin-bottom: 24px;
-      background: linear-gradient(135deg, var(--brand), var(--brand-dark));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-    .hint {
-      text-align: center;
-      color: var(--muted);
-      font-size: 1rem;
-      margin-bottom: 32px;
-      max-width: 80%;
-      margin-left: auto;
-      margin-right: auto;
-    }
-    .content-section {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 24px;
-      overflow-y: auto;
-      padding: 0 20px;
-      box-sizing: border-box;
-    }
-    .psychology-cards {
-      display: flex;
-      overflow-x: auto;
-      gap: 16px;
-      padding-bottom: 20px;
-      scrollbar-width: none;
-      -ms-overflow-style: none;
-    }
-    .psychology-cards::-webkit-scrollbar {
-      display: none;
-    }
-    .psychology-card {
-      flex: 0 0 160px;
-      height: 200px;
-      border-radius: var(--radius);
-      background: var(--surface);
-      box-shadow: var(--shadow);
-      border: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      position: relative;
-      padding: 16px;
-      box-sizing: border-box;
-    }
-    .psychology-card:hover, .psychology-card.selected {
-      background: var(--gradient);
-      color: white;
-      border-color: var(--brand);
-      transform: translateY(-4px);
-      box-shadow: 0 20px 40px rgba(47,107,255,0.2);
-    }
-    .psychology-card:hover .psychology-title,
-    .psychology-card.selected .psychology-title {
-      color: white;
-    }
-    .psychology-icon {
-      font-size: 2.5rem;
-      color: var(--brand);
-      margin-bottom: 12px;
-      transition: color 0.3s ease;
-    }
-    .psychology-card:hover .psychology-icon,
-    .psychology-card.selected .psychology-icon {
-      color: white;
-    }
-    .psychology-title {
-      font-weight: 600;
-      color: var(--text);
-      text-align: center;
-      margin-bottom: 8px;
-      transition: color 0.3s ease;
-      font-size: 0.9rem;
-    }
-    .psychology-tooltip {
-      position: absolute;
-      bottom: -40px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: var(--brand);
-      color: white;
-      padding: 8px 12px;
-      border-radius: 8px;
-      font-size: 0.75rem;
-      white-space: nowrap;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.3s ease;
-      z-index: 10;
-    }
-    .psychology-card:hover .psychology-tooltip {
-      opacity: 1;
-    }
-    .notes-section {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .notes-textarea {
-      width: 100%;
-      min-height: 80px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      color: var(--text);
-      padding: 12px;
-      resize: vertical;
-      font-family: inherit;
-      font-size: 0.95rem;
-      box-sizing: border-box;
-    }
-    .notes-textarea::placeholder {
-      color: var(--muted);
-    }
-    .char-count {
-      text-align: right;
-      color: var(--muted);
-      font-size: 0.8rem;
-    }
-    .strategy-dropdown, .strategy-textarea {
-      width: 100%;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      color: var(--text);
-      padding: 12px;
-      font-family: inherit;
-      font-size: 0.95rem;
-      box-sizing: border-box;
-    }
-    .strategy-dropdown {
-      height: 50px;
-    }
-    .strategy-textarea {
-      min-height: 100px;
-      resize: vertical;
-    }
-    .strategy-textarea::placeholder, .strategy-dropdown::placeholder {
-      color: var(--muted);
-    }
-    .chips-container {
-      display: flex;
-      flex-direction: column;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 16px;
-    }
-    .chip-category {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-bottom: 16px;
-    }
-    .chip-category-label {
-      color: var(--muted);
-      font-size: 0.85rem;
-      font-weight: 500;
-      margin-bottom: 4px;
-    }
-    .chip {
-      background: var(--border);
-      color: var(--text);
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 0.85rem;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      border: 1px solid transparent;
-    }
-    .chip:hover {
-      background: var(--muted);
-      color: var(--surface);
-    }
-    .chip.selected {
-      background: var(--brand);
-      color: white;
-      border-color: var(--brand);
-    }
-    .toggle-switch {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-top: 20px;
-      padding: 12px;
-      background: var(--surface);
-      border-radius: 12px;
-      box-shadow: var(--shadow);
-    }
-    .toggle-input {
-      display: none;
-    }
-    .toggle-label {
-      position: relative;
-      display: inline-block;
-      width: 50px;
-      height: 24px;
-      background: var(--border);
-      border-radius: 12px;
-      cursor: pointer;
-      transition: background 0.3s ease;
-    }
-    .toggle-input:checked + .toggle-label {
-      background: var(--success);
-    }
-    .toggle-label::after {
-      content: '';
-      position: absolute;
-      top: 2px;
-      left: 2px;
-      width: 20px;
-      height: 20px;
-      background: var(--text);
-      border-radius: 50%;
-      transition: transform 0.3s ease;
-    }
-    .toggle-input:checked + .toggle-label::after {
-      transform: translateX(26px);
-      background: white;
-    }
-    .toggle-text {
-      color: var(--text);
-      font-size: 0.9rem;
-    }
-    .risk-sliders {
-      display: flex;
-      flex-direction: column;
-      gap: 24px;
-    }
-    .slider-container {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .slider-label {
-      font-weight: 600;
-      color: var(--text);
-      font-size: 0.95rem;
-    }
-    .slider {
-      -webkit-appearance: none;
-      width: 100%;
-      height: 6px;
-      background: var(--border);
-      outline: none;
-      border-radius: 3px;
-      transition: background 0.3s ease;
-    }
-    .slider::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 20px;
-      height: 20px;
-      background: var(--brand);
-      border-radius: 50%;
-      cursor: pointer;
-      box-shadow: 0 2px 8px rgba(47,107,255,0.3);
-    }
-    .slider-value {
-      text-align: right;
-      color: var(--brand);
-      font-weight: 600;
-      font-size: 0.95rem;
-    }
-    .checkbox-group {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      margin: 24px 0;
-    }
-    .form-check {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .form-check-input {
-      width: 20px;
-      height: 20px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      accent-color: var(--success);
-    }
-    .form-check-input:checked {
-      background: var(--success);
-      border-color: var(--success);
-    }
-    .form-check-label {
-      color: var(--text);
-      margin: 0;
-      font-size: 0.95rem;
-      cursor: pointer;
-    }
-    .account-section {
-      margin-bottom: 24px;
-    }
-    .account-input {
-      width: 100%;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      color: var(--text);
-      padding: 12px;
-      font-size: 0.95rem;
-      box-sizing: border-box;
-    }
-    .account-input::placeholder {
-      color: var(--muted);
-    }
-    .preview-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 16px;
-      background: var(--surface);
-      border-radius: 12px;
-      overflow: hidden;
-      box-shadow: var(--shadow);
-      font-size: 0.9rem;
-    }
-    .preview-table th, .preview-table td {
-      padding: 12px 16px;
-      text-align: left;
-      border-bottom: 1px solid var(--border);
-      color: var(--text);
-    }
-    .preview-table th {
-      background: var(--gradient);
-      color: white;
-      font-weight: 600;
-    }
-    .preview-table tbody tr:hover {
-      background: rgba(47,107,255,0.05);
-    }
-    .safe { color: var(--success); font-weight: 600; }
-    .risky { color: var(--danger); font-weight: 600; }
-    .nav-footer {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0 20px 40px;
-      box-sizing: border-box;
-      border-top: 1px solid var(--border);
-      margin-top: auto;
-    }
-    .btn-nav {
-      padding: 12px 24px;
-      border-radius: 16px;
-      font-weight: 600;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      border: none;
-      cursor: pointer;
-      font-size: 0.95rem;
-      min-width: 80px;
-    }
-    .btn-back {
-      background: var(--surface);
-      color: var(--muted);
-      border: 1px solid var(--border);
-    }
-    .btn-back:hover {
-      background: var(--border);
-      color: var(--text);
-    }
-    .btn-next, .btn-finish {
-      background: var(--gradient);
-      color: white;
-      opacity: 0.6;
-      cursor: not-allowed;
-      border: none;
-    }
-    .btn-next.enabled, .btn-finish.enabled {
-      opacity: 1;
-      cursor: pointer;
-      transform: translateY(0);
-    }
-    .btn-next.enabled:hover, .btn-finish.enabled:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 20px rgba(47,107,255,0.3);
-    }
-    .success-screen {
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      padding: 40px 20px;
-    }
-    .success-title {
-      font-size: clamp(1.8rem, 5vw, 2.5rem);
-      font-weight: 800;
-      color: var(--success);
-      margin-bottom: 16px;
-    }
-    .success-subtitle {
-      font-size: 1.2rem;
-      color: var(--muted);
-      margin-bottom: 32px;
-      max-width: 80%;
-    }
-    .btn-dashboard {
-      background: var(--gradient);
-      color: white;
-      padding: 16px 32px;
-      border-radius: 16px;
-      font-weight: 600;
-      text-decoration: none;
-      transition: all 0.3s ease;
-      box-shadow: var(--shadow);
-    }
-    .btn-dashboard:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 12px 32px rgba(47,107,255,0.3);
-    }
-    .confetti {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: 1001;
-      display: none;
-    }
-    .confetti.show {
-      display: block;
-    }
-    .confetti-piece {
-      position: absolute;
-      width: 10px;
-      height: 10px;
-      background: var(--success);
-      animation: confetti-fall 3s linear infinite;
-    }
-    @keyframes confetti-fall {
-      0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
-      100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
-    }
-    @media (max-width: 768px) {
-      .carousel-item {
-        padding: 32px 16px;
-      }
-      .progress-header, .nav-footer {
-        padding: 0 16px;
-      }
-      .content-section {
-        padding: 0 16px;
-      }
-      .psychology-card {
-        flex: 0 0 140px;
-        height: 180px;
-        padding: 12px;
-      }
-      .psychology-icon {
-        font-size: 2rem;
-      }
-      .psychology-title {
-        font-size: 0.85rem;
-      }
-      .slider {
-        height: 8px;
-      }
-      .slider::-webkit-slider-thumb {
-        width: 24px;
-        height: 24px;
-      }
-    }
-    [data-tooltip] {
-      position: relative;
-    }
-    [data-tooltip]:hover::after {
-      content: attr(data-tooltip);
-      position: absolute;
-      bottom: -30px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: var(--brand);
-      color: white;
-      padding: 8px 12px;
-      border-radius: 8px;
-      font-size: 0.8rem;
-      white-space: nowrap;
-      z-index: 10;
-      box-shadow: var(--shadow);
-    }
-  </style>
-</head>
-<body>
-
-<div class="onboarding-container">
-  <div class="carousel-inner" id="carouselInner">
-    <!-- Step 1: Psychology -->
-    <div class="carousel-item">
-      <div class="progress-header">
-        <div class="progress-dots">
-          <div class="progress-dot active"></div>
-          <div class="progress-dot"></div>
-          <div class="progress-dot"></div>
-        </div>
-        <button class="skip-btn" id="skipBtn">Skip</button>
-      </div>
-      <div class="content-section">
-        <h1 class="title">Let's tune your AI co-pilot</h1>
-        <p class="hint">This helps flag emotional biases.</p>
-        <div class="psychology-cards" id="psychologyCards"></div>
-        <div class="notes-section">
-          <textarea class="notes-textarea" placeholder="Optional notes (e.g., I get FOMO in London session)" maxlength="200" id="notesTextarea"></textarea>
-          <div class="char-count" id="charCount">0/200</div>
+{% extends "base.html" %}{% block title %}Dashboard{% endblock %}{% block content %}<main class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-10">
+      <!-- Hero Header -->
+      <div class="card-radius hero-header fade-up">
+        <div class="row align-items-center text-center text-md-start">
+          <div class="col-md-4 mb-4 mb-md-0">
+            <div class="d-flex align-items-center justify-content-center justify-md-start gap-3">
+              <div class="user-avatar rounded-circle d-flex justify-content-center align-items-center text-white fw-bold" style="width:64px; height:64px; background:var(--gradient);" id="userInitialsHero">{{ initials }}</div>
+              <div>
+                <div class="greeting">{{ greeting }}</div>
+                <div class="text-muted small">today's edge: <span class="edge">{% if todays_edge > 0 %}+{% endif %}{{ "%.1f"|format(todays_edge) }}%</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4 mb-4 mb-md-0">
+            <div class="pnl-big" id="pnlBig" style="color: {% if pnl.daily.value < 0 %}var(--danger){% else %}var(--success){% endif %};">${{ "%.0f"|format(pnl.daily.value) if pnl.daily.value else 0 }}</div>
+            <div class="pnl-subtitle" id="pnlSubtitle" title="P&L based on trade dates (not when logged)">({{ "%.1f"|format(pnl.daily.percent) }}% today)</div>
+            <canvas id="pnlSpark" class="sparkline-canvas mt-2"></canvas>
+            <div class="btn-group view-toggles mt-3" role="group">
+              <button type="button" class="btn active" data-view="daily">Daily</button>
+              <button type="button" class="btn" data-view="weekly">Weekly</button>
+              <button type="button" class="btn" data-view="monthly">Monthly</button>
+            </div>
+          </div>
+          <div class="col-md-4 d-flex justify-content-end">
+            <!-- Spacing -->
+          </div>
         </div>
       </div>
-      <div class="nav-footer">
-        <div></div>
-        <button class="btn-nav btn-next" id="next1">Next</button>
+
+  <!-- Session Zones -->
+  <section class="sessions-section fade-up">
+    <div class="map-overlay"></div>
+    <h5 class="session-title"><i class="bi bi-globe2"></i> Your Session Zones</h5>
+    <div class="session-carousel" id="sessionCarousel">
+      {% for session in sessions %}
+      <div class="card-radius session-card" onclick="toggleExpand(this)">
+        <div class="session-icon"><i class="bi {{ session.icon }}"></i></div>
+        <div class="fw-bold" style="font-size:1.2rem;">{{ session.name }}</div>
+        <div class="session-stats">Trades: {{ session.trades }} | Win Rate: {{ session.winRate }}% | Avg P&L: {{ session.avgPnL }}</div>
+        <canvas class="session-spark" data-values="{{ session.trend | tojson }}"></canvas>
+        <div class="expand-details">
+          Last trade: <strong>{{ session.lastTrade }}</strong>
+
+          <div class="ai-tip"><i class="bi bi-lightbulb me-2"></i>{{ session.tip }}</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <div id="emptyState" class="empty-state" style="display: {% if sessions %}none{% else %}block{% endif %};">
+      <i class="bi bi-inbox empty-icon"></i>
+      <p>Start logging to unlock sessions</p>
+      <button class="btn btn-outline-primary" onclick="location.href='/upload'">Upload something</button>
+    </div>
+  </section>
+
+  <!-- Referrals Section -->
+  <section class="referrals-section fade-up">
+    <h5 class="session-title"><i class="bi bi-share-fill"></i> Your Referrals</h5>
+    <div class="card-radius">
+      <div class="referral-card">
+        <div class="fw-bold mb-2">Invite friends, earn free AI analyses</div>
+        <p class="text-muted mb-4">Share your unique code. Each successful referral gives you both 1 free AI analysis.</p>
+        <div class="referral-code" id="referralCode">{{ referral_code }}</div>
+        <div class="referral-stats">
+          <div class="stat-item">
+            <div class="stat-number">{{ referrals_count }}</div>
+            <div class="stat-label">Referred</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-number">{{ earned_analyses }}</div>
+            <div class="stat-label">Free Analyses</div>
+          </div>
+        </div>
+        <div class="share-buttons">
+          <button class="share-btn share-btn-copy" onclick="copyReferralCode()">
+            <i class="bi bi-copy"></i> Copy Link
+          </button>
+          <button class="share-btn share-btn-twitter" onclick="shareOnTwitter()">
+            <i class="bi bi-twitter-x"></i> Share on X
+          </button>
+        </div>
       </div>
     </div>
+  </section>
 
-    <!-- Step 2: Strategy -->
-    <div class="carousel-item">
-      <div class="progress-header">
-        <div class="progress-dots">
-          <div class="progress-dot"></div>
-          <div class="progress-dot active"></div>
-          <div class="progress-dot"></div>
-        </div>
-        <button class="skip-btn" id="skipBtn2">Skip</button>
-      </div>
-      <div class="content-section">
-        <h1 class="title">Tell us about your strategy</h1>
-        <p class="hint">We'll refine this from your trades.</p>
-        <select class="strategy-dropdown" id="strategyDropdown">
-          <option value="">Select a preset...</option>
-          <option value="scalping">Scalping</option>
-          <option value="day-trading">Day Trading</option>
-          <option value="swing-trading">Swing Trading</option>
-          <option value="position-trading">Position Trading</option>
-        </select>
-        <textarea class="strategy-textarea" placeholder="Custom description..." id="strategyTextarea"></textarea>
-        <div class="chips-container" id="chipsContainer">
-          <!-- Chips populated by JS -->
-        </div>
-        <div class="toggle-switch">
-          <input type="checkbox" id="aiDetectToggle" class="toggle-input" checked>
-          <label for="aiDetectToggle" class="toggle-label"></label>
-          <span class="toggle-text" data-tooltip="Auto-infers from screenshots">Enable AI-Detect for uploads</span>
-        </div>
-      </div>
-      <div class="nav-footer">
-        <button class="btn-nav btn-back" id="back2">Back</button>
-        <button class="btn-nav btn-next" id="next2">Next</button>
-      </div>
+  <!-- Quick Actions -->
+  <div class="quick-actions fade-up">
+    <div class="quick-action-btn" onclick="location.href='/upload'">
+      <div class="quick-icon"><i class="bi bi-cloud-upload"></i></div>
+      <div>Log Trade</div>
     </div>
-
-    <!-- Step 3: Risk -->
-    <div class="carousel-item">
-      <div class="progress-header">
-        <div class="progress-dots">
-          <div class="progress-dot"></div>
-          <div class="progress-dot"></div>
-          <div class="progress-dot active"></div>
-        </div>
-        <button class="skip-btn enabled" id="skipBtn3">Skip</button>
-      </div>
-      <div class="content-section">
-        <h1 class="title">Set your risk parameters</h1>
-        <p class="hint">Keep it safe—your AI will enforce these.</p>
-        <div class="risk-sliders">
-          <div class="slider-container">
-            <label class="slider-label">Max risk per trade (%)</label>
-            <input type="range" class="slider" min="0" max="10" value="2" id="riskPerTrade">
-            <span class="slider-value" id="riskPerTradeValue">2%</span>
-          </div>
-          <div class="slider-container">
-            <label class="slider-label">Max daily loss (%)</label>
-            <input type="range" class="slider" min="0" max="5" value="1" id="dailyLoss">
-            <span class="slider-value" id="dailyLossValue">1%</span>
-          </div>
-        </div>
-        <div class="checkbox-group">
-          <div class="form-check">
-            <input class="form-check-input" type="checkbox" id="stopLoss" checked>
-            <label class="form-check-label" for="stopLoss">Always use stop-loss</label>
-          </div>
-          <div class="form-check">
-            <input class="form-check-input" type="checkbox" id="noRevenge" checked>
-            <label class="form-check-label" for="noRevenge">No revenge trading</label>
-          </div>
-        </div>
-        <div class="account-section">
-          <label class="slider-label">Account balance estimate</label>
-          <input type="number" class="account-input" placeholder="$10,000" value="10000" id="accountBalance">
-        </div>
-        <table class="preview-table" id="previewTable">
-          <thead>
-            <tr><th>Scenario</th><th>Position Size</th><th>Status</th></tr>
-          </thead>
-          <tbody>
-            <tr><td>Single Trade</td><td id="posSizeSingle">$200</td><td class="safe">Safe</td></tr>
-            <tr><td>Daily Limit</td><td id="dailyLimit">$100</td><td class="safe">Safe</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="nav-footer">
-        <button class="btn-nav btn-back" id="back3">Back</button>
-        <button class="btn-nav btn-finish enabled" id="finishBtn">Finish</button>
-      </div>
+    <div class="quick-action-btn" onclick="location.href='/journal'">
+      <div class="quick-icon"><i class="bi bi-journal-text"></i></div>
+      <div>View Journal</div>
     </div>
-
-    <!-- Success Screen -->
-    <div class="carousel-item success-screen">
-      <div class="progress-header">
-        <div class="progress-dots">
-          <div class="progress-dot"></div>
-          <div class="progress-dot"></div>
-          <div class="progress-dot active"></div>
-        </div>
-      </div>
-      <div class="content-section">
-        <h1 class="success-title">Welcome aboard!</h1>
-        <p class="success-subtitle">Your AI is tuned.</p>
-        <a href="/dashboard" class="btn-dashboard">Go to Dashboard</a>
-      </div>
+    <div class="quick-action-btn" onclick="location.href='/insights'">
+      <div class="quick-icon"><i class="bi bi-lightbulb"></i></div>
+      <div>Generate Insights</div>
     </div>
   </div>
-</div>
+</div>  </div>
+</main>
+{% endblock %}
 
-<div class="confetti" id="confetti"></div>
+{% block mobile_fab %}
+  <button id="mobileFab" class="btn d-flex align-items-center justify-content-center" onclick="location.href='/upload'">
+    <i class="bi bi-plus-lg fs-3"></i>
+  </button>
+{% endblock %}{% block scripts %}<script>
+  let pnlChart;
+  let currentView = 'daily';
+  const pnlHistory = {{ pnl_history | tojson }};
+  const pnlData = {{ pnl | tojson }};
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-  // Theme toggle with localStorage persistence
-  const html = document.documentElement;
-  const savedTheme = localStorage.getItem('theme') || 'light';
-  html.setAttribute('data-theme', savedTheme);
-
-  // Mock data
-  const psychologyZones = [
-    { id: 'aggressive', icon: 'bi-activity', title: 'Aggressive Hunter', tooltip: 'High-volume breakouts, tolerates volatility' },
-    { id: 'patient', icon: 'bi-hourglass-split', title: 'Patient Accumulator', tooltip: 'Long holds, low frequency' },
-    { id: 'trend', icon: 'bi-arrow-right-circle', title: 'Trend Follower', tooltip: 'Momentum plays, rides waves' },
-    { id: 'value', icon: 'bi-graph-down', title: 'Value Seeker', tooltip: 'Mean reversion, contrarian' },
-    { id: 'scalper', icon: 'bi-lightning-charge', title: 'Quick Scalper', tooltip: 'Fast in/out, high precision' },
-    { id: 'cautious', icon: 'bi-shield-check', title: 'Cautious Defender', tooltip: 'Tight stops, conservative' }
-  ];
-
-  const strategyChips = [
-    { category: 'Timeframes', options: ['1m', '5m', '15m', '1h', '4h', '1d'] },
-    { category: 'Indicators', options: ['EMA', 'RSI', 'MACD', 'Bollinger Bands'] }
-  ];
-
-  let currentStep = 0;
-  let selectedZone = null;
-  let tempData = JSON.parse(localStorage.getItem('onboardingTemp') || '{}');
-
-  // Carousel navigation
-  function goToStep(step) {
-    const inner = document.getElementById('carouselInner');
-    inner.style.transform = `translateX(-${step * 100}%)`;
-    updateProgress(Math.min(step, 2));
-    currentStep = step;
-    updateSkip();
-    validateStep(step);
-  }
-
-  function updateProgress(step) {
-    document.querySelectorAll('.progress-dot').forEach((dot, i) => {
-      dot.classList.toggle('active', i === step);
-    });
-  }
-
-  function updateSkip() {
-    const skipBtns = document.querySelectorAll('.skip-btn');
-    skipBtns.forEach(btn => btn.classList.toggle('enabled', currentStep >= 2));
-  }
-
-  // Step 1: Psychology
-  function initPsychology() {
-    const container = document.getElementById('psychologyCards');
-    psychologyZones.forEach(zone => {
-      const card = document.createElement('div');
-      card.className = 'psychology-card';
-      card.dataset.zone = zone.id;
-      card.innerHTML = `
-        <i class="bi ${zone.icon} psychology-icon"></i>
-        <div class="psychology-title">${zone.title}</div>
-        <div class="psychology-tooltip">${zone.tooltip}</div>
-      `;
-      card.addEventListener('click', () => selectZone(card));
-      container.appendChild(card);
-    });
-
-    // Restore selection
-    if (tempData.zone) {
-      const selectedCard = container.querySelector(`[data-zone="${tempData.zone}"]`);
-      if (selectedCard) selectZone(selectedCard, false);
-    }
-
-    const textarea = document.getElementById('notesTextarea');
-    textarea.value = tempData.notes || '';
-    updateCharCount();
-
-    document.getElementById('next1').addEventListener('click', () => {
-      if (selectedZone) {
-        tempData.zone = selectedZone;
-        tempData.notes = textarea.value;
-        localStorage.setItem('onboardingTemp', JSON.stringify(tempData));
-        goToStep(1);
+  // PNL Sparkline improved
+  function initPnlSpark(view = 'daily') {
+    const ctx = document.getElementById('pnlSpark').getContext('2d');
+    const history = pnlHistory[view] || [0,0,0,0,0];
+    const isUp = history[history.length - 1] >= history[0];
+    const borderColor = isUp ? 'var(--success)' : 'var(--danger)';
+    const bgColor = isUp ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)';
+    if (pnlChart) pnlChart.destroy();
+    pnlChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: history.map((_, i) => i),
+        datasets: [{
+          data: history,
+          borderColor: borderColor,
+          backgroundColor: bgColor,
+          tension: 0.4,
+          fill: true,
+          pointRadius: 3,
+          pointBackgroundColor: borderColor,
+          pointBorderColor: 'white',
+          pointBorderWidth: 2,
+          borderWidth: 3,
+          pointHoverRadius: 5
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: { x: { display: false }, y: { display: false } },
+        plugins: { legend: { display: false }, tooltip: { enabled: true } },
+        animation: { duration: 1500, easing: 'easeInOutQuart' },
+        elements: { line: { borderCapStyle: 'round', borderJoinStyle: 'round' } }
       }
     });
   }
+  initPnlSpark();
 
-  function selectZone(card, animate = true) {
-    document.querySelectorAll('.psychology-card').forEach(c => c.classList.remove('selected'));
-    card.classList.add('selected');
-    selectedZone = card.dataset.zone;
-    if (animate) {
-      navigator.vibrate?.(50);
-    }
-    validateStep(0);
-  }
-
-  function updateCharCount() {
-    const ta = document.getElementById('notesTextarea');
-    const count = document.getElementById('charCount');
-    count.textContent = `${ta.value.length}/200`;
-  }
-
-  document.getElementById('notesTextarea').addEventListener('input', updateCharCount);
-
-  // Step 2: Strategy
-  function initStrategy() {
-    const chipsContainer = document.getElementById('chipsContainer');
-    strategyChips.forEach(cat => {
-      const catDiv = document.createElement('div');
-      catDiv.className = 'chip-category';
-      catDiv.innerHTML = `<div class="chip-category-label">${cat.category}</div>`;
-      const chipsDiv = document.createElement('div');
-      chipsDiv.style.display = 'flex';
-      chipsDiv.style.flexWrap = 'wrap';
-      chipsDiv.style.gap = '8px';
-      cat.options.forEach(opt => {
-        const chip = document.createElement('div');
-        chip.className = 'chip';
-        chip.textContent = opt;
-        chip.addEventListener('click', () => toggleChip(chip));
-        chipsDiv.appendChild(chip);
-      });
-      catDiv.appendChild(chipsDiv);
-      chipsContainer.appendChild(catDiv);
+  // View toggles
+  const pnlBigEl = document.getElementById('pnlBig');
+  const pnlSubtitleEl = document.querySelector('.pnl-subtitle');
+  const periodText = {
+    daily: 'today',
+    weekly: 'this week',
+    monthly: 'this month'
+  };
+  document.querySelectorAll('.view-toggles .btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.view-toggles .btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentView = btn.dataset.view;
+      const data = pnlData[currentView];
+      const value = data.value;
+      const percent = data.percent;
+      pnlBigEl.textContent = `$${Math.round(value).toLocaleString()}`;
+      pnlBigEl.style.color = value < 0 ? 'var(--danger)' : 'var(--success)';
+      pnlSubtitleEl.textContent = `(${percent.toFixed(1)}% ${periodText[currentView]})`;
+      initPnlSpark(currentView);
     });
+  });
 
-    // Restore
-    document.getElementById('strategyDropdown').value = tempData.strategy || '';
-    document.getElementById('strategyTextarea').value = tempData.strategyDesc || '';
-    document.getElementById('aiDetectToggle').checked = tempData.aiDetect !== false;
-    if (tempData.chips) {
-      tempData.chips.forEach(chipText => {
-        const chip = [...document.querySelectorAll('.chip')].find(c => c.textContent === chipText);
-        if (chip) chip.classList.add('selected');
-      });
-    }
-
-    // Events
-    document.getElementById('strategyDropdown').addEventListener('change', validateStep);
-    const strategyTextarea = document.getElementById('strategyTextarea');
-    strategyTextarea.addEventListener('input', () => {
-      tempData.strategyDesc = strategyTextarea.value;
-      localStorage.setItem('onboardingTemp', JSON.stringify(tempData));
-    });
-    document.getElementById('aiDetectToggle').addEventListener('change', (e) => {
-      tempData.aiDetect = e.target.checked;
-      localStorage.setItem('onboardingTemp', JSON.stringify(tempData));
-    });
-
-    document.getElementById('back2').addEventListener('click', () => goToStep(0));
-    document.getElementById('next2').addEventListener('click', () => {
-      tempData.strategy = document.getElementById('strategyDropdown').value;
-      tempData.chips = Array.from(document.querySelectorAll('.chip.selected')).map(c => c.textContent);
-      localStorage.setItem('onboardingTemp', JSON.stringify(tempData));
-      goToStep(2);
-    });
-  }
-
-  function toggleChip(chip) {
-    chip.classList.toggle('selected');
-    navigator.vibrate?.(50);
-  }
-
-  // Step 3: Risk
-  function initRisk() {
-    // Restore
-    document.getElementById('riskPerTrade').value = tempData.riskPerTrade || 2;
-    updateRiskValue();
-    document.getElementById('dailyLoss').value = tempData.dailyLoss || 1;
-    updateDailyValue();
-    document.getElementById('accountBalance').value = tempData.accountBalance || 10000;
-    document.getElementById('stopLoss').checked = tempData.stopLoss !== false;
-    document.getElementById('noRevenge').checked = tempData.noRevenge !== false;
-    updatePreview();
-
-    // Events
-    document.getElementById('riskPerTrade').addEventListener('input', updateRiskValue);
-    document.getElementById('dailyLoss').addEventListener('input', updateDailyValue);
-    document.getElementById('accountBalance').addEventListener('input', updatePreview);
-    ['stopLoss', 'noRevenge'].forEach(id => {
-      document.getElementById(id).addEventListener('change', (e) => {
-        tempData[id] = e.target.checked;
-        localStorage.setItem('onboardingTemp', JSON.stringify(tempData));
-        validateStep(2);
+  // Session sparks
+  function initSessionSparks() {
+    document.querySelectorAll('.session-spark').forEach(canvas => {
+      let values = JSON.parse(canvas.dataset.values || '[]');
+      if (!values.length) {
+        values = [0, 0, 0, 0, 0];
+      }
+      const ctx = canvas.getContext('2d');
+      const isUp = values[values.length - 1] >= values[0];
+      const borderColor = isUp ? 'var(--success)' : 'var(--danger)';
+      const bgColor = isUp ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)';
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: values.map((_, i) => i),
+          datasets: [{
+            data: values,
+            borderColor: borderColor,
+            backgroundColor: bgColor,
+            tension: 0.4,
+            fill: true,
+            pointRadius: 0,
+            borderWidth: 3,
+            borderJoinStyle: 'round'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { x: { display: false }, y: { display: false } },
+          plugins: { legend: { display: false }, tooltip: { enabled: false } },
+          animation: { duration: 1000, easing: 'easeInOutCubic' },
+          elements: { line: { borderCapStyle: 'round', borderJoinStyle: 'round' } }
+        }
       });
     });
-
-    document.getElementById('back3').addEventListener('click', () => goToStep(1));
-    document.getElementById('finishBtn').addEventListener('click', finishOnboarding);
   }
 
-  function updateRiskValue() {
-    const val = document.getElementById('riskPerTrade').value;
-    document.getElementById('riskPerTradeValue').textContent = `${val}%`;
-    tempData.riskPerTrade = parseInt(val);
-    localStorage.setItem('onboardingTemp', JSON.stringify(tempData));
-    updatePreview();
-    validateStep(2);
+  // Toggle expand
+  function toggleExpand(card) {
+    const details = card.querySelector('.expand-details');
+    details.style.display = details.style.display === 'block' ? 'none' : 'block';
   }
 
-  function updateDailyValue() {
-    const val = document.getElementById('dailyLoss').value;
-    document.getElementById('dailyLossValue').textContent = `${val}%`;
-    tempData.dailyLoss = parseInt(val);
-    localStorage.setItem('onboardingTemp', JSON.stringify(tempData));
-    updatePreview();
-    validateStep(2);
+  // Mobile fab pulse if no activity (mock)
+  const mobileFab = document.getElementById('mobileFab');
+  if (mobileFab && true) { // Replace with real check
+    mobileFab.style.animation = 'pulse 2s infinite';
   }
+  const style = document.createElement('style');
+  style.innerHTML = `@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(47,107,255,0.4); } 70% { box-shadow: 0 0 0 10px rgba(47,107,255,0); } 100% { box-shadow: 0 0 0 0 rgba(47,107,255,0); } }`;
+  document.head.appendChild(style);
 
-  function updatePreview() {
-    const balance = parseInt(document.getElementById('accountBalance').value) || 10000;
-    const riskPer = parseInt(document.getElementById('riskPerTrade').value) || 2;
-    const daily = parseInt(document.getElementById('dailyLoss').value) || 1;
-    const posSize = (balance * riskPer / 100).toFixed(0);
-    const dailyLimit = (balance * daily / 100).toFixed(0);
-    document.getElementById('posSizeSingle').textContent = `$${posSize}`;
-    document.getElementById('dailyLimit').textContent = `$${dailyLimit}`;
-    const statusCells = document.querySelectorAll('.preview-table td:nth-child(3)');
-    statusCells.forEach(td => {
-      td.className = (riskPer > 5 || daily > 3) ? 'risky' : 'safe';
+  // Referral functions
+  function copyReferralCode() {
+    const code = document.getElementById('referralCode').textContent;
+    const referralUrl = `${window.location.origin}/?ref=${code}`;
+    navigator.clipboard.writeText(referralUrl).then(() => {
+      showToast('Referral link copied!');
+    }).catch(() => {
+      // Fallback
+      const textArea = document.createElement('textarea');
+      textArea.value = referralUrl;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      showToast('Referral link copied!');
     });
-    tempData.accountBalance = balance;
-    localStorage.setItem('onboardingTemp', JSON.stringify(tempData));
   }
 
-  function validateStep(step) {
-    let valid = false;
-    switch (step) {
-      case 0:
-        valid = !!selectedZone;
-        break;
-      case 1:
-        valid = !!document.getElementById('strategyDropdown').value;
-        break;
-      case 2:
-        valid = document.getElementById('stopLoss').checked && document.getElementById('noRevenge').checked;
-        break;
-    }
-    if (step < 2) {
-      const btn = document.querySelectorAll('.btn-next')[step];
-      btn.classList.toggle('enabled', valid);
-    } else {
-      document.getElementById('finishBtn').classList.toggle('enabled', valid);
-    }
+  function shareOnTwitter() {
+    const code = document.getElementById('referralCode').textContent;
+    const text = `Join me on iTrade Journal! Use my referral code ${code} for a free AI analysis. Your trades. Your edge. ${window.location.origin}/?ref=${code}`;
+    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
   }
 
-  function finishOnboarding() {
-    // Mock save to backend
-    console.log('Saving profile:', tempData);
-    localStorage.setItem('profileComplete', 'true');
-    localStorage.removeItem('onboardingTemp');
-    goToStep(3);
-    launchConfetti();
-    // Auto-redirect after delay
-    setTimeout(() => {
-      window.location.href = '/dashboard';
-    }, 3000);
-  }
-
-  function launchConfetti() {
-    const confetti = document.getElementById('confetti');
-    confetti.classList.add('show');
-    for (let i = 0; i < 50; i++) {
-      const piece = document.createElement('div');
-      piece.className = 'confetti-piece';
-      piece.style.left = Math.random() * 100 + 'vw';
-      piece.style.background = `hsl(${Math.random() * 360}, 70%, 60%)`;
-      piece.style.animationDelay = Math.random() * 3 + 's';
-      piece.style.animationDuration = (Math.random() * 3 + 2) + 's';
-      confetti.appendChild(piece);
-    }
-    setTimeout(() => {
-      confetti.innerHTML = '';
-      confetti.classList.remove('show');
-    }, 5000);
-  }
-
-  // Skip functionality
-  document.addEventListener('click', (e) => {
-    if (e.target.classList.contains('skip-btn') && e.target.classList.contains('enabled')) {
-      localStorage.setItem('profileSkipped', 'true');
-      window.location.href = '/dashboard';
-    }
-  });
-
-  // Touch swipe for mobile
-  let startX = 0;
-  const carouselInner = document.getElementById('carouselInner');
-  carouselInner.addEventListener('touchstart', (e) => {
-    startX = e.touches[0].clientX;
-  }, { passive: true });
-  carouselInner.addEventListener('touchend', (e) => {
-    if (!e.changedTouches.length) return;
-    const endX = e.changedTouches[0].clientX;
-    if (startX - endX > 50) {
-      goToStep(Math.min(currentStep + 1, 3));
-    } else if (endX - startX > 50) {
-      goToStep(Math.max(currentStep - 1, 0));
-    }
-  }, { passive: true });
-
-  // Keyboard navigation for accessibility
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowRight') {
-      e.preventDefault();
-      goToStep(Math.min(currentStep + 1, 3));
-    } else if (e.key === 'ArrowLeft') {
-      e.preventDefault();
-      goToStep(Math.max(currentStep - 1, 0));
-    }
-  });
-
-  // Init all steps
-  initPsychology();
-  initStrategy();
-  initRisk();
-
-  // ARIA labels for accessibility
-  document.querySelectorAll('.psychology-card').forEach((card, i) => {
-    card.setAttribute('aria-label', `Select ${psychologyZones[i].title}`);
-  });
-  document.querySelectorAll('.chip').forEach(chip => {
-    chip.setAttribute('role', 'button');
-    chip.setAttribute('tabindex', '0');
-  });
-
-  goToStep(0);
-  updatePreview();
+  // Dashboard-specific initial load
+  initSessionSparks();
 </script>
-</body>
-</html>
+{% endblock %}
+

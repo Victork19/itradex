@@ -1,4 +1,4 @@
-#models/schemas.py
+# models/schemas.py
 from pydantic import BaseModel, EmailStr, ConfigDict, Field, model_validator
 from typing import Optional, List, Any, Dict
 from datetime import datetime
@@ -29,7 +29,7 @@ class TradeBase(BaseModel):
     pnl: Optional[float]
     notes: Optional[str]
 
-# Fixed: Full TradeResponse mirroring model + frontend (all fields, exact names, no duplicates)
+
 class TradeResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     
@@ -60,6 +60,7 @@ class TradeResponse(BaseModel):
     raw_ai_response: Optional[str] = None  # Added (Text -> str)
     confidence: Optional[float] = None
     asset_type: Optional[str] = None  # SQLEnum serializes as str ('FOREX'/'CRYPTO') - Added
+    source: Optional[str] = None  # NEW: 'personal' or 'trader'
 
     @model_validator(mode='before')
     @classmethod
@@ -71,15 +72,30 @@ class TradeResponse(BaseModel):
                 data['asset_type'] = at.upper()
         return data
 
-# Added: PaginatedTrades for router (as used in get_trades)
+# NEW: Trader profile for dashboard
+class TraderResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
+    strategy: str
+    win_rate: float
+    trades: int
+    pnl: float
+    monthly_price: float
+
 class PaginatedTrades(BaseModel):
     trades: List[TradeResponse]
     total: int
     page: int
     page_size: int
     total_pages: int
-    win_rate: float = 0.0
-    avg_pl: float = 0.0
+    win_rate: float
+    avg_pl: float
+    source: str = "personal"
+    trader_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
 
 class SymbolStats(BaseModel):
     symbol: str
@@ -169,3 +185,6 @@ class TradeUpdate(BaseModel):
     raw_ai_response: Optional[str] = None  # Added (if editable)
     confidence: Optional[float] = None  # Added (if editable)
     ai_log: Optional[str] = None  # Added (if editable)
+
+class PriceUpdate(BaseModel):
+    price: float = Field(..., ge=1.0, le=99.99, description="Monthly price in USD")

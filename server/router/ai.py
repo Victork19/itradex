@@ -43,8 +43,9 @@ async def ai_chat(request: Request, db: AsyncSession = Depends(get_session), cur
     if not user_message:
         raise HTTPException(status_code=400, detail="message required")
 
-    # Plan-based access control for starters
-    if current_user.plan not in ['pro', 'elite']:
+    # Plan-based access control for starters - updated to handle variations like pro_monthly, elite_yearly
+    plan_lower = current_user.plan.lower()
+    if not any(term in plan_lower for term in ['pro', 'elite']):
         # Starter: Allow only 1 chat
         if current_user.ai_chats_used >= 1:
             upgrade_msg = """

@@ -1,10 +1,11 @@
 # router/journal.py
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Body, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, nulls_last
 from sqlalchemy.orm import aliased
 from typing import List, Optional
 import logging
+import re
 from pydantic import BaseModel, Field
 from datetime import datetime, date, timedelta, timezone
 
@@ -502,4 +503,105 @@ async def update_marketplace_price(
         "success": True,
         "message": f"Marketplace price updated to ${price:.2f}/month.",
         "new_price": price,
+    }
+
+# NEW: Earnings Summary for Traders
+@router.get("/earnings")
+async def get_earnings(
+    db: AsyncSession = Depends(get_session),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    """Get marketplace earnings summary for the trader."""
+    if not current_user.is_trader:
+        raise HTTPException(status_code=403, detail="Access denied: Not a marketplace trader")
+
+    total_earnings = current_user.marketplace_earnings or 0.0
+    pending_payout = current_user.monthly_earnings or 0.0
+    threshold = current_user.payout_threshold or 50.0
+    has_wallet = bool(current_user.wallet_address)
+    last_payout = current_user.last_payout_date
+    today = date.today()
+
+    # Determine if can request payout (monthly, above threshold, wallet set)
+    can_request = (
+        pending_payout >= threshold
+        and has_wallet
+        and (not last_payout or (last_payout.year != today.year or last_payout.month != today.month))
+    )
+
+    # Next payout date: 1st of next month
+    next_month = today.replace(day=1) + timedelta(days=32)
+    next_payout_date = next_month.replace(day=1)
+
+    return {
+        "total_earnings": total_earnings,
+        "pending_payout": pending_payout,
+        "payout_threshold": threshold,
+        "can_request": can_request,
+        "has_wallet": has_wallet,
+        "wallet_address": current_user.wallet_address,
+        "last_payout_date": last_payout.isoformat() if last_payout else None,
+        "next_payout_date": next_payout_date.isoformat()
+    }
+
+# NEW: Update Wallet Address
+@router.put("/wallet")
+async def update_wallet(
+    request: Request,
+    db: AsyncSession = Depends(get_session),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    """Update the trader's payout wallet address."""
+    if not current_user.is_trader:
+        raise HTTPException(status_code=403, detail="Access denied: Not a marketplace trader")
+
+    body = await request.json()
+    wallet = body.get("wallet", "").strip()
+
+    if not wallet:
+        raise HTTPException(status_code=400, detail="Wallet address required")
+    if not re.match(r'^0x[a-fA-F0-9]{40}$', wallet):
+        raise HTTPException(status_code=400, detail="Invalid Ethereum wallet address")
+
+    current_user.wallet_address = wallet
+    current_user.updated_at = datetime.utcnow()
+    await db.commit()
+
+    return {"message": "Wallet address updated successfully"}
+
+# NEW: Request Monthly Payout
+@router.post("/request-payout")
+async def request_payout(
+    db: AsyncSession = Depends(get_session),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    """Request monthly payout if eligible."""
+    if not current_user.is_trader:
+        raise HTTPException(status_code=403, detail="Access denied: Not a marketplace trader")
+
+    if not current_user.wallet_address:
+        raise HTTPException(status_code=400, detail="Wallet address required for payouts")
+
+    pending = current_user.monthly_earnings or 0.0
+    threshold = current_user.payout_threshold or 50.0
+    today = date.today()
+    last_payout = current_user.last_payout_date
+
+    if pending < threshold:
+        raise HTTPException(status_code=400, detail=f"Pending earnings (${pending:.2f}) below minimum threshold (${threshold:.2f})")
+    if last_payout and last_payout.year == today.year and last_payout.month == today.month:
+        raise HTTPException(status_code=400, detail="Payout already requested this month. Next available on the 1st of next month.")
+
+    # Simulate payout processing (in production: integrate with payout service, record tx_hash)
+    payout_amount = pending
+    current_user.monthly_earnings = 0.0
+    current_user.last_payout_date = today
+    current_user.updated_at = datetime.utcnow()
+    await db.commit()
+
+    logger.info(f"Monthly payout processed for trader {current_user.id}: ${payout_amount:.2f} to {current_user.wallet_address}")
+
+    return {
+        "message": f"Monthly payout of ${payout_amount:.2f} requested and processed to your wallet ({current_user.wallet_address[:6]}...{current_user.wallet_address[-4:]}).",
+        "payout_amount": payout_amount
     }

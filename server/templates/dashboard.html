@@ -269,7 +269,15 @@
             </div>
             <div class="text-muted small mb-3">{{ rec.trades }} trades | ${{ "%.0f"|format(rec.pnl) }}</div>
             <p class="small mb-3">"{{ rec.strategy }}"</p>
+            {% if rec.status %}
+              {% if rec.status == 'active' %}
+              <button class="btn btn-success rounded-pill w-100" disabled data-subbed="true">Subscribed</button>
+              {% elif rec.status == 'pending' %}
+              <button class="btn btn-warning rounded-pill w-100" disabled data-subbed="true">Pending Payment</button>
+              {% endif %}
+            {% else %}
             <button class="btn btn-outline-primary rounded-pill w-100 subscribe-btn" data-trader="{{ rec.id }}" data-price="{{ rec.monthly_price }}" data-name="{{ rec.name }}" data-subbed="false">Sub ${{ "%.2f"|format(rec.monthly_price) }}/mo</button>
+            {% endif %}
           </div>
         </div>
         {% endfor %}
@@ -294,7 +302,15 @@
               <canvas class="trader-spark lazy-spark w-100 h-100" data-values="{{ trader.trend | tojson }}" style="display: block;"></canvas>
             </div>
             <div class="journal-tease text-muted small" style="display:none;">{{ trader.journal_tease }}</div>
+            {% if trader.status %}
+              {% if trader.status == 'active' %}
+              <button class="btn btn-success rounded-pill w-100" disabled data-subbed="true">Subscribed</button>
+              {% elif trader.status == 'pending' %}
+              <button class="btn btn-warning rounded-pill w-100" disabled data-subbed="true">Pending Payment</button>
+              {% endif %}
+            {% else %}
             <button class="btn btn-primary rounded-pill w-100 subscribe-btn" data-trader="{{ trader.id }}" data-price="{{ trader.monthly_price }}" data-name="{{ trader.name }}" data-subbed="false">Subscribe for ${{ "%.2f"|format(trader.monthly_price) }}/mo</button>
+            {% endif %}
           </div>
         </div>
         {% endfor %}
@@ -678,6 +694,10 @@
 
   async function handleMarketplaceCheckout(traderId, traderName, price) {
     const btn = event.target;  // Assuming called from click event
+    if (btn.dataset.subbed === 'true') {
+      showToast('Already subscribed or pending!');
+      return;  // ← KEY: Prevent if already set
+    }
     const originalText = btn.innerHTML;
     btn.disabled = true;
     safeSetText(marketplaceProcessingTraderNameSpan, traderName);
@@ -755,7 +775,10 @@
   document.querySelectorAll('.subscribe-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      if (btn.dataset.subbed === 'true') return;
+      if (btn.dataset.subbed === 'true') {
+        showToast('Already handling subscription!');
+        return;  // ← KEY: Prevent redundant clicks
+      }
       currentTraderId = parseInt(btn.dataset.trader);
       currentTraderName = btn.dataset.name;
       currentTraderPrice = parseFloat(btn.dataset.price);
@@ -790,7 +813,11 @@
 
   function subscribeFromTeaser() {
     const btn = document.querySelector(`[data-trader="${currentTraderId}"]`);
-    if (btn) btn.click();
+    if (btn && btn.dataset.subbed !== 'true') {
+      btn.click();
+    } else {
+      showToast('Already subscribed or pending!');
+    }
     bootstrap.Modal.getInstance(document.getElementById('teaserModal')).hide();
   }
 

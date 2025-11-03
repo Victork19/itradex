@@ -261,7 +261,7 @@
   // Injected initial data from backend via Jinja
   const initialInsightsData = {{ insights | default({}) | tojson | safe }};
   let userCredits = initialInsightsData.credits || {{ current_user.insights_credits | default(0) }};
-  const currentPlan = '{{ current_user.plan }}';
+  const currentPlan = '{{ current_user.plan.split('_')[0] if '_' in current_user.plan else current_user.plan }}';
   const isUnlimited = ['pro', 'elite'].includes(currentPlan);
 
   // Insights-specific chat override
@@ -879,4 +879,3 @@
   });
 </script>
 {% endblock %}
-

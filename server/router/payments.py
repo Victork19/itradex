@@ -730,7 +730,8 @@ async def nowpayments_webhook(request: Request, db: AsyncSession = Depends(get_s
             trader = await db.get(User, trader_id)
             if trader:
                 earnings = db_sub.amount_usd * 0.7
-                trader.account_balance += earnings
+                trader.marketplace_earnings += earnings
+                trader.monthly_earnings += earnings
                 await db.commit()
                 logger.info(f"Credited trader {trader_id} ${earnings:.2f} from {order_id}")
 

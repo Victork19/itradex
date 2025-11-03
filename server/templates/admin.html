@@ -155,6 +155,9 @@
 
     /* NEW: Partial Payment Styles */
     .partial-progress { background: rgba(34,197,94,0.1); color: var(--success); padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; }
+
+    /* NEW: Admin Plan Card Styles */
+    .admin-plan-card { border-left: 4px solid var(--brand-500); background: linear-gradient(90deg, rgba(47,107,255,0.03) 0%, transparent 100%); }
   </style>
 </head>
 <body>
@@ -225,6 +228,29 @@
       <div>
         <div style="font-size:1rem;color:var(--muted)">Admin Panel</div>
         <div style="font-size:1.6rem;font-weight:700">System Overview</div>
+      </div>
+    </div>
+
+    <!-- NEW: Admin's Own Plan Card -->
+    <div class="admin-card admin-plan-card fade-up mb-4">
+      <h5><i class="bi bi-person-badge text-primary me-2"></i>Your Live Plan (Non-Testing)</h5>
+      <div class="row">
+        <div class="col-md-6">
+          <p><strong>Plan Level:</strong> <span class="badge badge-{{ admin_plan.lower() }} px-3 py-2 fs-6">{{ admin_plan }}</span></p>
+          {% if admin_sub %}
+            <p><strong>Subscription ID:</strong> {{ admin_sub.id }}</p>
+            <p><strong>Status:</strong> <span class="badge bg-success">{{ admin_sub.status.upper() }}</span></p>
+            <p><strong>Plan Type:</strong> {{ admin_sub.plan_type }}</p>
+            <p><strong>Amount:</strong> ${{ "%.2f"|format(admin_sub.amount_usd) }} ({{ admin_sub.interval_days }} days)</p>
+            <p><strong>Start Date:</strong> {{ admin_sub.start_date.strftime('%Y-%m-%d') }}</p>
+            <p><strong>Next Billing:</strong> {{ admin_sub.next_billing_date.strftime('%Y-%m-%d') }}</p>
+          {% else %}
+            <p class="text-muted">No active subscription. <a href="/plans">Upgrade here</a> for live access.</p>
+          {% endif %}
+        </div>
+        <div class="col-md-6">
+          <p class="text-muted small"><i class="bi bi-info-circle me-1"></i>This shows your real, non-testing plan status. Use the users table below only for demo/testing switches.</p>
+        </div>
       </div>
     </div>
 
@@ -496,7 +522,7 @@
 
 <!-- UPDATED: RECENT USERS WITH TRADER TOGGLE & PENDING STATUS -->
 <div class="admin-card fade-up mb-4">
-  <h5><i class="bi bi-person-lines-fill text-warning me-2"></i>Recent Users</h5>
+  <h5><i class="bi bi-person-lines-fill text-warning me-2"></i>Recent Users (Demo/Testing Plan Switcher)</h5>
   <div class="table-responsive">
     <table class="table table-admin table-hover">
       <thead>

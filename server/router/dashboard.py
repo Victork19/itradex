@@ -184,7 +184,7 @@ async def dashboard(
     earned_analyses = referrals_count
 
     # --- Active Subscriptions (Platform + Marketplace) ---
-    all_active_subs_result = await db.execute(
+    active_subs_result = await db.execute(
         select(Subscription)
         .where(
             Subscription.user_id == current_user.id,
@@ -192,7 +192,7 @@ async def dashboard(
         )
         .order_by(Subscription.start_date.desc())
     )
-    all_active_subs = all_active_subs_result.scalars().all()
+    all_active_subs = active_subs_result.scalars().all()
 
     active_subs = []
     for sub in all_active_subs:
@@ -224,6 +224,26 @@ async def dashboard(
             'plan_type': current_user.plan,
             'next_bill': next_bill
         })
+
+    # Limit to 2 most recent subscriptions for display
+    active_subs = active_subs[:2]
+
+    # --- NEW: Fetch Pending Marketplace Subs for Button Status ---
+    pending_subs_result = await db.execute(
+        select(Subscription)
+        .where(
+            Subscription.user_id == current_user.id,
+            Subscription.status == 'pending',
+            Subscription.trader_id.is_not(None)
+        )
+    )
+    pending_marketplace_subs = pending_subs_result.scalars().all()
+
+    # --- Trader Status Dict (active + pending) ---
+    trader_status = {}
+    for sub in all_active_subs + pending_marketplace_subs:
+        if sub.trader_id:
+            trader_status[sub.trader_id] = sub.status
 
     # --- Eligibility Config ---
     config_result = await db.execute(select(EligibilityConfig).where(EligibilityConfig.id == 1))
@@ -299,6 +319,8 @@ async def dashboard(
         last_note = note_result.scalar_one_or_none()
         journal_tease = (last_note[:100] + '...' if last_note else 'No journal yet.')
 
+        status = trader_status.get(trader_id)
+
         traders.append({
             'id': trader_id,
             'name': full_name,
@@ -310,7 +332,8 @@ async def dashboard(
             'pnl': total_pnl or 0,
             'trend': trend,
             'journal_tease': journal_tease,
-            'monthly_price': marketplace_price or 19.99
+            'monthly_price': marketplace_price or 19.99,
+            'status': status  # NEW: 'active', 'pending', or None
         })
 
     recommendations = traders[:3]

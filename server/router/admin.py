@@ -165,6 +165,24 @@ async def admin_page(
     lost_mrr = max(0, past_mrr - mrr)
     revenue_churn_rate = (lost_mrr / past_mrr * 100) if past_mrr else 0.0
 
+    # ───── NEW: Admin's Own Plan Details ─────
+    admin_plan_display = current_user.plan.lower() if current_user.plan else 'starter'
+    if 'pro' in admin_plan_display:
+        admin_plan_display = 'Pro'
+    elif 'elite' in admin_plan_display:
+        admin_plan_display = 'Elite'
+    else:
+        admin_plan_display = 'Starter'
+
+    # Fetch admin's active subscription - FIXED: Use .first() to avoid MultipleResultsFound
+    admin_active_sub_result = await db.execute(
+        select(Subscription).where(
+            Subscription.user_id == current_user.id,
+            Subscription.status == 'active'
+        ).order_by(desc(Subscription.start_date)).limit(1)
+    )
+    admin_active_sub = admin_active_sub_result.scalar_one_or_none()
+
     # ───── Recent Users ─────
     recent_users = (await db.execute(select(User).order_by(desc(User.created_at)).limit(10))).scalars().all()
     recent_users_with_stats = []
@@ -260,7 +278,6 @@ async def admin_page(
         })
 
     # ───── NEW: Recent Partial Payments (FIXED: Case-insensitive query)
-    # FIXED: Use func.lower(status) == 'partially_paid' for casing robustness
     partial_payments = (await db.execute(
         select(Payment).where(func.lower(Payment.status) == 'partially_paid').order_by(desc(Payment.created_at)).limit(10)
     )).scalars().all()
@@ -301,20 +318,22 @@ async def admin_page(
             "plan_counts": plan_counts,
             "recent_users": recent_users_with_stats,
             "marketplace_traders": marketplace_traders_with_stats,
-            "pending_traders": pending_traders_with_stats,  # NEW
+            "pending_traders": pending_traders_with_stats,
             "recent_trades": recent_trades_list,
-            "recent_partial_payments": recent_partial_payments,  # NEW
+            "recent_partial_payments": recent_partial_payments,
             "pricing": pricing,
             "discount": discount,
             "marketplace_discount": marketplace_discount,
             "eligibility": eligibility,
-            "upload_limits": upload_limits,  # NEW
+            "upload_limits": upload_limits,
             "mrr": round(mrr, 2),
             "monthly_revenue": round(monthly_revenue, 2),
             "arpu": round(arpu, 2),
             "active_subscribers": active_subscribers,
             "user_churn_rate": round(user_churn_rate, 1),
             "revenue_churn_rate": round(revenue_churn_rate, 1),
+            "admin_plan": admin_plan_display,
+            "admin_sub": admin_active_sub,
         }
     )
 
@@ -422,7 +441,7 @@ async def update_marketplace_discount(
 async def update_eligibility(
     min_trades: int = Form(50),
     min_win_rate: float = Form(80.0),
-    max_marketplace_price: float = Form(99.99),  # NEW
+    max_marketplace_price: float = Form(99.99),
     current_user: User = Depends(auth.get_current_user),
     db: AsyncSession = Depends(get_session)
 ):
@@ -440,7 +459,7 @@ async def update_eligibility(
 
     db_config.min_trades = min_trades
     db_config.min_win_rate = min_win_rate
-    db_config.max_marketplace_price = max_marketplace_price  # NEW
+    db_config.max_marketplace_price = max_marketplace_price
     await db.commit()
 
     return JSONResponse({
@@ -690,13 +709,11 @@ async def approve_trader(
     applicant.is_trader_pending = False
     if approve:
         applicant.is_trader = True
-        # TODO: Email approval notification
         logger.info(f"Approved trader application for user {applicant.id}")
         message = f"Approved: {applicant.full_name or applicant.email}"
     else:
         applicant.is_trader = False
         applicant.marketplace_price = None
-        # TODO: Email rejection with reason
         logger.info(f"Rejected trader application for user {applicant.id}: {reason}")
         message = f"Rejected: {applicant.full_name or applicant.email} ({reason})"
 

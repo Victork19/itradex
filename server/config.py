@@ -5,7 +5,7 @@ load_dotenv()
 
 class Settings:
     DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./test1.db")
-    SECRET_KEY = os.getenv("SECRET_KEY", "supersecret")
+    SECRET_KEY = os.getenv("SECRET_KEY")
     ALGORITHM = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES = 120
     REFRESH_TOKEN_EXPIRE_DAYS = 7

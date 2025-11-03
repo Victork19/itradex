@@ -445,7 +445,8 @@
       <div class="upload-header">
         <h4 class="fw-bold d-flex align-items-center gap-2"><i class="bi bi-plus-circle"></i> Log a Trade</h4>
         <div class="d-flex align-items-center gap-2">
-          <span class="badge plan-badge bg-secondary">Plan: {{ current_user.plan.title() }}</span>
+          {% set base_plan = current_user.plan.split('_')[0] %}
+          <span class="badge plan-badge bg-secondary">Plan: {{ base_plan.title() }}</span>
           <span id="uploadCountBadge" class="badge bg-info">Loading...</span>
         </div>
       </div>
@@ -521,7 +522,8 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
-        <p id="upgradeMessage">You've reached your monthly upload limit on the {{ current_user.plan.title() }} plan ({{ upload_limit }} uploads). Upgrade to Pro for unlimited uploads and AI insights!</p>
+        {% set base_plan = current_user.plan.split('_')[0] %}
+        <p id="upgradeMessage">You've reached your monthly upload limit on the {{ base_plan.title() }} plan ({{ upload_limit }} uploads). Upgrade to Pro for unlimited uploads and AI insights!</p>
         <ul class="list-unstyled mb-3">
           <li><i class="bi bi-check-circle text-success me-2"></i>Unlimited uploads & AI analyses</li>
           <li><i class="bi bi-check-circle text-success me-2"></i>Advanced analytics</li>
@@ -558,7 +560,8 @@
     // Plan-based limits (now dynamic - no hardcodes)
     let monthlyLimit = 2;  // Fallback
     let batchLimit = 3;    // Fallback
-    const currentPlan = '{{ current_user.plan }}';
+    {% set base_plan = current_user.plan.split('_')[0] %}
+    const currentPlan = '{{ base_plan }}';
     
     // Fetch dynamic limits on load
     async function fetchUploadLimits() {

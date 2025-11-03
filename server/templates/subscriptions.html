@@ -1,9 +1,10 @@
-<!-- subscriptions.html (updated with partial progress display in payments table) -->
+<!-- subscriptions.html (updated with pagination, server-side filtering via query params, merged loop with conditionals) -->
 {% extends "base.html" %}
 {% block title %}My Subscriptions - iTrade Journal{% endblock %}
-{% block content %}<style>
-  :root{--brand:#2F6BFF;--brand-dark:#1F55E0;--success:#22C55E;--danger:#EF4444;--warning:#F59E0B;--gold:#FCD34D;--bg:#F8FAFC;--surface:#FFF;--text:#0F1724;--muted:#64748B;--border:#E6EEF8;--radius:16px;--shadow:0 20px 40px rgba(15,23,42,.08);--shadow-lg:0 25px 50px -12px rgba(0,0,0,.15)}
-  [data-theme=dark]{--bg:#0B0F16;--surface:#1A1F2B;--text:#E5E7EB;--muted:#94A3B8;--border:rgba(148,163,184,.18);--shadow:0 20px 40px rgba(0,0,0,.5);--shadow-lg:0 25px 50px -12px rgba(0,0,0,.25);color-scheme:dark}
+{% block content %}
+<style>
+  :root{--brand:#2F6BFF;--brand-dark:#1F55E0;--success:#22C55E;--danger:#EF4444;--warning:#F59E0B;--gold:#FCD34D;--bg:#F8FAFC;--surface:#FFF;--text:#0F1724;--muted:#64748B;--border:#E6EEF8;--radius:16px;--shadow:0 20px 40px rgba(15,23,42,.08);--shadow-lg:0 25px 50px -12px rgba(0,0,0,.15);--purple:#A855F7;}
+  [data-theme=dark]{--bg:#0B0F16;--surface:#1A1F2B;--text:#E5E7EB;--muted:#94A3B8;--border:rgba(148,163,184,.18);--shadow:0 20px 40px rgba(0,0,0,.5);--shadow-lg:0 25px 50px -12px rgba(0,0,0,.25);--purple:#C084FC;color-scheme:dark}
   body{background:var(--bg);color:var(--text);font-family:Inter,system-ui}
   .subscription-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);transition:all .2s;overflow:hidden}
   .subscription-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
@@ -69,189 +70,266 @@
   /* NEW: Partial progress bar */
   .progress-sm { height: 0.5rem; background: var(--border); border-radius: 10px; overflow: hidden; }
   .progress-bar { background: var(--warning); height: 100%; border-radius: 10px; transition: width 0.3s; }
-</style><main class="container py-5">
+  /* NEW: Marketplace purple theme */
+  .trader-avatar.bg-purple { background: linear-gradient(135deg, var(--purple), #9333EA); }
+  .bg-purple { background-color: var(--purple) !important; color: white !important; }
+  [data-theme="dark"] .bg-purple { background-color: #C084FC !important; color: #000 !important; }
+  /* Filter buttons */
+  .filter-btns .btn { border-radius: var(--radius); font-weight: 600; padding: 0.75rem 1.5rem; }
+  /* Sidebar adjustments */
+  .sidebar-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+  /* Pagination */
+  .pagination .page-link { border-radius: 10px; margin: 0 2px; }
+</style>
+<main class="container py-5">
   <div class="row justify-content-center"><div class="col-lg-10">
     <div class="text-center mb-5">
       <h1 class="fw-bold mb-3" style="font-size:2.5rem;background:linear-gradient(135deg,var(--brand),var(--brand-dark));-webkit-background-clip:text;-webkit-text-fill-color:transparent;">
         My Subscriptions
       </h1>
       <p class="text-muted" style="font-size:1.1rem;">Track signal access, payments, and performance.</p>
-    </div>{% if subscriptions|length == 0 %}<div class="empty-state">
-  <i class="bi bi-graph-up-arrow"></i>
-  <h4 class="mb-3">No Subscriptions Yet</h4>
-  <p class="text-muted mb-4">Subscribe to elite traders and elevate your edge.</p>
-  <a href="/dashboard" class="btn btn-primary" style="border-radius:var(--radius);padding:.75rem 2rem;font-weight:600;">
-    <i class="bi bi-search me-2"></i>Explore Signals
-  </a></div>
-{% else %}<!-- Stats -->
-<div class="stats-grid mb-4">
-  <div class="stat-item"><div class="stat-number">{{ stats.active_count }}</div><div class="stat-label">Active</div></div>
-  <div class="stat-item"><div class="stat-number">${{ "%.2f"|format(stats.monthly_total) }}</div><div class="stat-label">Monthly</div></div>
-  <div class="stat-item"><div class="stat-number">{{ stats.total_payments }}</div><div class="stat-label">Payments</div></div>
-  <div class="stat-item"><div class="stat-number">{{ "%.1f"|format(stats.success_rate) }}%</div><div class="stat-label">Success Rate</div></div>
-</div>
-
-<div class="row g-4">
-  <div class="col-lg-8">
-    {% for sub in subscriptions %}
-    <div class="subscription-card {% if sub.status in ['pending', 'pending_renewal'] %}renewal-due{% endif %}">
-      <div class="sub-header d-flex align-items-center gap-3">
-        <div class="trader-avatar">{{ sub.trader_name[0]|upper }}</div>
-        <div class="flex-grow-1">
-          <h6 class="mb-1 fw-bold">{{ sub.trader_name }}</h6>
-          <p class="text-muted mb-0 small">{{ sub.plan_type }}</p>
-        </div>
-        <span class="badge status-badge bg-{{
-            'success' if sub.status == 'active' else
-            'warning' if sub.status in ['pending','pending_renewal'] else
-            'danger' if sub.status == 'cancelled' else
-            'secondary'
-        }}">{{ sub.status|replace('_',' ')|title }}</span>
-      </div>
-
-  <div class="card-body p-4">
-    <div class="row">
-      <div class="col-md-6">
-        <h6 class="mb-3 fw-semibold text-muted">Plan Details</h6>
-        <ul class="plan-details">
-          <li><span><strong>Monthly Fee:</strong></span> <span>${{ "%.2f"|format(sub.amount_usd) }}</span></li>
-          <li><span><strong>Started:</strong></span> <span>{{ sub.start_date }}</span></li>
-          <li><span><strong>Renews:</strong></span>
-            <span class="text-primary fw-medium">
-              {{ sub.next_billing }}
-              {% if sub.status in ['pending', 'pending_renewal'] %}<i class="bi bi-exclamation-triangle-fill text-warning ms-1" title="Payment due"></i>{% endif %}
-            </span>
-          </li>
-          <li><span><strong>Total Paid:</strong></span> <span>${{ "%.2f"|format(sub.total_paid) }}</span></li>
-        </ul>
-      </div>
-
-  <div class="col-md-6 d-flex align-items-end">
-    <div class="w-100">
-      {% if sub.status == 'active' %}
-        <div class="d-flex gap-2">
-          <button class="btn btn-outline-danger action-btn flex-fill"
-                  hx-post="/subscriptions/{{ sub.id }}/cancel"
-                  hx-confirm="Cancel {{ sub.trader_name }}? Access ends immediately."
-                  hx-target="closest .subscription-card"
-                  hx-swap="outerHTML">
-            <i class="bi bi-x-circle me-1"></i> Cancel
-          </button>
-          <div id="renew-action-{{ sub.id }}">
-            <form hx-post="/subscriptions/{{ sub.id }}/renew"
-                  hx-target="#renew-action-{{ sub.id }}"
-                  hx-swap="innerHTML"
-                  class="d-inline">
-              <button class="btn btn-outline-success action-btn flex-fill">
-                <i class="bi bi-arrow-clockwise me-1"></i> Renew Now
-              </button>
-            </form>
-          </div>
-        </div>
-
-  {% elif sub.status in ['pending', 'pending_renewal'] %}
-    <div id="pay-action-{{ sub.id }}">
-      {% if sub.pay_url %}
-        <a href="{{ sub.pay_url }}" class="btn btn-success action-btn w-100" target="_blank">
-          <i class="bi bi-credit-card me-1"></i> Pay Now
-        </a>
-      {% else %}
-        <form hx-post="/subscriptions/{{ sub.id }}/renew"
-              hx-target="#pay-action-{{ sub.id }}"
-              hx-swap="innerHTML"
-              hx-indicator="#pay-action-{{ sub.id }} .htmx-indicator"
-              class="d-inline">
-          <button class="btn btn-warning action-btn w-100" title="Generate a new invoice">
-            <i class="bi bi-arrow-repeat me-1"></i> Regenerate Invoice
-          </button>
-          <div class="htmx-indicator d-flex align-items-center justify-content-center gap-2 text-muted small" style="display: none;">
-            <div class="spinner-border spinner-border-sm text-warning" role="status">
-              <span class="visually-hidden">Generating...</span>
-            </div>
-            Generating new invoice...
-          </div>
-        </form>
-      {% endif %}
     </div>
+    {% if total_count == 0 %}
+      <div class="empty-state">
+        <i class="bi bi-graph-up-arrow"></i>
+        <h4 class="mb-3">No Subscriptions Yet</h4>
+        <p class="text-muted mb-4">Subscribe to elite traders and elevate your edge.</p>
+        <a href="/dashboard" class="btn btn-primary" style="border-radius:var(--radius);padding:.75rem 2rem;font-weight:600;">
+          <i class="bi bi-search me-2"></i>Explore Signals
+        </a>
+      </div>
+    {% else %}
+      <!-- Stats -->
+      <div class="stats-grid mb-4">
+        <div class="stat-item"><div class="stat-number">{{ stats.active_count }}</div><div class="stat-label">Active</div></div>
+        <div class="stat-item"><div class="stat-number">${{ "%.2f"|format(stats.monthly_total) }}</div><div class="stat-label">Monthly</div></div>
+        <div class="stat-item"><div class="stat-number">{{ stats.total_payments }}</div><div class="stat-label">Payments</div></div>
+        <div class="stat-item"><div class="stat-number">{{ "%.1f"|format(stats.success_rate) }}%</div><div class="stat-label">Success Rate</div></div>
+      </div>
 
-  {% elif sub.status == 'cancelled' %}
-    <button class="btn btn-secondary action-btn w-100" disabled>
-      <i class="bi bi-slash-circle me-1"></i> Cancelled
-    </button>
+      <!-- NEW: Server-side filter buttons (replace tabs) -->
+      <div class="filter-btns d-flex justify-content-center mb-4 gap-2 flex-wrap">
+        <a href="/subscriptions/?page=1{% if limit != 10 %}&limit={{ limit }}{% endif %}"
+           class="btn {% if not sub_type %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+          <i class="bi bi-list-ul me-1"></i>All ({{ stats.platform_count + stats.marketplace_count }})
+        </a>
+        <a href="/subscriptions/?sub_type=platform&page=1{% if limit != 10 %}&limit={{ limit }}{% endif %}"
+           class="btn {% if sub_type == 'platform' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+          <i class="bi bi-cpu me-1"></i>Platform ({{ stats.platform_count }})
+        </a>
+        <a href="/subscriptions/?sub_type=marketplace&page=1{% if limit != 10 %}&limit={{ limit }}{% endif %}"
+           class="btn {% if sub_type == 'marketplace' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+          <i class="bi bi-shop me-1"></i>Marketplace ({{ stats.marketplace_count }})
+        </a>
+      </div>
 
-  {% else %}
-    <button class="btn btn-outline-secondary action-btn w-100" disabled>
-      <i class="bi bi-hourglass-split me-1"></i> {{ sub.status|title }}
-    </button>
-  {% endif %}
-</div>  </div>
-</div>
-
-<hr class="my-4">
-
-<div class="invoice-hint">
-  <i class="bi bi-clock"></i> Invoices expire ~1 hour after generation.
-  Click <i class="bi bi-arrow-repeat"></i> to regenerate if needed.
-</div>
-
-<h6 class="mb-3 fw-semibold text-muted">
-  <i class="bi bi-receipt me-2"></i>Recent Payments
-  <span class="badge bg-light text-dark small ms-2">
-    {{ sub.payments|length }}{% if sub.has_more_payments %} of {{ sub.payments|length + 10 }}{% endif %}
-  </span>
-</h6>
-
-<div class="table-responsive">
-  <table class="table payment-table mb-0">
-    <thead><tr>
-      <th>Date</th><th>Amount</th><th>Status</th>
-    </tr></thead>
-    <tbody>
-      {% for p in sub.payments %}
-      <tr>
-        <td><small class="text-muted">{{ p.paid_at }}</small></td>
-        <td><strong>${{ "%.2f"|format(p.amount_usd) }}</strong></td>
-        <td>
-          <span class="badge status-badge bg-{{
-              'success' if p.status in ['finished', 'finished_auto'] else
-              'warning' if p.status in ['pending','generated'] else
-              'danger' if p.status == 'failed' else
-              'secondary'
-          }}">
-            {{ p.status|title }}
-            {% if p.progress %}<br><small>({{ p.progress }} paid)</small>{% endif %}
-          </span>
-          {% if p.progress %}
-            <div class="progress-sm mt-1">
-              <div class="progress-bar" style="width: {{ p.progress }}"></div>
+      <div class="row g-4">
+        <div class="col-lg-8">
+          {% for sub in subscriptions %}
+          <div class="subscription-card {% if sub.status in ['pending', 'pending_renewal'] %}renewal-due{% endif %}">
+            <div class="sub-header d-flex align-items-center gap-3">
+              {% if sub.sub_type == 'platform' %}
+                <div class="trader-avatar bg-secondary">
+                  <i class="bi bi-building"></i>
+                </div>
+                <p class="text-muted mb-0 small d-flex align-items-center">
+                  <i class="bi bi-cpu-fill me-1"></i>
+                  {{ sub.plan_type }}
+                </p>
+              {% else %}
+                <div class="trader-avatar bg-purple">
+                  {{ sub.trader_name[0]|upper if sub.trader_name else 'T' }}
+                </div>
+                <p class="text-muted mb-0 small d-flex align-items-center">
+                  <i class="bi bi-shop-fill me-1"></i>
+                  {{ sub.plan_type }}
+                </p>
+              {% endif %}
+              <div class="flex-grow-1 ms-2">
+                <h6 class="mb-1 fw-bold">{{ sub.trader_name }}</h6>
+              </div>
+              <span class="badge status-badge bg-{{
+                  'success' if sub.status == 'active' else
+                  'warning' if sub.status in ['pending','pending_renewal'] else
+                  'danger' if sub.status == 'cancelled' else
+                  'secondary'
+              }}">{{ sub.status|replace('_',' ')|title }}</span>
             </div>
+
+            <div class="card-body p-4">
+              <div class="row">
+                <div class="col-md-6">
+                  <h6 class="mb-3 fw-semibold text-muted">Plan Details</h6>
+                  <ul class="plan-details">
+                    <li><span><strong>Type:</strong></span> 
+                      <span class="badge bg-{{ 'info' if sub.sub_type == 'platform' else 'purple' }} ms-2">{{ sub.sub_type|title }} Subscription</span>
+                    </li>
+                    <li><span><strong>Monthly Fee:</strong></span> <span>${{ "%.2f"|format(sub.amount_usd) }}</span></li>
+                    <li><span><strong>Started:</strong></span> <span>{{ sub.start_date }}</span></li>
+                    <li><span><strong>Renews:</strong></span>
+                      <span class="text-primary fw-medium">
+                        {{ sub.next_billing }}
+                        {% if sub.status in ['pending', 'pending_renewal'] %}<i class="bi bi-exclamation-triangle-fill text-warning ms-1" title="Payment due"></i>{% endif %}
+                      </span>
+                    </li>
+                    <li><span><strong>Total Paid:</strong></span> <span>${{ "%.2f"|format(sub.total_paid) }}</span></li>
+                  </ul>
+                </div>
+
+                <div class="col-md-6 d-flex align-items-end">
+                  <div class="w-100">
+                    {% if sub.status == 'active' %}
+                      <div class="d-flex gap-2">
+                        <button class="btn btn-outline-danger action-btn flex-fill"
+                                hx-post="/subscriptions/{{ sub.id }}/cancel"
+                                hx-confirm="Cancel {{ sub.trader_name }}? Access ends immediately."
+                                hx-target="closest .subscription-card"
+                                hx-swap="outerHTML">
+                          <i class="bi bi-x-circle me-1"></i> Cancel
+                        </button>
+                        <div id="renew-action-{{ sub.id }}">
+                          <form hx-post="/subscriptions/{{ sub.id }}/renew"
+                                hx-target="#renew-action-{{ sub.id }}"
+                                hx-swap="innerHTML"
+                                class="d-inline">
+                            <button class="btn btn-outline-success action-btn flex-fill">
+                              <i class="bi bi-arrow-clockwise me-1"></i> Renew Now
+                            </button>
+                          </form>
+                        </div>
+                      </div>
+
+                    {% elif sub.status in ['pending', 'pending_renewal'] %}
+                      <div id="pay-action-{{ sub.id }}">
+                        {% if sub.pay_url %}
+                          <a href="{{ sub.pay_url }}" class="btn btn-success action-btn w-100" target="_blank">
+                            <i class="bi bi-credit-card me-1"></i> Pay Now
+                          </a>
+                        {% else %}
+                          <form hx-post="/subscriptions/{{ sub.id }}/renew"
+                                hx-target="#pay-action-{{ sub.id }}"
+                                hx-swap="innerHTML"
+                                hx-indicator="#pay-action-{{ sub.id }} .htmx-indicator"
+                                class="d-inline">
+                            <button class="btn btn-warning action-btn w-100" title="Generate a new invoice">
+                              <i class="bi bi-arrow-repeat me-1"></i> Regenerate Invoice
+                            </button>
+                            <div class="htmx-indicator d-flex align-items-center justify-content-center gap-2 text-muted small" style="display: none;">
+                              <div class="spinner-border spinner-border-sm text-warning" role="status">
+                                <span class="visually-hidden">Generating...</span>
+                              </div>
+                              Generating new invoice...
+                            </div>
+                          </form>
+                        {% endif %}
+                      </div>
+
+                    {% elif sub.status == 'cancelled' %}
+                      <button class="btn btn-secondary action-btn w-100" disabled>
+                        <i class="bi bi-slash-circle me-1"></i> Cancelled
+                      </button>
+
+                    {% else %}
+                      <button class="btn btn-outline-secondary action-btn w-100" disabled>
+                        <i class="bi bi-hourglass-split me-1"></i> {{ sub.status|title }}
+                      </button>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <hr class="my-4">
+
+            <div class="invoice-hint">
+              <i class="bi bi-clock"></i> Invoices expire ~1 hour after generation.
+              Click <i class="bi bi-arrow-repeat"></i> to regenerate if needed.
+            </div>
+
+            <h6 class="mb-3 fw-semibold text-muted">
+              <i class="bi bi-receipt me-2"></i>Recent Payments
+              <span class="badge bg-light text-dark small ms-2">
+                {{ sub.payments|length }}{% if sub.has_more_payments %} of {{ sub.payments|length + 10 }}{% endif %}
+              </span>
+            </h6>
+
+            <div class="table-responsive">
+              <table class="table payment-table mb-0">
+                <thead><tr>
+                  <th>Date</th><th>Amount</th><th>Status</th>
+                </tr></thead>
+                <tbody>
+                  {% for p in sub.payments %}
+                  <tr>
+                    <td><small class="text-muted">{{ p.paid_at }}</small></td>
+                    <td><strong>${{ "%.2f"|format(p.amount_usd) }}</strong></td>
+                    <td>
+                      <span class="badge status-badge bg-{{
+                          'success' if p.status in ['finished', 'finished_auto'] else
+                          'warning' if p.status in ['pending','generated'] else
+                          'danger' if p.status == 'failed' else
+                          'secondary'
+                      }}">
+                        {{ p.status|title }}
+                        {% if p.progress %}<br><small>({{ p.progress }} paid)</small>{% endif %}
+                      </span>
+                      {% if p.progress %}
+                        <div class="progress-sm mt-1">
+                          <div class="progress-bar" style="width: {{ p.progress }}"></div>
+                        </div>
+                      {% endif %}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {% endfor %}
+
+          <!-- NEW: Pagination -->
+          {% if total_pages > 1 %}
+          <nav aria-label="Subscriptions pagination" class="mt-5">
+            <ul class="pagination justify-content-center">
+              {% if page > 1 %}
+              <li class="page-item">
+                <a class="page-link" href="?{% if sub_type %}sub_type={{ sub_type }}&{% endif %}page={{ page - 1 }}{% if limit != 10 %}&limit={{ limit }}{% endif %}">Previous</a>
+              </li>
+              {% endif %}
+              {% for p in range(1, total_pages + 1) %}
+              <li class="page-item {% if p == page %}active{% endif %}">
+                <a class="page-link" href="?{% if sub_type %}sub_type={{ sub_type }}&{% endif %}page={{ p }}{% if limit != 10 %}&limit={{ limit }}{% endif %}">{{ p }}</a>
+              </li>
+              {% endfor %}
+              {% if page < total_pages %}
+              <li class="page-item">
+                <a class="page-link" href="?{% if sub_type %}sub_type={{ sub_type }}&{% endif %}page={{ page + 1 }}{% if limit != 10 %}&limit={{ limit }}{% endif %}">Next</a>
+              </li>
+              {% endif %}
+            </ul>
+          </nav>
           {% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>  </div>
-</div>
-{% endfor %}  </div>
-
-  <div class="col-lg-4">
-    <div class="card-radius h-100">
-      <div class="card-body p-4">
-        <h6 class="fw-semibold text-muted mb-4 text-center">Quick Actions</h6>
-        <div class="d-grid gap-3">
-          <a href="/dashboard" class="btn btn-outline-primary"><i class="bi bi-search me-2"></i> Find Signals</a>
-          <a href="/plans" class="btn btn-outline-secondary"><i class="bi bi-gear me-2"></i> Change Plan</a>
-          <button class="btn btn-success" onclick="alert('Export coming soon!')"><i class="bi bi-download me-2"></i> Export CSV</button>
         </div>
-        <hr class="my-4">
-        <a href="mailto:support@itradex.xyz" class="btn btn-link text-muted d-block text-center">
-          <i class="bi bi-headset me-2"></i> Need Help?
-        </a>
+
+        <!-- UPDATED: Shared sidebar outside tabs (no h-100, shrinks to content) -->
+        <div class="col-lg-4">
+          <div class="sidebar-card">
+            <div class="card-body p-4">
+              <h6 class="fw-semibold text-muted mb-4 text-center">Quick Actions</h6>
+              <div class="d-grid gap-3">
+                <a href="/dashboard" class="btn btn-outline-primary"><i class="bi bi-search me-2"></i> Find Signals</a>
+                <a href="/plans" class="btn btn-outline-secondary"><i class="bi bi-gear me-2"></i> Change Plan</a>
+                <button class="btn btn-success" onclick="alert('Export coming soon!')"><i class="bi bi-download me-2"></i> Export CSV</button>
+              </div>
+              <hr class="my-4">
+              <a href="mailto:support@itradex.xyz" class="btn btn-link text-muted d-block text-center">
+                <i class="bi bi-headset me-2"></i> Need Help?
+              </a>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
-  </div>
-</div>
-{% endif %}  </div></div>
+    {% endif %}
+  </div></div>
 </main>
 {% endblock %}

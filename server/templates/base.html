@@ -976,7 +976,19 @@
     <h5 class="offcanvas-title" id="chatOffcanvasLabel">
       <i class="bi bi-robot me-2"></i>iTrade Companion
     </h5>
-    <span class="ai-badge">{{ current_user.plan | title if current_user else 'Free' }}</span>
+    <span class="ai-badge">
+      {% if current_user %}
+        {% if 'pro' in current_user.plan.lower() %}
+          Pro
+        {% elif 'elite' in current_user.plan.lower() %}
+          Elite
+        {% else %}
+          Free
+        {% endif %}
+      {% else %}
+        Free
+      {% endif %}
+    </span>
     <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
   </div>
   <div class="offcanvas-body d-flex flex-column">

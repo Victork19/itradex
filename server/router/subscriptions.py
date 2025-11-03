@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status, Header
+from fastapi import APIRouter, Depends, HTTPException, Request, status, Header, Query
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, desc
+from sqlalchemy import select, update, desc, func, and_
+from sqlalchemy.orm import joinedload
 from datetime import datetime, timedelta
 from typing import Any
+from math import ceil
 
 from templates_config import templates
 from models.models import User, Subscription, Payment  # FIXED: Direct import for clarity
@@ -44,23 +46,111 @@ def _render_pay_now_button(invoice_url: str, message: str = "Pay Now") -> str:
 
 
 # ----------------------------------------------------------------------
+# NEW: Get full stats (independent of pagination/filter)
+# ----------------------------------------------------------------------
+async def get_stats(db: AsyncSession, user_id: int) -> dict[str, Any]:
+    # active_count
+    res = await db.execute(
+        select(func.count(Subscription.id))
+        .where(and_(Subscription.user_id == user_id, Subscription.status == "active"))
+    )
+    active_count = res.scalar() or 0
+
+    # monthly_total
+    res = await db.execute(
+        select(func.sum(Subscription.amount_usd))
+        .where(and_(Subscription.user_id == user_id, Subscription.status == "active"))
+    )
+    monthly_total = res.scalar() or 0.0
+
+    # total_payments
+    res = await db.execute(
+        select(func.count(Payment.id))
+        .join(Subscription, Payment.subscription_id == Subscription.id)
+        .where(Subscription.user_id == user_id)
+    )
+    total_payments = res.scalar() or 0
+
+    # successful
+    res = await db.execute(
+        select(func.count(Payment.id))
+        .join(Subscription, Payment.subscription_id == Subscription.id)
+        .where(
+            and_(
+                Subscription.user_id == user_id,
+                Payment.status.in_(["finished", "finished_auto"])
+            )
+        )
+    )
+    successful = res.scalar() or 0
+
+    success_rate = round((successful / total_payments * 100), 1) if total_payments else 0.0
+
+    # platform_count
+    res = await db.execute(
+        select(func.count(Subscription.id))
+        .where(and_(Subscription.user_id == user_id, Subscription.trader_id.is_(None)))
+    )
+    platform_count = res.scalar() or 0
+
+    # marketplace_count
+    res = await db.execute(
+        select(func.count(Subscription.id))
+        .where(and_(Subscription.user_id == user_id, Subscription.trader_id.is_not(None)))
+    )
+    marketplace_count = res.scalar() or 0
+
+    return {
+        "active_count": active_count,
+        "monthly_total": round(monthly_total, 2),
+        "total_payments": int(total_payments),
+        "success_rate": success_rate,
+        "platform_count": platform_count,
+        "marketplace_count": marketplace_count,
+    }
+
+
+# ----------------------------------------------------------------------
 # GET /subscriptions/
 # ----------------------------------------------------------------------
 @router.get("/", response_class=HTMLResponse)
 async def list_subscriptions(
     request: Request,
+    sub_type: str | None = Query(None, description="Filter by sub_type: platform, marketplace"),
+    page: int = Query(1, ge=1, description="Page number"),
+    limit: int = Query(10, ge=1, le=50, description="Items per page"),
     db: AsyncSession = Depends(get_session),
     current_user: User = Depends(auth.get_current_user)
 ):
+    # Full stats
+    stats = await get_stats(db, current_user.id)
+
+    # Build where clause for filtered/paginated query
+    where_clause = Subscription.user_id == current_user.id
+    if sub_type == "platform":
+        where_clause = and_(where_clause, Subscription.trader_id.is_(None))
+    elif sub_type == "marketplace":
+        where_clause = and_(where_clause, Subscription.trader_id.is_not(None))
+
+    # Total count for pagination
+    total_res = await db.execute(
+        select(func.count(Subscription.id)).where(where_clause)
+    )
+    total_count = total_res.scalar() or 0
+    total_pages = ceil(total_count / limit) if limit > 0 else 0
+
+    # Paginated subscriptions
+    offset = (page - 1) * limit
     subs_res = await db.execute(
         select(Subscription)
-        .where(Subscription.user_id == current_user.id)
+        .where(where_clause)
         .order_by(desc(Subscription.start_date))
+        .offset(offset)
+        .limit(limit)
     )
     subs = subs_res.scalars().all()
 
     enriched = []
-    total_monthly = total_payments = successful = 0.0
 
     for sub in subs:
         # trader name
@@ -69,6 +159,9 @@ async def list_subscriptions(
 
         # FIXED: Improved display for marketplace
         display_plan = f"Marketplace: {trader_name}" if sub.trader_id else sub.plan_type.replace("_", " ").title()
+
+        # NEW: Explicit sub_type for template clarity
+        sub_type_enriched = "marketplace" if sub.trader_id else "platform"
 
         # payments (last 10 for UI)
         pays_res = await db.execute(
@@ -88,11 +181,6 @@ async def list_subscriptions(
         start = sub.start_date.strftime("%b %d, %Y") if sub.start_date else "N/A"
         next_b = sub.next_billing_date.strftime("%b %d, %Y") if sub.next_billing_date else "N/A"
 
-        if sub.status == "active":
-            total_monthly += sub.amount_usd
-        total_payments += len(payments)
-        successful += len([p for p in payments if p.status in ["finished", "finished_auto"]])
-
         # Pay URL for pending states if fresh
         pay_url = None
         fake_payment = type("obj", (), {"created_at": sub.updated_at, "invoice_url": sub.renewal_url})
@@ -103,6 +191,7 @@ async def list_subscriptions(
             "id": sub.id,
             "trader_name": trader_name,
             "plan_type": display_plan,  # FIXED: Better display
+            "sub_type": sub_type_enriched,  # NEW: Explicit type for template
             "amount_usd": sub.amount_usd,
             "status": sub.status,
             "start_date": start,
@@ -126,8 +215,6 @@ async def list_subscriptions(
             "has_more_payments": len(payments) > 10,
         })
 
-    success_rate = round((successful / total_payments * 100), 1) if total_payments else 0.0
-
     return templates.TemplateResponse(
         "subscriptions.html",
         {
@@ -135,12 +222,12 @@ async def list_subscriptions(
             "subscriptions": enriched,
             "current_user": current_user,
             "now": datetime.utcnow(),
-            "stats": {
-                "active_count": len([s for s in subs if s.status == "active"]),
-                "monthly_total": round(total_monthly, 2),
-                "total_payments": int(total_payments),
-                "success_rate": success_rate,
-            },
+            "stats": stats,
+            "sub_type": sub_type,
+            "page": page,
+            "limit": limit,
+            "total_count": total_count,
+            "total_pages": total_pages,
         },
     )
 
@@ -313,6 +400,7 @@ async def retry_or_regenerate_payment(
         <span class="text-success small ms-2">New invoice generated!</span>
         '''
     )
+
 
 @router.get("/current")
 async def get_current_subscription(

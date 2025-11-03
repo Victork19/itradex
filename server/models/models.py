@@ -67,6 +67,13 @@ class User(Base):
     win_rate = Column(Float, default=0.0)  # Cached/computed win rate
     marketplace_price = Column(Float, default=19.99, nullable=False)  # Monthly subscription price for this trader
 
+    # NEW: For marketplace earnings and payouts
+    marketplace_earnings = Column(Float, default=0.0)
+    monthly_earnings = Column(Float, default=0.0)
+    wallet_address = Column(String, nullable=True)
+    last_payout_date = Column(Date, nullable=True)
+    payout_threshold = Column(Float, default=50.0)
+
     ai_detect = Column(Boolean, default=True)  # Enable AI trade detection
     risk_per_trade = Column(Float, nullable=True, default=1.0)  # Default risk % per trade
     daily_loss_percent = Column(Float, nullable=True, default=5.0)  # Daily loss limit %

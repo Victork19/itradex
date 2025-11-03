@@ -253,6 +253,12 @@ SYSTEM_PROMPT = (
 # In-memory symbol cache
 _symbol_cache: Optional[Dict[str, list]] = None
 
+def normalize_plan(plan: str) -> str:
+    """Normalize composite plan_type (e.g., 'pro_monthly') to base plan (e.g., 'pro') for feature granting."""
+    if '_' in plan:
+        return plan.split('_')[0]
+    return plan
+
 def is_valid_trade(trade_dict: Dict[str, Any]) -> bool:
     """Check if trade has at least 2 key fields populated."""
     key_fields = ['symbol', 'entry_price', 'sl_price', 'tp_price', 'direction']
@@ -298,7 +304,8 @@ async def get_monthly_upload_count(db: AsyncSession, user_id: int) -> int:
         return 0
 
 async def get_plan_limits(db: AsyncSession, plan: str) -> Tuple[int, int]:
-    """Get monthly and batch limits based on plan from DB."""
+    """Get monthly and batch limits based on normalized plan from DB."""
+    plan = normalize_plan(plan)
     try:
         result = await db.execute(
             select(models.UploadLimits.monthly_limit, models.UploadLimits.batch_limit)
@@ -321,8 +328,9 @@ async def get_plan_limits(db: AsyncSession, plan: str) -> Tuple[int, int]:
         return 2, 3
 
 async def enforce_upload_limits(db: AsyncSession, current_user: models.User, num_files: int) -> None:
-    """Enforce plan-based upload limits."""
-    monthly_limit, batch_limit = await get_plan_limits(db, current_user.plan)
+    """Enforce plan-based upload limits using normalized plan."""
+    normalized_plan = normalize_plan(current_user.plan)
+    monthly_limit, batch_limit = await get_plan_limits(db, normalized_plan)
     monthly_count = await get_monthly_upload_count(db, current_user.id)
     if num_files > batch_limit:
         raise HTTPException(

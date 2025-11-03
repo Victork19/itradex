@@ -93,6 +93,12 @@ SYSTEM_PROMPT = (
     f"{json.dumps(INSIGHTS_JSON_SCHEMA, indent=2)}"
 )
 
+def normalize_plan(plan: str) -> str:
+    """Normalize composite plan_type (e.g., 'pro_monthly') to base plan (e.g., 'pro') for feature granting."""
+    if '_' in plan:
+        return plan.split('_')[0]
+    return plan
+
 async def get_stored_insights(user_id: int, db: AsyncSession, total_trades: Optional[int] = None) -> Tuple[Optional[Dict[str, Any]], Optional[int]]:
     """Get latest stored insights for user (optionally filtered by total_trades). Returns (insights_dict, trades_count_at_save)."""
     if total_trades is not None and total_trades == 0:
@@ -320,7 +326,7 @@ async def get_insights_page(
     now = datetime.utcnow()
     
     # Initialize credits for new starter users ONLY if they've never generated before
-    plan = getattr(current_user, 'plan', 'free')
+    plan = normalize_plan(getattr(current_user, 'plan', 'free'))
     if plan == 'starter':
         credits = getattr(current_user, 'insights_credits', 0) or 0
         if credits == 0:
@@ -527,7 +533,7 @@ async def compute_insights(current_user: models.User, db: AsyncSession, prompt: 
             advanced = compute_advanced_metrics(pnls)
 
             # Decide on AI insights
-            plan = getattr(current_user, 'plan', 'free')
+            plan = normalize_plan(getattr(current_user, 'plan', 'free'))
             is_unlimited = plan in ['pro', 'elite']
             has_generation_right = is_unlimited or (plan == 'starter' and credits > 0)
             prompt_or_force = bool(prompt or force)

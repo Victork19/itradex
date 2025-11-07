@@ -188,3 +188,32 @@ class TradeUpdate(BaseModel):
 
 class PriceUpdate(BaseModel):
     price: float = Field(..., ge=1.0, le=99.99, description="Monthly price in USD")
+
+class NotificationSchema(BaseModel):
+    id: int
+    title: str
+    message: str
+    type: str
+    is_read: bool
+    created_at: Optional[str]  # Matches your strftime output
+
+    class Config:
+        from_attributes = True  # Enables ORM mode for SQLAlchemy objects
+
+class NotificationsResponse(BaseModel):
+    notifications: List[NotificationSchema]
+    unread_count: int
+
+class UpdateUserRequest(BaseModel):
+    username: Optional[str] = None
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+
+class SetPasswordRequest(BaseModel):
+    password: str
+    password_confirm: str
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+    new_password_confirm: str

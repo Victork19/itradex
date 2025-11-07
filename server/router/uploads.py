@@ -18,7 +18,7 @@ from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status,
 from pydantic import BaseModel, Field, ValidationError, field_validator, ConfigDict, FieldValidationInfo
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy import select, func
+from sqlalchemy import select, func, update
 from PIL import Image
 from tenacity import retry, stop_after_attempt, wait_exponential_jitter, retry_if_exception_type
 
@@ -303,47 +303,118 @@ async def get_monthly_upload_count(db: AsyncSession, user_id: int) -> int:
         logger.error("Failed to count monthly uploads: %s", e)
         return 0
 
-async def get_plan_limits(db: AsyncSession, plan: str) -> Tuple[int, int]:
-    """Get monthly and batch limits based on normalized plan from DB."""
+async def get_plan_limits(db: AsyncSession, plan: str) -> Dict[str, Any]:
+    """Get monthly, batch limits, and TP costs based on normalized plan from DB."""
     plan = normalize_plan(plan)
     try:
-        result = await db.execute(
-            select(models.UploadLimits.monthly_limit, models.UploadLimits.batch_limit)
+        # Fetch upload limits
+        result_upload = await db.execute(
+            select(models.UploadLimits.monthly_limit, models.UploadLimits.batch_limit, models.UploadLimits.tp_cost)
             .where(models.UploadLimits.plan == plan)
         )
-        row = result.fetchone()
-        if row:
-            return row.monthly_limit or 2, row.batch_limit or 3
+        row_upload = result_upload.fetchone()
+        
+        # Fetch insights/chat limits (for AI extraction/insights)
+        result_insights = await db.execute(
+            select(models.InsightsLimits.monthly_limit, models.InsightsLimits.monthly_chat_limit, 
+                   models.InsightsLimits.tp_cost_insight, models.InsightsLimits.tp_cost_chat)
+            .where(models.InsightsLimits.plan == plan)
+        )
+        row_insights = result_insights.fetchone()
+        
+        if row_upload and row_insights:
+            return {
+                "monthly_upload_limit": row_upload[0] or 3,
+                "batch_upload_limit": row_upload[1] or 5,
+                "tp_cost_upload": row_upload[2] or 1,  # FIXED: Default to 1 for uploads (costs TP for starter)
+                "monthly_insight_limit": row_insights[0] or 0,
+                "monthly_chat_limit": row_insights[1] or 5,
+                "tp_cost_insight": row_insights[2] or 1,
+                "tp_cost_chat": row_insights[3] or 1
+            }
     except Exception as e:
-        logger.warning("Failed to fetch upload limits from DB: %s; using hardcoded", e)
+        logger.warning("Failed to fetch limits from DB: %s; using hardcoded", e)
     
-    # Hardcoded fallback with updated limits
+    # FIXED: Hardcoded fallback updated to match DB defaults (starter: monthly=3, batch=5, tp_upload=1 to enable expenditure)
     if plan == 'starter':
-        return 2, 3
+        return {
+            "monthly_upload_limit": 3, "batch_upload_limit": 5, "tp_cost_upload": 1,  # FIXED: Set to 1 (uploads cost TP)
+            "monthly_insight_limit": 0, "monthly_chat_limit": 5, "tp_cost_insight": 1, "tp_cost_chat": 1
+        }
     elif plan == 'pro':
-        return 29, 10
+        return {
+            "monthly_upload_limit": 29, "batch_upload_limit": 10, "tp_cost_upload": 0,  # Unlimited, no TP cost
+            "monthly_insight_limit": 1000, "monthly_chat_limit": 20, "tp_cost_insight": 0, "tp_cost_chat": 0
+        }
     elif plan == 'elite':
-        return 1000, 10
+        return {
+            "monthly_upload_limit": 1000, "batch_upload_limit": 10, "tp_cost_upload": 0,
+            "monthly_insight_limit": 1000, "monthly_chat_limit": 1000, "tp_cost_insight": 0, "tp_cost_chat": 0
+        }
     else:
-        return 2, 3
+        return {
+            "monthly_upload_limit": 3, "batch_upload_limit": 5, "tp_cost_upload": 1,  # FIXED: Default to 1
+            "monthly_insight_limit": 0, "monthly_chat_limit": 5, "tp_cost_insight": 1, "tp_cost_chat": 1
+        }
 
-async def enforce_upload_limits(db: AsyncSession, current_user: models.User, num_files: int) -> None:
-    """Enforce plan-based upload limits using normalized plan."""
+async def spend_trade_points(db: AsyncSession, user: models.User, action: str, amount: int = 1) -> None:
+    """Deduct Trade Points for an action (e.g., 'upload', 'insight')."""
+    current_points = user.trade_points or 0  # Coerce None to 0 for check
+    if current_points < amount:
+        raise HTTPException(status_code=402, detail=f"Insufficient Trade Points ({current_points} remaining). Refer friends to earn more!")
+    
+    # FIXED: Direct SQL UPDATE for reliability (bypasses object state issues); handle None as 0
+    from sqlalchemy import case
+    stmt = (
+        update(models.User)
+        .where(models.User.id == user.id)
+        .values(trade_points=case((models.User.trade_points.is_(None), 0 - amount), else_=models.User.trade_points - amount))
+        .execution_options(synchronize_session="fetch")
+    )
+    await db.execute(stmt)
+    
+    # Log transaction (unchanged)
+    tx = models.PointTransaction(
+        user_id=user.id,
+        type=action,
+        amount=-amount,
+        description=f"Spent {amount} TP on {action}"
+    )
+    db.add(tx)
+    await db.flush()  # Flush tx before commit for atomicity
+    await db.commit()
+    
+    # FIXED: Refresh user object post-update for in-request consistency
+    await db.refresh(user)
+    
+    logger.info(f"Spent {amount} TP for user {user.id} on {action}; new balance: {user.trade_points}")
+
+async def enforce_upload_limits(db: AsyncSession, current_user: models.User, num_files: int, action_type: str = "upload") -> None:
+    """Enforce plan-based limits and TP costs (upload count + TP deduction)."""
     normalized_plan = normalize_plan(current_user.plan)
-    monthly_limit, batch_limit = await get_plan_limits(db, normalized_plan)
+    limits = await get_plan_limits(db, normalized_plan)
+    
+    # Check monthly count
     monthly_count = await get_monthly_upload_count(db, current_user.id)
-    if num_files > batch_limit:
+    monthly_limit = limits["monthly_upload_limit"]
+    if action_type == "upload" and num_files > limits["batch_upload_limit"]:
         raise HTTPException(
             status_code=413,
-            detail=f"Batch size exceeds plan limit ({batch_limit} max). Upgrade for more."
+            detail=f"Batch size exceeds plan limit ({limits['batch_upload_limit']} max). Upgrade for more."
         )
     projected_count = monthly_count + num_files
     if projected_count > monthly_limit:
         remaining = max(0, monthly_limit - monthly_count)
-        raise HTTPException(
-            status_code=402,
+        raise HTTPException(  # FIXED: Changed to 429 for rate limiting distinction
+            status_code=429,
             detail=f"Monthly upload limit reached ({monthly_limit} total). {remaining} remaining this month. Upgrade for more."
         )
+    
+    # FIXED: Deduct TP only for extraction/AI steps (0 cost for "save" or other)
+    tp_cost = limits[f"tp_cost_{action_type}"] * num_files if action_type in ["upload", "insight"] else 0
+    if tp_cost > 0:
+        await spend_trade_points(db, current_user, action_type, tp_cost)
+        await db.refresh(current_user)  # Ensure in-request user sees update
 
 def validate_and_preprocess_image(contents: bytes, max_pixels: int = 1_000_000) -> bytes:
     """Validate and compress image for token efficiency."""
@@ -583,7 +654,7 @@ async def get_monthly_uploads(db: AsyncSession = Depends(get_session), current_u
     return {"count": count}
 
 # NEW: Dynamic limits endpoint
-@router.get("/limits", response_model=Dict[str, int])
+@router.get("/limits", response_model=Dict[str, Any])
 async def get_upload_limits(
     plan: Optional[str] = None,  # Optional: fetch for specific plan (e.g., current user's)
     current_user: Optional[models.User] = Depends(auth.get_current_user),  # Only if plan not provided
@@ -591,16 +662,37 @@ async def get_upload_limits(
 ):
     """Fetch dynamic upload limits for plans (or current user's plan)."""
     if plan:
-        monthly, batch = await get_plan_limits(db, plan)
-        return {"monthly_limit": monthly, "batch_limit": batch}
+        limits = await get_plan_limits(db, plan)
+        return limits
     
     # Default: fetch for all plans if no plan specified
     plans = ['starter', 'pro', 'elite']
-    limits = {}
+    all_limits = {}
     for p in plans:
-        monthly, batch = await get_plan_limits(db, p)
-        limits[p] = {"monthly_limit": monthly, "batch_limit": batch}
-    return limits
+        all_limits[p] = await get_plan_limits(db, p)
+    return all_limits
+
+# NEW: TP balance endpoint
+@router.get("/points/balance")
+async def get_points_balance(current_user: models.User = Depends(auth.get_current_user)):
+    """Get current Trade Points balance."""
+    return {"trade_points": current_user.trade_points}
+
+@router.post("/points/spend")
+async def spend_points(
+    payload: dict = Body(...),  # {"action": "upload"|"insight"|"chat", "amount": int (optional, defaults 1)}
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_session)
+):
+    """Spend Trade Points for an action."""
+    action = payload.get("action")
+    amount = payload.get("amount", 1)
+    if not action:
+        raise HTTPException(status_code=400, detail="Action required (e.g., 'upload', 'insight')")
+    await spend_trade_points(db, current_user, action, amount)
+    # FIXED: Re-fetch balance post-refresh for accurate response
+    await db.refresh(current_user)
+    return {"balance": current_user.trade_points, "message": f"Spent {amount} TP on {action}."}
 
 @router.post("/extract_batch")
 async def extract_batch_trades(
@@ -610,7 +702,7 @@ async def extract_batch_trades(
 ):
     """Extract trades from multiple screenshots, deduplicate, and return for review."""
     num_files = len(files)
-    await enforce_upload_limits(db, current_user, num_files)
+    await enforce_upload_limits(db, current_user, num_files, "upload")  # Deducts TP for batch
     correlation_id = asyncio.current_task().get_name()
     logger.info("Batch extract started: user=%s, files=%d", current_user.id, num_files, extra={"corr_id": correlation_id})
     
@@ -714,7 +806,7 @@ async def extract_trade_screenshot(
 ):
     """Extract trade from a single screenshot for review."""
     num_files = 1
-    await enforce_upload_limits(db, current_user, num_files)
+    await enforce_upload_limits(db, current_user, num_files, "upload")  # FIXED: Changed from "insight" to "upload" (deduct TP once)
     correlation_id = asyncio.current_task().get_name()
     logger.info("Extract started: user=%s, file=%s", current_user.id, file.filename, extra={"corr_id": correlation_id})
     
@@ -778,6 +870,8 @@ async def save_batch_trades(
     """Save multiple reviewed trades to the database with detailed error handling."""
     if not trades_data:
         raise HTTPException(status_code=400, detail="No trades to save")
+    num_files = len(trades_data)  # Treat as batch save (no extra TP; TP deducted on extract)
+    await enforce_upload_limits(db, current_user, num_files, "save")  # FIXED: Changed to "save" (checks limits, deducts 0 TP)
     correlation_id = asyncio.current_task().get_name()
     logger.info("Batch save started: user=%s, trades=%d, data=%s", current_user.id, len(trades_data), trades_data, extra={"corr_id": correlation_id})
     
@@ -912,7 +1006,7 @@ async def save_extracted_trade(
 ):
     """Save a single reviewed trade to the database."""
     num_files = 1
-    await enforce_upload_limits(db, current_user, num_files)
+    await enforce_upload_limits(db, current_user, num_files, "save")  # FIXED: Changed to "save" (checks limits, deducts 0 TP)
     correlation_id = asyncio.current_task().get_name()
     logger.info("Save started: user=%s, symbol=%s, data=%s", current_user.id, trade_data.symbol, trade_data.dict(), extra={"corr_id": correlation_id})
     
@@ -1012,7 +1106,7 @@ async def upload_trade_screenshot(
 ):
     """Upload, extract, and save trade from a screenshot."""
     num_files = 1
-    await enforce_upload_limits(db, current_user, num_files)
+    await enforce_upload_limits(db, current_user, num_files, "upload")  # Deducts TP for full flow
     correlation_id = asyncio.current_task().get_name()
     logger.info("Upload started: user=%s, file=%s", current_user.id, file.filename, extra={"corr_id": correlation_id})
     

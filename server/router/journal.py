@@ -384,12 +384,13 @@ async def check_eligibility(
     result_config = await db.execute(select(models.EligibilityConfig).where(models.EligibilityConfig.id == 1))
     config = result_config.scalar_one_or_none()
     if not config:
-        config = models.EligibilityConfig(id=1, min_trades=50, min_win_rate=80.0, max_marketplace_price=99.99)  # Default
+        config = models.EligibilityConfig(id=1, min_trades=50, min_win_rate=80.0, max_marketplace_price=99.99, trader_share_percent=70.0)  # Default with split
         db.add(config)
         await db.commit()
 
     min_trades = config.min_trades
     min_win_rate = config.min_win_rate
+    trader_share_percent = config.trader_share_percent or 70.0
 
     # Calculate user's stats
     trade_query = select(models.Trade).where(models.Trade.owner_id == current_user.id)
@@ -407,7 +408,8 @@ async def check_eligibility(
         "required_win_rate": min_win_rate,
         "is_trader": current_user.is_trader,
         "is_trader_pending": current_user.is_trader_pending,  # NEW
-        "marketplace_price": current_user.marketplace_price or 19.99  # Default display price
+        "marketplace_price": current_user.marketplace_price or 19.99,  # Default display price
+        "trader_share_percent": trader_share_percent  # NEW: Revenue split
     }
 
 # NEW: Apply to Become Trader (Pending Review)
@@ -533,6 +535,11 @@ async def get_earnings(
     next_month = today.replace(day=1) + timedelta(days=32)
     next_payout_date = next_month.replace(day=1)
 
+    # Fetch config for split (for display, though earnings already reflect it)
+    result_config = await db.execute(select(models.EligibilityConfig).where(models.EligibilityConfig.id == 1))
+    config = result_config.scalar_one_or_none()
+    trader_share_percent = config.trader_share_percent or 70.0 if config else 70.0
+
     return {
         "total_earnings": total_earnings,
         "pending_payout": pending_payout,
@@ -541,33 +548,11 @@ async def get_earnings(
         "has_wallet": has_wallet,
         "wallet_address": current_user.wallet_address,
         "last_payout_date": last_payout.isoformat() if last_payout else None,
-        "next_payout_date": next_payout_date.isoformat()
+        "next_payout_date": next_payout_date.isoformat(),
+        "trader_share_percent": trader_share_percent  # NEW: Include split in earnings response
     }
 
-# NEW: Update Wallet Address
-@router.put("/wallet")
-async def update_wallet(
-    request: Request,
-    db: AsyncSession = Depends(get_session),
-    current_user: models.User = Depends(auth.get_current_user)
-):
-    """Update the trader's payout wallet address."""
-    if not current_user.is_trader:
-        raise HTTPException(status_code=403, detail="Access denied: Not a marketplace trader")
 
-    body = await request.json()
-    wallet = body.get("wallet", "").strip()
-
-    if not wallet:
-        raise HTTPException(status_code=400, detail="Wallet address required")
-    if not re.match(r'^0x[a-fA-F0-9]{40}$', wallet):
-        raise HTTPException(status_code=400, detail="Invalid Ethereum wallet address")
-
-    current_user.wallet_address = wallet
-    current_user.updated_at = datetime.utcnow()
-    await db.commit()
-
-    return {"message": "Wallet address updated successfully"}
 
 # NEW: Request Monthly Payout
 @router.post("/request-payout")

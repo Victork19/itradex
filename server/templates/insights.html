@@ -4,7 +4,7 @@
   <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <div>
       <h4 class="fw-bold mb-1">Your Trading Insights</h4>
-      <p class="small-muted mb-0" id="insights-subtitle"></p>
+      <p class="small text-muted mb-0" id="insights-subtitle"></p>
     </div>
     <div class="d-flex gap-2 align-items-center flex-wrap">
       <div id="generations-display" class="d-none"></div>
@@ -14,10 +14,13 @@
         <button class="btn btn-outline-secondary btn-sm" onclick="exportInsights('csv')" data-bs-toggle="tooltip" data-bs-placement="top" title="Export insights as CSV"><i class="bi bi-file-earmark-spreadsheet me-1"></i> CSV</button>
       </div>
     </div>
-  </div>  <div class="card-radius p-0" id="insights-container">
+  </div>
+  <div class="card card-radius p-0" id="insights-container">
     <!-- Dynamic content injected via JS -->
-  </div></main><!-- Regenerate Modal -->
-<div class="modal fade" id="regenerateModal" tabindex="-1" aria-labelledby="regenerateModalLabel" data-bs-theme="dark">
+  </div></main>
+
+<!-- Regenerate Modal -->
+<div class="modal fade" id="regenerateModal" tabindex="-1" aria-labelledby="regenerateModalLabel">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
@@ -28,7 +31,7 @@
         <label class="form-label">Custom Focus Prompt</label>
         <input id="regeneratePrompt" class="form-control" placeholder="e.g., Focus on psych biases">
         <div id="credit-warning" class="alert alert-warning mt-2 d-none" role="alert">
-          <i class="bi bi-exclamation-triangle me-2"></i> No generations left! Upgrade to Pro for unlimited regenerations.
+          <i class="bi bi-exclamation-triangle me-2"></i> No generations left this month! Upgrade to Pro for unlimited regenerations.
           <button class="btn btn-warning btn-sm ms-2" onclick="window.location.href='/plans'">Upgrade Now</button>
         </div>
       </div>
@@ -41,7 +44,7 @@
 </div>
 
 <!-- Upgrade Modal -->
-<div class="modal fade" id="upgradeModal" tabindex="-1" aria-labelledby="upgradeModalLabel" data-bs-theme="dark">
+<div class="modal fade" id="upgradeModal" tabindex="-1" aria-labelledby="upgradeModalLabel">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
@@ -62,7 +65,9 @@
 </div>
 {% endblock %}
 
-{% block scripts %}<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script><script src="https://cdn.jsdelivr.net/npm/chart.js"></script><style>
+{% block scripts %}<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
   /* Insights-specific styles */
   .session-toggle {
     background: rgba(47,107,255,0.08);
@@ -183,7 +188,7 @@
 
   /* Dark mode fixes for modal and table */
   [data-bs-theme="dark"] .modal-content {
-    background-color: var(--bg-secondary);
+    background-color: var(--surface);  /* Fixed: Use --surface instead of --bg-secondary */
     color: var(--text);
     border: 1px solid var(--border);
   }
@@ -191,6 +196,17 @@
     border-bottom: 1px solid var(--border);
   }
   [data-bs-theme="dark"] .modal-footer {
+    border-top: 1px solid var(--border);
+  }
+  [data-bs-theme="light"] .modal-content {
+    background-color: var(--surface);  /* Fixed: Use --surface instead of --bg-primary */
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  [data-bs-theme="light"] .modal-header {
+    border-bottom: 1px solid var(--border);
+  }
+  [data-bs-theme="light"] .modal-footer {
     border-top: 1px solid var(--border);
   }
   [data-theme="dark"] .table {
@@ -260,9 +276,7 @@
 
   // Injected initial data from backend via Jinja
   const initialInsightsData = {{ insights | default({}) | tojson | safe }};
-  let userCredits = initialInsightsData.credits || {{ current_user.insights_credits | default(0) }};
-  const currentPlan = '{{ current_user.plan.split('_')[0] if '_' in current_user.plan else current_user.plan }}';
-  const isUnlimited = ['pro', 'elite'].includes(currentPlan);
+  let userCredits = initialInsightsData.credits || Infinity;
 
   // Insights-specific chat override
   document.addEventListener('DOMContentLoaded', () => {
@@ -279,10 +293,10 @@
     const displayEl = document.getElementById('generations-display');
     if (displayEl) {
       displayEl.classList.remove('d-none');
-      if (isUnlimited) {
+      if (userCredits < 0) {
         displayEl.innerHTML = '<span class="badge bg-success credit-badge">Unlimited</span>';
       } else {
-        displayEl.innerHTML = `<span class="badge bg-info credit-badge">${userCredits} generations left</span>`;
+        displayEl.innerHTML = `<span class="badge bg-info credit-badge">${userCredits} left this month</span>`;
       }
     }
   }
@@ -316,7 +330,7 @@
     const container = document.getElementById('insights-container');
     if (container) {
       container.innerHTML = `
-        <div class="card-radius p-4 text-center fade-in">
+        <div class="card p-4 text-center fade-in">
           <i class="bi bi-lightbulb display-3" style="color: var(--brand);"></i>
           <h5 class="fw-bold mb-3 mt-3">Unlock AI-Powered Trading Insights</h5>
           <p class="text-muted mb-4">Dive deep into your ${tradesCount} trades to reveal patterns, strengths, and tailored recommendations for better trading.</p>
@@ -327,7 +341,7 @@
             </div>
             <div class="col-4">
               <i class="bi bi-bar-chart display-6 text-success mb-2 d-block"></i>
-              <small class="text-muted">Session Breakdown</small>
+              <small class="list-unstyled">Session Breakdown</small>
             </div>
             <div class="col-4">
               <i class="bi bi-lightbulb display-6 text-warning mb-2 d-block"></i>
@@ -335,7 +349,7 @@
             </div>
           </div>
           <p class="text-muted small">
-            <i class="bi bi-info-circle me-2"></i>Your generations are tracked at the top. Pro & Elite plans offer unlimited access.
+            <i class="bi bi-info-circle me-2"></i>Your generations are tracked monthly. Pro & Elite plans offer unlimited access.
           </p>
         </div>
       `;
@@ -346,7 +360,7 @@
     const container = document.getElementById('insights-container');
     if (container) {
       container.innerHTML = `
-        <div class="card-radius p-4 text-center fade-in">
+        <div class="card p-4 text-center fade-in">
           <i class="bi bi-cloud-upload display-3 text-muted mb-3"></i>
           <h5 class="fw-bold mb-3">No Trades Yet</h5>
           <p class="text-muted mb-4">Record your first trade in the Journal to start generating powerful AI insights.</p>
@@ -549,7 +563,7 @@
                         <td>${session.win_rate}%</td>
                         <td class="${session.avg_pnl > 0 ? 'text-success' : 'text-danger'} fw-semibold">${session.avg_pnl}%</td>
                         <td><span class="badge ${session.strategy_fit === 'High' ? 'bg-success' : session.strategy_fit === 'Medium' ? 'bg-warning' : 'bg-danger'}">${session.strategy_fit}</span></td>
-                        <td class="small-muted">${session.insight.replace(/'/g, "\\'")}</td>
+                        <td class="small text-muted">${session.insight.replace(/'/g, "\\'")}</td>
                       </tr>
                     `).join('') : '<tr><td colspan="5" class="text-center text-muted">No session data available</td></tr>'}
                   </tbody>
@@ -602,7 +616,7 @@
               </div>
               <div class="mt-3">
                 <ul class="mb-0">
-                  ${data.ai_insights && data.ai_insights.bullets ? data.ai_insights.bullets.map(b => `<li class="small-muted">${b}</li>`).join('') : '<li class="text-muted">No actions</li>'}
+                  ${data.ai_insights && data.ai_insights.bullets ? data.ai_insights.bullets.map(b => `<li class="small text-muted">${b}</li>`).join('') : '<li class="text-muted">No actions</li>'}
                 </ul>
               </div>
               ${outdatedNote}
@@ -745,7 +759,7 @@
   }
 
   function generateFirstInsights() {
-    if (!isUnlimited && userCredits <= 0) {
+    if (userCredits >= 0 && userCredits <= 0) {
       window.location.href = '/plans';
       return;
     }
@@ -769,7 +783,7 @@
   const confirmRegenerateBtn = document.getElementById('confirmRegenerate');
   if (confirmRegenerateBtn) {
     confirmRegenerateBtn.addEventListener('click', () => {
-      if (!isUnlimited && userCredits <= 0) {
+      if (userCredits >= 0 && userCredits <= 0) {
         window.location.href = '/plans';
         return;
       }
@@ -783,7 +797,7 @@
     regenerateModal.addEventListener('shown.bs.modal', () => {
       const warning = document.getElementById('credit-warning');
       if (warning) {
-        if (!isUnlimited && userCredits <= 0) {
+        if (userCredits >= 0 && userCredits <= 0) {
           warning.classList.remove('d-none');
         } else {
           warning.classList.add('d-none');
@@ -879,3 +893,4 @@
   });
 </script>
 {% endblock %}
+

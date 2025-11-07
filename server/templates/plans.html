@@ -57,6 +57,7 @@
     .plans-header { text-align: center; margin-bottom: 50px; }
     .plans-header h1 { font-size: 32px; font-weight: 700; }
     .plans-header p { color: var(--muted); font-size: 1.05rem; }
+    .tp-explainer { color: var(--muted); font-size: 0.9rem; margin-top: 8px; font-style: italic; }
     .plan-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 32px 24px; display: flex; flex-direction: column; justify-content: space-between; height: 100%; transition: transform .2s ease, box-shadow .2s ease; }
     [data-theme="dark"] .plan-card { border-color: var(--border); }
     .plan-card:hover { transform: translateY(-6px); box-shadow: 0 14px 36px rgba(15,23,42,0.12); }
@@ -126,7 +127,8 @@
     <main class="container" id="plans-section">
       <div class="plans-header">
         <h1>Choose your plan</h1>
-        <p>Start simple, scale as you go. {% if effective_discount > 0 %}{{ "%.0f"|format(effective_discount) }}% off first month on Pro & Elite.{% else %}Upgrade anytime.{% endif %}</p>
+        <p>Start simple, scale as you go. {% if effective_discount > 0 %}{{ "%.0f"|format(effective_discount) }}% off first month for referred or beta users on Pro & Elite.{% else %}Upgrade anytime.{% endif %}</p>
+        <p class="tp-explainer">Earn Trade Points (TP) to unlock AI chats, insights, and more!</p>
       </div>
 
       <div class="row g-4 justify-content-center">
@@ -136,9 +138,11 @@
               <div class="plan-title">Free<span class="current-plan" style="display: {% if current_user.plan == 'starter' %}inline{% else %}none{% endif %};">Current</span></div>
               <div class="plan-price">$0</div>
               <ul class="plan-features">
+                <li><i class="bi bi-check-circle-fill"></i> Initial TP Bonus: 5 TP</li>
                 <li><i class="bi bi-check-circle-fill"></i> 3 uploads/month</li>
-                <li><i class="bi bi-check-circle-fill"></i> 1 basic AI insight</li>
-                <li><i class="bi bi-check-circle-fill"></i> Referral rewards</li>
+                <li><i class="bi bi-check-circle-fill"></i> 2 insights/month</li>
+                <li><i class="bi bi-check-circle-fill"></i> 5 AI chats/month</li>
+                <li><i class="bi bi-check-circle-fill"></i> Earn +10 TP per referral</li>
               </ul>
             </div>
             <button class="btn btn-outline-primary w-100" onclick="window.location.href='/'">Get Started</button>
@@ -155,11 +159,12 @@
                 <button class="interval-btn" data-interval="yearly" data-plan="pro">Annual (${{ "%.2f"|format(pricing.pro_yearly) }})</button>
               </div>
               <ul class="plan-features">
+                <li><i class="bi bi-check-circle-fill"></i> Initial TP Bonus: 200 TP</li>
                 <li><i class="bi bi-check-circle-fill"></i> Everything in Free</li>
-                <li><i class="bi bi-check-circle-fill"></i> Unlimited uploads & AI insights</li>
-                <li><i class="bi bi-check-circle-fill"></i> Advanced analytics</li>
-                <li><i class="bi bi-check-circle-fill"></i> 1,000 API calls/month</li>
-                <li><i class="bi bi-check-circle-fill"></i> Priority support</li>
+                <li><i class="bi bi-check-circle-fill"></i> 20 uploads/month</li>
+                <li><i class="bi bi-check-circle-fill"></i> 10 insights/month</li>
+                <li><i class="bi bi-check-circle-fill"></i> 25 AI chats/month</li>
+                <li><i class="bi bi-check-circle-fill"></i> Earn +12 TP per referral (1.2x bonus) +5 TP per marketplace sub</li>
               </ul>
             </div>
             <div class="plan-cta">
@@ -177,11 +182,12 @@
                 <button class="interval-btn" data-interval="yearly" data-plan="elite">Annual (${{ "%.2f"|format(pricing.elite_yearly) }})</button>
               </div>
               <ul class="plan-features">
+                <li><i class="bi bi-check-circle-fill"></i> Initial TP Bonus: 450 TP</li>
                 <li><i class="bi bi-check-circle-fill"></i> Everything in Pro</li>
-                <li><i class="bi bi-check-circle-fill"></i> Unlimited API calls & webhooks</li>
-                <li><i class="bi bi-check-circle-fill"></i> Multi-account tracking</li>
-                <li><i class="bi bi-check-circle-fill"></i> Custom integrations</li>
-                <li><i class="bi bi-check-circle-fill"></i> Early feature access</li>
+                <li><i class="bi bi-check-circle-fill"></i> 50 uploads/month</li>
+                <li><i class="bi bi-check-circle-fill"></i> 25 insights/month</li>
+                <li><i class="bi bi-check-circle-fill"></i> 50 AI chats/month</li>
+                <li><i class="bi bi-check-circle-fill"></i> Earn +15 TP per referral (1.5x bonus) +10 TP per marketplace sub</li>
               </ul>
             </div>
             <div class="plan-cta">
@@ -238,12 +244,19 @@
                 <span class="text-primary fw-semibold" id="billingCycle"></span>
               </div>
               <div class="order-item" id="discountRow" style="display: {% if effective_discount > 0 %}flex{% else %}none{% endif %};">
-                <span class="text-muted">Launch Discount</span>
+                <span class="text-muted">Launch Discount (Referred/Beta)</span>
                 <span id="discountText" class="discount fw-bold">-{{"%.0f"|format(effective_discount)}}% First Month</span>
               </div>
               <div class="order-item">
                 <span class="fw-bold text-dark">Total</span>
                 <span id="totalAmount" class="text-success fw-bold"></span>
+              </div>
+            </div>
+            <div class="email-alert">
+              <i class="bi bi-envelope-fill text-info"></i>
+              <div class="email-details">
+                <strong>Receipt to:</strong>
+                <span id="userEmail" class="text-muted">{{ current_user.email }}</span>
               </div>
             </div>
             <h6 class="fw-bold mb-2 text-uppercase text-muted small">Next Steps</h6>
@@ -271,7 +284,7 @@
             <div class="vip-alert" {% if effective_discount > 0 %}style="display:flex;"{% else %}style="display:none;"{% endif %}>
               <i class="bi bi-star-fill text-warning"></i>
               <span class="premium-badge">VIP</span>
-              <span class="fw-semibold flex-grow-1">{{ "%.0f"|format(effective_discount) }}% off first month included.</span>
+              <span class="fw-semibold flex-grow-1">{{ "%.0f"|format(effective_discount) }}% off first month via your referral or beta access.</span>
             </div>
           </div>
           <div class="modal-footer d-flex flex-column gap-2">
@@ -362,6 +375,7 @@
           safeSetText(selectedPlanNameSpan, planName);
           safeSetText(selectedPlanNameSumSpan, planName);
           safeSetText(billingCycleSpan, interval.charAt(0).toUpperCase() + interval.slice(1));
+          safeSetText(userEmailSpan, data.email);
 
           const basePrice = nestedPricing[plan][interval];
           const monthlyEquiv = nestedPricing[plan].monthly;

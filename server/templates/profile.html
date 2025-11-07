@@ -256,6 +256,15 @@
   }  .slider::-webkit-slider-thumb:hover {
     transform: scale(1.3);
     box-shadow: 0 4px 12px rgba(47, 107, 255, 0.4);
+  }  .slider-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }  .slider-input {
+    flex: 0 0 80px;
+    text-align: center;
+    font-weight: bold;
+    color: var(--brand);
   }  .zone-selector {
     display: flex;
     gap: 12px;
@@ -381,61 +390,37 @@
       padding: 1.5rem;
     }.modal-dialog {
   margin: 0;
-}
-
-.hero-card {
+}.hero-card {
   flex-direction: column;
   text-align: center;
   gap: 12px;
   padding: 16px;
-}
-
-.hero-card img {
+}.hero-card img {
   width: 70px;
   height: 70px;
-}
-
-.hero-card .name {
+}.hero-card .name {
   font-size: 1.3rem;
-}
-
-.hero-card .stats {
+}.hero-card .stats {
   justify-content: center;
   gap: 12px;
-}
-
-.stat-card {
+}.stat-card {
   padding: 20px;
-}
-
-.stat-value {
+}.stat-value {
   font-size: 1.4rem;
-}
-
-.chart-wrapper {
+}.chart-wrapper {
   max-height: 300px;
-}
-
-.btn {
+}.btn {
   padding: 10px 20px;
   font-size: 0.9rem;
-}
-
-.zone-selector {
+}.zone-selector {
   gap: 8px;
-}
-
-.zone-btn {
+}.zone-btn {
   min-width: 90px;
   padding: 10px 12px;
   font-size: 0.9rem;
-}
-
-.d-flex.flex-wrap.gap-3 .flex-fill {
+}.d-flex.flex-wrap.gap-3 .flex-fill {
   flex: 1 1 45%;
-}
-
-.d-flex.flex-wrap.gap-3 .flex-fill:nth-child(1),
+}.d-flex.flex-wrap.gap-3 .flex-fill:nth-child(1),
 .d-flex.flex-wrap.gap-3 .flex-fill:nth-child(2) {
   margin-bottom: 8px;
 }  }  @media
@@ -444,30 +429,18 @@
       padding: 16px;
     }.hero-card .name {
   font-size: 1.2rem;
-}
-
-.hero-card .stats {
+}.hero-card .stats {
   flex-direction: column;
   gap: 8px;
-}
-
-.stat-card {
+}.stat-card {
   padding: 16px;
-}
-
-.stat-value {
+}.stat-value {
   font-size: 1.3rem;
-}
-
-.card-radius.p-5 {
+}.card-radius.p-5 {
   padding: 1.5rem !important;
-}
-
-.accordion-body {
+}.accordion-body {
   padding: 1.25rem;
-}
-
-.d-flex.flex-wrap.gap-3 .flex-fill {
+}.d-flex.flex-wrap.gap-3 .flex-fill {
   flex: 1 1 100%;
 }  }  .accordion-button::after {
     background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23666'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e") !important;
@@ -544,9 +517,7 @@
         {% endif %}
       </div>
     </div>
-  </div>
-
-  <!-- Performance Summary (Replacement for Chart - Links to Insights) -->
+  </div>  <!-- Performance Summary (Replacement for Chart - Links to Insights) -->
   <div class="card-radius mb-5">
     <div class="fw-bold mb-4 d-flex align-items-center gap-2" style="font-size:1.2rem; color:var(--brand);">
       <i class="bi bi-bar-chart-line"></i> Performance Overview
@@ -562,10 +533,52 @@
       <a href="/insights" class="btn btn-primary"><i class="bi bi-arrow-right me-2"></i> View Full Equity Curve in
         Insights</a>
     </div>
-  </div>
-
-  <!-- Onboarding Sections Accordion -->
+  </div>  <!-- Onboarding Sections Accordion -->
   <div class="accordion mb-5" id="profileAccordion">
+    <!-- NEW: Personal Info Section -->
+    <div class="accordion-item card-radius mb-3" style="border:none;overflow:hidden;">
+      <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#personalInfoSection">
+          <i class="bi bi-person me-2"></i> Personal Info
+        </button>
+      </h2>
+      <div id="personalInfoSection" class="accordion-collapse collapse" data-bs-parent="#profileAccordion">
+        <div class="accordion-body">
+          <div class="mb-4">
+            <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-person-fill"></i> Full Name</label>
+            <input type="text" class="form-control" id="fullNameInput" value="{{ profile_data.full_name or '' }}" placeholder="Enter your full name">
+          </div>
+          <div class="mb-4">
+            <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-at"></i> Username</label>
+            <input type="text" class="form-control" id="usernameInput" value="{{ profile_data.username or '' }}" placeholder="Enter username">
+            <div class="form-text text-muted">Must be unique and lowercase.</div>
+          </div>
+          <div class="mb-4">
+            <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-envelope"></i> Email</label>
+            <input type="email" class="form-control" id="emailInput" value="{{ profile_data.email or '' }}" placeholder="Enter email">
+            <div class="form-text text-muted">Must be unique.</div>
+          </div>
+          {% if profile_data.has_password %}
+          <div class="mb-4">
+            <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-lock"></i> Change Password</label>
+            <input type="password" class="form-control mb-2" id="currentPasswordInput" placeholder="Current password">
+            <input type="password" class="form-control mb-2" id="newPasswordInput" placeholder="New password (min 8 chars)">
+            <input type="password" class="form-control" id="newPasswordConfirmInput" placeholder="Confirm new password">
+            <button class="btn btn-primary mt-2" id="changePasswordBtn">Change Password</button>
+            <div class="form-text text-muted">Enter your current password to verify, then set a new one.</div>
+          </div>
+          {% else %}
+          <div class="mb-4">
+            <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-lock"></i> Set Password</label>
+            <input type="password" class="form-control mb-2" id="passwordInput" placeholder="Enter password (min 8 chars)">
+            <input type="password" class="form-control" id="passwordConfirmInput" placeholder="Confirm password">
+            <button class="btn btn-primary mt-2" id="setPasswordBtn">Set Password</button>
+            <div class="form-text text-muted">Required for email login. Must be at least 8 characters.</div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
     <div class="accordion-item card-radius mb-3" style="border:none;overflow:hidden;">
       <h2 class="accordion-header">
         <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#psychologySection">
@@ -597,8 +610,11 @@
           <div class="mb-4">
             <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-graph-down"></i> Risk Tolerance
               (1-10)</label>
-            <input type="range" class="slider" min="1" max="10" value="{{ profile_data.risk_tolerance or 5 }}"
-              id="riskToleranceSlider">
+            <div class="slider-container">
+              <input type="range" class="slider flex-grow-1" min="1" max="10" value="{{ profile_data.risk_tolerance or 5 }}"
+                id="riskToleranceSlider">
+              <input type="number" class="form-control slider-input" min="1" max="10" value="{{ profile_data.risk_tolerance or 5 }}" id="riskToleranceInput">
+            </div>
             <div class="text-center fw-bold" id="riskToleranceValue" style="font-size:1.2rem; color:var(--brand);">{{
               profile_data.risk_tolerance or 5 }}</div>
           </div>
@@ -625,53 +641,51 @@
               <i class="bi bi-list-task"></i> Go-to Strategy
             </label>
 
-        <input type="hidden" name="strategyName" id="strategyName" value="{{ profile_data.strategy or '' }}">
+<input type="hidden" name="strategyName" id="strategyName" value="{{ profile_data.strategy or '' }}">
 
-        <div class="dropdown">
-          <button class="btn btn-outline-secondary dropdown-toggle form-control d-block w-100 text-start"
-            type="button" id="strategyDropdownBtn" data-bs-toggle="dropdown" aria-expanded="false"
-            style="border-radius: 16px; border: 2px solid var(--border); padding: 12px 16px;">
-            <span id="selectedStrategyDisplay">
-              {{ (profile_data.strategy|replace('_', ' ') or '')|title|default('Select a strategy...') }}
-            </span>
-          </button>
-          <ul class="dropdown-menu w-100" aria-labelledby="strategyDropdownBtn"
-            style="border-radius: 0 0 16px 16px; border-top: none;">
-            <li><a class="dropdown-item strategy-option" href="#" data-strat="Scalping" role="option">Scalping</a>
-            </li>
-            <li><a class="dropdown-item strategy-option" href="#" data-strat="Swing Trading" role="option">Swing Trading</a>
-            </li>
-            <li><a class="dropdown-item strategy-option" href="#" data-strat="Breakout" role="option">Breakout</a>
-            </li>
-            <li><a class="dropdown-item strategy-option" href="#" data-strat="Reversal" role="option">Reversal</a>
-            </li>
-            <li><a class="dropdown-item strategy-option" href="#" data-strat="RSI Divergence" role="option">RSI Divergence</a></li>
-          </ul>
-        </div>
-      </div>
-      <div class="mb-4">
-        <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-text-paragraph"></i> Strategy
-          Description</label>
-        <textarea class="form-control" rows="3" id="strategyDesc"
-          placeholder="Describe your strategy or key parameters (e.g., 'EMA Crossover on 1h charts')">{{ profile_data.strategy_desc or '' }}</textarea>
-      </div>
-      <div class="mb-4">
-        <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-clock"></i> Timeframes</label>
-        <div class="zone-selector" id="timeframeSelector">
-          <div class="zone-btn {% if '5m' in profile_data.preferred_timeframes %}selected{% endif %}"
-            data-timeframe="5m"><i class="bi bi-stopwatch me-1"></i>5m</div>
-          <div class="zone-btn {% if '15m' in profile_data.preferred_timeframes %}selected{% endif %}"
-            data-timeframe="15m"><i class="bi bi-stopwatch me-1"></i>15m</div>
-          <div class="zone-btn {% if '1h' in profile_data.preferred_timeframes %}selected{% endif %}"
-            data-timeframe="1h"><i class="bi bi-stopwatch me-1"></i>1h</div>
-          <div class="zone-btn {% if '4h' in profile_data.preferred_timeframes %}selected{% endif %}"
-            data-timeframe="4h"><i class="bi bi-stopwatch me-1"></i>4h</div>
-          <div class="zone-btn {% if '1d' in profile_data.preferred_timeframes %}selected{% endif %}"
-            data-timeframe="1d"><i class="bi bi-stopwatch me-1"></i>1d</div>
-        </div>
-      </div>
+<div class="dropdown">
+  <button class="btn btn-outline-secondary dropdown-toggle form-control d-block w-100 text-start"
+    type="button" id="strategyDropdownBtn" data-bs-toggle="dropdown" aria-expanded="false"
+    style="border-radius: 16px; border: 2px solid var(--border); padding: 12px 16px;">
+    <span id="selectedStrategyDisplay">
+      {{ (profile_data.strategy|replace('_', ' ') or '')|title|default('Select a strategy...') }}
+    </span>
+  </button>
+  <ul class="dropdown-menu w-100" aria-labelledby="strategyDropdownBtn"
+    style="border-radius: 0 0 16px 16px; border-top: none;">
+    <li><a class="dropdown-item strategy-option" href="#" data-strat="Scalping" role="option">Scalping</a>
+    </li>
+    <li><a class="dropdown-item strategy-option" href="#" data-strat="Swing Trading" role="option">Swing Trading</a>
+    </li>
+    <li><a class="dropdown-item strategy-option" href="#" data-strat="Breakout" role="option">Breakout</a>
+    </li>
+    <li><a class="dropdown-item strategy-option" href="#" data-strat="Reversal" role="option">Reversal</a>
+    </li>
+    <li><a class="dropdown-item strategy-option" href="#" data-strat="RSI Divergence" role="option">RSI Divergence</a></li>
+  </ul>
+</div>  </div>
+  <div class="mb-4">
+    <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-text-paragraph"></i> Strategy
+      Description</label>
+    <textarea class="form-control" rows="3" id="strategyDesc"
+      placeholder="Describe your strategy or key parameters (e.g., 'EMA Crossover on 1h charts')">{{ profile_data.strategy_desc or '' }}</textarea>
+  </div>
+  <div class="mb-4">
+    <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-clock"></i> Timeframes</label>
+    <div class="zone-selector" id="timeframeSelector">
+      <div class="zone-btn {% if profile_data.preferred_timeframes is not none and '5m' in profile_data.preferred_timeframes %}selected{% endif %}"
+        data-timeframe="5m"><i class="bi bi-stopwatch me-1"></i>5m</div>
+      <div class="zone-btn {% if profile_data.preferred_timeframes is not none and '15m' in profile_data.preferred_timeframes %}selected{% endif %}"
+        data-timeframe="15m"><i class="bi bi-stopwatch me-1"></i>15m</div>
+      <div class="zone-btn {% if profile_data.preferred_timeframes is not none and '1h' in profile_data.preferred_timeframes %}selected{% endif %}"
+        data-timeframe="1h"><i class="bi bi-stopwatch me-1"></i>1h</div>
+      <div class="zone-btn {% if profile_data.preferred_timeframes is not none and '4h' in profile_data.preferred_timeframes %}selected{% endif %}"
+        data-timeframe="4h"><i class="bi bi-stopwatch me-1"></i>4h</div>
+      <div class="zone-btn {% if profile_data.preferred_timeframes is not none and '1d' in profile_data.preferred_timeframes %}selected{% endif %}"
+        data-timeframe="1d"><i class="bi bi-stopwatch me-1"></i>1d</div>
     </div>
   </div>
+</div>  </div>
 </div>
 <div class="accordion-item card-radius mb-3" style="border:none;overflow:hidden;">
   <h2 class="accordion-header">
@@ -685,16 +699,28 @@
       <div class="mb-4">
         <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-percent"></i> Max Risk per Trade
           (%)</label>
-        <input type="range" class="slider" min="0" max="5" step="0.5" value="{{ profile_data.risk_per_trade or 1 }}"
-          id="maxRiskSlider">
+        <div class="slider-container">
+          <input type="range" class="slider flex-grow-1" min="0" max="5" step="0.5" value="{{ profile_data.risk_per_trade or 1 }}"
+            id="maxRiskSlider">
+          <input type="number" class="form-control slider-input" min="0" max="5" step="0.5" value="{{ profile_data.risk_per_trade or 1 }}" id="maxRiskInput">
+        </div>
         <div class="text-center fw-bold" id="maxRiskValue" style="font-size:1.2rem; color:var(--brand);">{{
           profile_data.risk_per_trade or 1 }}%</div>
       </div>
       <div class="mb-4">
+        <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-cash-stack"></i> Max Risk per Trade
+          ($)</label>
+        <input type="number" class="form-control" value="{{ profile_data.max_risk_limit or 100 }}" id="maxRiskDollar"
+          placeholder="Enter amount">
+      </div>
+      <div class="mb-4">
         <label class="form-label d-flex align-items-center gap-2"><i class="bi bi-graph-down"></i> Daily Loss Limit
           (%)</label>
-        <input type="range" class="slider" min="2" max="10" step="1"
-          value="{{ profile_data.daily_loss_percent or 5 }}" id="dailyLossPercentSlider">
+        <div class="slider-container">
+          <input type="range" class="slider flex-grow-1" min="2" max="10" step="1"
+            value="{{ profile_data.daily_loss_percent or 5 }}" id="dailyLossPercentSlider">
+          <input type="number" class="form-control slider-input" min="2" max="10" step="1" value="{{ profile_data.daily_loss_percent or 5 }}" id="dailyLossPercentInput">
+        </div>
         <div class="text-center fw-bold" id="dailyLossPercentValue" style="font-size:1.2rem; color:var(--brand);">{{
           profile_data.daily_loss_percent or 5 }}%</div>
         <div class="form-text text-muted">Computed limit: <span id="computedDailyLimit">${{
@@ -767,17 +793,11 @@
     <button class="btn btn-primary flex-fill d-flex align-items-center justify-content-center gap-2" id="saveChanges">
       <i class="bi bi-save"></i> Save Changes
     </button>
-    <button class="btn btn-outline-secondary flex-fill d-flex align-items-center justify-content-center gap-2"
-      id="resetDefaults">
-      <i class="bi bi-arrow-clockwise"></i> Reset to Defaults
-    </button>
-    <button class="btn btn-outline-info flex-fill d-flex align-items-center justify-content-center gap-2"
-      id="exportJournal">
-      <i class="bi bi-download"></i> Export Journal
-    </button>
-  </div>
-
-  <!-- Danger Zone -->
+  
+<button class="btn btn-outline-info flex-fill d-flex align-items-center justify-content-center gap-2"
+  id="exportJournal">
+  <i class="bi bi-download"></i> Export Journal
+</button>  </div>  <!-- Danger Zone -->
   <div class="card-radius p-5 danger-btns">
     <div class="fw-bold text-danger mb-4 d-flex align-items-center gap-2" style="font-size:1.2rem;">
       <i class="bi bi-exclamation-triangle-fill"></i> Danger Zone
@@ -891,6 +911,102 @@
       }
     }
 
+    // NEW: Save user info to /users/me
+    async function saveUserInfo() {
+      try {
+        const fullName = safeQuery('#fullNameInput')?.value.trim() || '';
+        const username = safeQuery('#usernameInput')?.value.trim().toLowerCase() || '';
+        const email = safeQuery('#emailInput')?.value.trim().toLowerCase() || '';
+
+        let data = {};
+        if (fullName && fullName !== window.profileData.full_name) data.full_name = fullName;
+        if (username && username !== window.profileData.username) data.username = username;
+        if (email && email !== window.profileData.email) data.email = email;
+
+        if (Object.keys(data).length === 0) return;  // No changes
+
+        const res = await fetch('/users/me', {
+          method: 'PUT',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const updated = await res.json();
+        showSuccessToast('Personal info updated');
+        // Update local data and UI
+        Object.assign(window.profileData, { full_name: fullName, username: username, email: email });
+        if (safeQuery('#userName')) safeQuery('#userName').textContent = fullName || username;
+        if (safeQuery('#userEmail')) safeQuery('#userEmail').textContent = email;
+        await loadProfileData();  // Refresh full profile
+      } catch (err) {
+        console.error(err);
+        showErrorToast(err.message || 'Failed to update info');
+      }
+    }
+
+    // NEW: Change password function
+    async function changePassword() {
+      try {
+        const currentPassword = safeQuery('#currentPasswordInput')?.value;
+        const newPassword = safeQuery('#newPasswordInput')?.value;
+        const newPasswordConfirm = safeQuery('#newPasswordConfirmInput')?.value;
+
+        if (!currentPassword || !newPassword || !newPasswordConfirm) throw new Error('Please fill all fields');
+        if (newPassword !== newPasswordConfirm) throw new Error('New passwords do not match');
+        if (newPassword.length < 8) throw new Error('New password must be at least 8 characters');
+
+        const res = await fetch('/users/change-password', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            current_password: currentPassword, 
+            new_password: newPassword, 
+            new_password_confirm: newPasswordConfirm 
+          })
+        });
+        if (!res.ok) throw new Error(await res.text());
+        showSuccessToast('Password changed successfully');
+        // Clear fields
+        if (safeQuery('#currentPasswordInput')) safeQuery('#currentPasswordInput').value = '';
+        if (safeQuery('#newPasswordInput')) safeQuery('#newPasswordInput').value = '';
+        if (safeQuery('#newPasswordConfirmInput')) safeQuery('#newPasswordConfirmInput').value = '';
+      } catch (err) {
+        console.error(err);
+        showErrorToast(err.message || 'Failed to change password');
+      }
+    }
+
+    // NEW: Set password
+    async function setPassword() {
+      try {
+        const password = safeQuery('#passwordInput')?.value;
+        const passwordConfirm = safeQuery('#passwordConfirmInput')?.value;
+
+        if (!password || !passwordConfirm) throw new Error('Please enter and confirm password');
+        if (password !== passwordConfirm) throw new Error('Passwords do not match');
+        if (password.length < 8) throw new Error('Password must be at least 8 characters');
+
+        const res = await fetch('/users/set-password', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password, password_confirm: passwordConfirm })
+        });
+        if (!res.ok) throw new Error(await res.text());
+        showSuccessToast('Password set successfully');
+        await loadProfileData();  // Refresh to update has_password
+        // Clear fields
+        if (safeQuery('#passwordInput')) safeQuery('#passwordInput').value = '';
+        if (safeQuery('#passwordConfirmInput')) safeQuery('#passwordConfirmInput').value = '';
+        if (safeQuery('#setPasswordBtn')) safeQuery('#setPasswordBtn').style.display = 'none';
+      } catch (err) {
+        console.error(err);
+        showErrorToast(err.message || 'Failed to set password');
+      }
+    }
+
     // Populate DOM fields from profileData
     function populateProfile() {
       const pd = window.profileData || {};
@@ -902,8 +1018,10 @@
       }
       const riskTolerance = pd.risk_tolerance || 5;
       const rts = safeQuery('#riskToleranceSlider');
+      const rti = safeQuery('#riskToleranceInput');
       const rtv = safeQuery('#riskToleranceValue');
       if (rts) rts.value = riskTolerance;
+      if (rti) rti.value = riskTolerance;
       if (rtv) rtv.textContent = riskTolerance;
       const notesEl = safeQuery('#notes');
       if (notesEl) notesEl.value = pd.notes || '';
@@ -925,13 +1043,20 @@
 
       const riskPerTrade = pd.risk_per_trade || 1;
       const mrt = safeQuery('#maxRiskSlider');
+      const mrti = safeQuery('#maxRiskInput');
       const mrtv = safeQuery('#maxRiskValue');
       if (mrt) mrt.value = riskPerTrade;
+      if (mrti) mrti.value = riskPerTrade;
       if (mrtv) mrtv.textContent = `${riskPerTrade}%`;
 
+      const maxRiskDollar = safeQuery('#maxRiskDollar');
+      if (maxRiskDollar) maxRiskDollar.value = pd.max_risk_limit || 100;
+
       const dlps = safeQuery('#dailyLossPercentSlider');
+      const dlpi = safeQuery('#dailyLossPercentInput');
       const dlpv = safeQuery('#dailyLossPercentValue');
       if (dlps) dlps.value = pd.daily_loss_percent || 5;
+      if (dlpi) dlpi.value = pd.daily_loss_percent || 5;
       if (dlpv) dlpv.textContent = `${pd.daily_loss_percent || 5}%`;
 
       const dailyLoss = safeQuery('#dailyLoss');
@@ -950,6 +1075,14 @@
       if (selectedStrategyDisplay && strategyName && strategyName.value) {
         selectedStrategyDisplay.textContent = strategyName.value;
       }
+
+      // NEW: Populate personal info fields
+      const fullNameInput = safeQuery('#fullNameInput');
+      if (fullNameInput) fullNameInput.value = pd.full_name || '';
+      const usernameInput = safeQuery('#usernameInput');
+      if (usernameInput) usernameInput.value = pd.username || '';
+      const emailInput = safeQuery('#emailInput');
+      if (emailInput) emailInput.value = pd.email || '';
     }
 
     function populateGrowthSummary() {
@@ -963,7 +1096,7 @@
       summaryEl.className = `fw-bold ${pnl >= 0 ? 'text-success' : 'text-danger'}`;
     }
 
-    // Debounced save
+    // Debounced save for trading profile
     const debouncedSave = () => {
       clearTimeout(saveTimeout);
       const saveBtn = safeQuery('#saveChanges');
@@ -981,7 +1114,7 @@
       }, delay);
     };
 
-    // Save profile to server
+    // Save profile to server (/api/profile)
     async function saveProfileData(isAutoSave = false) {
       try {
         const psychZoneSelector = safeQuery('#psychZoneSelector');
@@ -989,15 +1122,16 @@
         const timeframeSelector = safeQuery('#timeframeSelector');
         const selectedTimeframes = Array.from(timeframeSelector?.querySelectorAll('.zone-btn.selected') || []).map(btn => btn.dataset.timeframe);
         const strategiesValue = (safeQuery('#strategies')?.value) || '';
-        const riskToleranceValue = parseInt(safeQuery('#riskToleranceSlider')?.value || '5', 10);
-        const maxRiskValue = parseFloat(safeQuery('#maxRiskSlider')?.value || '1');
+        const riskToleranceValue = parseInt(safeQuery('#riskToleranceSlider')?.value || safeQuery('#riskToleranceInput')?.value || '5', 10);
+        const maxRiskValue = parseFloat(safeQuery('#maxRiskSlider')?.value || safeQuery('#maxRiskInput')?.value || '1');
+        const maxRiskDollarValue = parseFloat(safeQuery('#maxRiskDollar')?.value) || 100;
         const dailyLossValue = parseFloat(safeQuery('#dailyLoss')?.value) || 500;
         const notes = safeQuery('#notes')?.value || '';
         const strategy = safeQuery('#strategyName')?.value || '';
         const strategyDesc = safeQuery('#strategyDesc')?.value || '';
         const stopLoss = !!safeQuery('#stopLossCheck')?.checked;
         const noRevenge = !!safeQuery('#noRevengeCheck')?.checked;
-        const dailyLossPercent = parseFloat(safeQuery('#dailyLossPercentSlider')?.value || '5');
+        const dailyLossPercent = parseFloat(safeQuery('#dailyLossPercentSlider')?.value || safeQuery('#dailyLossPercentInput')?.value || '5');
 
         let data = {
           psych_zone: psychZone,
@@ -1005,6 +1139,7 @@
           preferred_strategies: strategiesValue,
           preferred_timeframes: selectedTimeframes,
           risk_per_trade: maxRiskValue,
+          max_risk_limit: maxRiskDollarValue,
           daily_loss_limit: dailyLossValue,
           daily_loss_percent: dailyLossPercent,
           notes: notes,
@@ -1137,6 +1272,20 @@
       if (themeToggle) themeToggle.addEventListener('click', toggleTheme);
       if (mobileThemeToggle) mobileThemeToggle.addEventListener('click', toggleTheme);
 
+      // NEW: Personal info handlers
+      const fullNameInput = safeQuery('#fullNameInput');
+      if (fullNameInput) fullNameInput.addEventListener('blur', () => { clearTimeout(saveTimeout); saveTimeout = setTimeout(saveUserInfo, delay); });
+      const usernameInput = safeQuery('#usernameInput');
+      if (usernameInput) usernameInput.addEventListener('blur', () => { clearTimeout(saveTimeout); saveTimeout = setTimeout(saveUserInfo, delay); });
+      const emailInput = safeQuery('#emailInput');
+      if (emailInput) emailInput.addEventListener('blur', () => { clearTimeout(saveTimeout); saveTimeout = setTimeout(saveUserInfo, delay); });
+
+      const changePasswordBtn = safeQuery('#changePasswordBtn');
+      if (changePasswordBtn) changePasswordBtn.addEventListener('click', changePassword);
+
+      const setPasswordBtn = safeQuery('#setPasswordBtn');
+      if (setPasswordBtn) setPasswordBtn.addEventListener('click', setPassword);
+
       // Strategy dropdown setup
       document.querySelectorAll('.strategy-option').forEach(item => {
         item.addEventListener('click', function (e) {
@@ -1150,6 +1299,40 @@
           debouncedSave();
         });
       });
+
+      // Slider sync functions
+      function syncSliderAndInput(sliderId, inputId, valueId, suffix = '') {
+        const slider = safeQuery(sliderId);
+        const input = safeQuery(inputId);
+        const valueEl = safeQuery(valueId);
+        if (!slider || !input || !valueEl) return;
+
+        const updateValue = (val) => {
+          valueEl.textContent = val + suffix;
+        };
+
+        slider.addEventListener('input', (e) => {
+          const val = e.target.value;
+          input.value = val;
+          updateValue(val);
+          debouncedSave();
+        });
+
+        input.addEventListener('input', (e) => {
+          let val = parseFloat(e.target.value);
+          if (isNaN(val)) val = slider.min;
+          val = Math.max(slider.min, Math.min(slider.max, val));
+          slider.value = val;
+          e.target.value = val;
+          updateValue(val);
+          debouncedSave();
+        });
+      }
+
+      // Initialize slider syncs
+      syncSliderAndInput('#riskToleranceSlider', '#riskToleranceInput', '#riskToleranceValue');
+      syncSliderAndInput('#maxRiskSlider', '#maxRiskInput', '#maxRiskValue', '%');
+      syncSliderAndInput('#dailyLossPercentSlider', '#dailyLossPercentInput', '#dailyLossPercentValue', '%');
 
       // Attach interactive handlers safely only if elements exist
       const riskToleranceSlider = safeQuery('#riskToleranceSlider');
@@ -1178,6 +1361,9 @@
           debouncedSave();
         });
       }
+
+      const maxRiskDollar = safeQuery('#maxRiskDollar');
+      if (maxRiskDollar) maxRiskDollar.addEventListener('input', debouncedSave);
 
       const dailyLoss = safeQuery('#dailyLoss');
       if (dailyLoss) dailyLoss.addEventListener('input', debouncedSave);
@@ -1273,3 +1459,4 @@
   })();
 </script>
 {% endblock %}
+

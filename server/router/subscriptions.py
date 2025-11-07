@@ -268,6 +268,63 @@ async def cancel_subscription(
 
 
 # ----------------------------------------------------------------------
+# NEW: POST /subscriptions/{sub_id}/cancel_payment  (cancel pending payment/renewal)
+# ----------------------------------------------------------------------
+@router.post("/{sub_id}/cancel_payment")
+async def cancel_pending_payment(
+    sub_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(auth.get_current_user),
+):
+    sub = await db.get(Subscription, sub_id)
+    if not sub or sub.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+    if sub.status not in ("pending", "pending_renewal"):
+        raise HTTPException(status_code=400, detail="Only pending payments can be cancelled")
+
+    # Find the most recent pending payment and cancel it
+    res = await db.execute(
+        select(Payment)
+        .where(
+            Payment.subscription_id == sub_id,
+            Payment.status.in_(["pending", "generated", "partially_paid"])
+        )
+        .order_by(desc(Payment.created_at))
+    )
+    payment = res.scalars().first()
+    if payment:
+        payment.status = "cancelled"
+        payment.updated_at = datetime.utcnow()
+        db.add(payment)
+
+    # Adjust subscription status
+    if sub.status == "pending":
+        sub.status = "cancelled"
+    elif sub.status == "pending_renewal":
+        sub.status = "active"
+
+    sub.renewal_url = None
+    sub.updated_at = datetime.utcnow()
+    await db.commit()
+
+    # HTMX-friendly: Return partial HTML (alert replaces card temporarily)
+    if request.headers.get("HX-Request"):
+        action = "renewal" if sub.status == "active" else "subscription"
+        return HTMLResponse(
+            f'''
+            <div class="alert alert-info d-flex align-items-center p-4">
+                <i class="bi bi-check-circle me-2"></i>
+                <span>Payment {action} cancelled successfully.</span>
+            </div>
+            ''',
+            status_code=200
+        )
+    else:
+        return RedirectResponse(url="/subscriptions/", status_code=status.HTTP_303_SEE_OTHER)
+
+
+# ----------------------------------------------------------------------
 # POST /subscriptions/{sub_id}/renew   (manual renewal)
 # ----------------------------------------------------------------------
 @router.post("/{sub_id}/renew")

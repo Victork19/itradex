@@ -1,20 +1,33 @@
-# router/admin.py
+# Updated server/router/admin.py
 import logging
+import secrets
+import string
 from datetime import datetime, timedelta
+from typing import Optional, List
 
-from fastapi import APIRouter, Request, Depends, HTTPException, status, Form, Body
+from fastapi import APIRouter, Request, Depends, HTTPException, status, Form, Body, Query
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc, update
+from sqlalchemy import select, func, update, or_, desc
 from sqlalchemy.orm import joinedload
-from typing import Optional
 
 from templates_config import templates
 from models.models import (
-    User, Trade, Subscription, Payment, Pricing, Discount, EligibilityConfig, UploadLimits
+    User, Trade, Subscription, Payment, Pricing, Discount, EligibilityConfig, UploadLimits, Notification, InsightsLimits,
+    Referral, PointTransaction, InitialTpConfig, UpgradeTpConfig, AiChatLimits, BetaInvite, BetaConfig, BetaReferralTpConfig
 )
 from database import get_session
 import auth
+
+from app_utils.admin_utils import (
+    compute_admin_stats, get_all_configs, get_revenue_metrics,
+    get_recent_users_with_stats, get_marketplace_traders_with_stats, get_pending_traders_with_stats,
+    get_recent_trades_list, get_recent_initiated_platform_list, get_recent_initiated_marketplace_list,
+    get_recent_partial_platform_list, get_recent_partial_marketplace_list,
+    get_recent_referrals_list, get_recent_points_list,
+    get_user_details_data,
+    get_users_list, get_referrals_list, get_points_list, get_payments_list
+)
 
 logger = logging.getLogger("iTrade")
 
@@ -24,6 +37,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 @router.get("", response_class=HTMLResponse)
 async def admin_page(
     request: Request,
+    search: Optional[str] = Query(None, description="Search users by email or name"),
     current_user: User = Depends(auth.get_current_user),
     db: AsyncSession = Depends(get_session)
 ):
@@ -42,268 +56,20 @@ async def admin_page(
     else:
         initials = "U"
 
-    now = datetime.utcnow()
-    week_ago = now - timedelta(days=7)
-    one_month_ago = now - timedelta(days=30)
-
-    # ───── Stats ─────
-    total_users = (await db.execute(select(func.count()).select_from(User))).scalar() or 0
-    new_users = (await db.execute(select(func.count()).select_from(User).where(User.created_at >= week_ago))).scalar() or 0
-    total_trades = (await db.execute(select(func.count()).select_from(Trade))).scalar() or 0
-    avg_trades_per_user = round(total_trades / total_users, 1) if total_users else 0
-
-    plan_counts = {'starter': 0, 'pro': 0, 'elite': 0}
-    if total_users > 0:
-        result_plans = await db.execute(select(User.plan, func.count()).group_by(User.plan))
-        for plan, count in result_plans.all():
-            if plan:
-                plan_counts[plan] = count
-
-    # ───── Pricing ─────
-    pricing = {'pro_monthly': 9.99, 'pro_yearly': 99.0, 'elite_monthly': 19.99, 'elite_yearly': 199.0}
-    result_pricing = await db.execute(select(Pricing).where(
-        Pricing.plan.in_(['pro', 'elite']),
-        Pricing.interval.in_(['monthly', 'yearly'])
-    ))
-    for p in result_pricing.scalars().all():
-        key = f"{p.plan}_{p.interval}"
-        pricing[key] = p.amount
-
-    # ───── Platform Discount (id=1) ─────
-    discount = {'enabled': False, 'percentage': 0.0, 'expiry': ''}
-    result_discount = await db.execute(select(Discount).where(Discount.id == 1))
-    db_discount = result_discount.scalar_one_or_none()
-    if db_discount:
-        discount['enabled'] = db_discount.enabled
-        discount['percentage'] = db_discount.percentage
-        discount['expiry'] = db_discount.expiry.strftime('%Y-%m-%d') if db_discount.expiry else ''
-    else:
-        db_discount = Discount(id=1, enabled=False, percentage=0.0, expiry=None)
-        db.add(db_discount)
-        await db.commit()
-
-    # ───── Marketplace Discount (id=2) ─────
-    marketplace_discount = {'enabled': False, 'percentage': 0.0, 'expiry': ''}
-    result_marketplace_discount = await db.execute(select(Discount).where(Discount.id == 2))
-    db_marketplace_discount = result_marketplace_discount.scalar_one_or_none()
-    if db_marketplace_discount:
-        marketplace_discount['enabled'] = db_marketplace_discount.enabled
-        marketplace_discount['percentage'] = db_marketplace_discount.percentage
-        marketplace_discount['expiry'] = db_marketplace_discount.expiry.strftime('%Y-%m-%d') if db_marketplace_discount.expiry else ''
-    else:
-        db_marketplace_discount = Discount(id=2, enabled=False, percentage=0.0, expiry=None)
-        db.add(db_marketplace_discount)
-        await db.commit()
-
-    # ───── Eligibility Config ─────
-    result_config = await db.execute(select(EligibilityConfig).where(EligibilityConfig.id == 1))
-    db_config = result_config.scalar_one_or_none()
-    if not db_config:
-        db_config = EligibilityConfig(id=1, min_trades=50, min_win_rate=80.0, max_marketplace_price=99.99)
-        db.add(db_config)
-        await db.commit()
-
-    eligibility = {
-        'min_trades': db_config.min_trades,
-        'min_win_rate': db_config.min_win_rate,
-        'max_marketplace_price': db_config.max_marketplace_price,  # NEW
-    }
-
-    # ───── Upload Limits ─────
-    upload_limits = {}
-    plans = ['starter', 'pro', 'elite']
-    for plan in plans:
-        result_limit = await db.execute(select(UploadLimits).where(UploadLimits.plan == plan))
-        db_limit = result_limit.scalar_one_or_none()
-        if not db_limit:
-            # Initialize with updated defaults
-            if plan == 'starter':
-                monthly_default = 2
-                batch_default = 3
-            elif plan == 'pro':
-                monthly_default = 29
-                batch_default = 10
-            else:  # elite
-                monthly_default = 1000
-                batch_default = 10
-            db_limit = UploadLimits(
-                plan=plan,
-                monthly_limit=monthly_default,
-                batch_limit=batch_default
-            )
-            db.add(db_limit)
-        upload_limits[plan] = {
-            'monthly_limit': db_limit.monthly_limit,
-            'batch_limit': db_limit.batch_limit
-        }
-    await db.commit()
-
-    # ───── Revenue (FIXED: Use 'finished' instead of 'paid'; case-insensitive)
-    active_subscribers = (await db.execute(select(func.count()).select_from(Subscription).where(Subscription.status == 'active'))).scalar() or 0
-    active_subs = (await db.execute(select(Subscription).where(Subscription.status == 'active'))).scalars().all()
-    mrr = sum(sub.amount_usd / (12 if sub.interval_days > 30 else 1) for sub in active_subs)
-
-    # FIXED: Query for 'finished' (success status) case-insensitively
-    monthly_revenue = (await db.execute(select(func.sum(Payment.amount_usd)).select_from(Payment).where(
-        func.lower(Payment.status) == 'finished',  # Changed from 'paid' to 'finished'
-        Payment.paid_at >= one_month_ago
-    ))).scalar() or 0.0
-    arpu = monthly_revenue / total_users if total_users else 0.0
-
-    past_active_subs_count = (await db.execute(select(func.count()).select_from(Subscription).where(
-        Subscription.status == 'active', Subscription.start_date <= one_month_ago
-    ))).scalar() or 0
-    canceled_last_month = (await db.execute(select(func.count()).select_from(Subscription).where(
-        Subscription.status == 'canceled', Subscription.updated_at >= one_month_ago
-    ))).scalar() or 0
-    user_churn_rate = (canceled_last_month / past_active_subs_count * 100) if past_active_subs_count else 0.0
-
-    past_active_subs = (await db.execute(select(Subscription).where(
-        Subscription.status == 'active', Subscription.start_date <= one_month_ago
-    ))).scalars().all()
-    past_mrr = sum(sub.amount_usd / (12 if sub.interval_days > 30 else 1) for sub in past_active_subs)
-    lost_mrr = max(0, past_mrr - mrr)
-    revenue_churn_rate = (lost_mrr / past_mrr * 100) if past_mrr else 0.0
-
-    # ───── NEW: Admin's Own Plan Details ─────
-    admin_plan_display = current_user.plan.lower() if current_user.plan else 'starter'
-    if 'pro' in admin_plan_display:
-        admin_plan_display = 'Pro'
-    elif 'elite' in admin_plan_display:
-        admin_plan_display = 'Elite'
-    else:
-        admin_plan_display = 'Starter'
-
-    # Fetch admin's active subscription - FIXED: Use .first() to avoid MultipleResultsFound
-    admin_active_sub_result = await db.execute(
-        select(Subscription).where(
-            Subscription.user_id == current_user.id,
-            Subscription.status == 'active'
-        ).order_by(desc(Subscription.start_date)).limit(1)
-    )
-    admin_active_sub = admin_active_sub_result.scalar_one_or_none()
-
-    # ───── Recent Users ─────
-    recent_users = (await db.execute(select(User).order_by(desc(User.created_at)).limit(10))).scalars().all()
-    recent_users_with_stats = []
-    for user in recent_users:
-        trade_query = select(Trade).where(Trade.owner_id == user.id)
-        total_res = await db.execute(select(func.count()).select_from(trade_query.subquery()))
-        trade_count = total_res.scalar() or 0
-        wins_res = await db.execute(select(func.count()).select_from(trade_query.where(Trade.pnl > 0).subquery()))
-        wins_count = wins_res.scalar() or 0
-        win_rate = round((wins_count / trade_count * 100), 1) if trade_count > 0 else 0.0
-        joined_formatted = user.created_at.strftime('%b %d, %Y') if user.created_at else 'N/A'
-        plan = getattr(user, 'plan', 'starter')
-        
-        # UPDATED: Fetch active test marketplace subs (amount=0)
-        test_subs_query = select(Subscription.trader_id, User.full_name).select_from(Subscription).join(User, Subscription.trader_id == User.id).where(
-            Subscription.user_id == user.id,
-            Subscription.status == 'active',
-            Subscription.amount_usd == 0.0
-        )
-        result_test_subs = await db.execute(test_subs_query)
-        active_test_subs = result_test_subs.all()
-        sub_list = [
-            {'trader_id': row[0], 'trader_name': row[1] or f'Trader {row[0]}'}
-            for row in active_test_subs
-        ]
-        sub_count = len(sub_list)
-        
-        recent_users_with_stats.append({
-            'id': user.id,
-            'email': user.email,
-            'full_name': user.full_name or 'N/A',
-            'joined': joined_formatted,
-            'trades': trade_count,
-            'plan': plan.upper() if plan else 'STARTER',
-            'is_trader': getattr(user, 'is_trader', False),
-            'is_trader_pending': getattr(user, 'is_trader_pending', False),  # NEW
-            'win_rate': win_rate,
-            'sub_count': sub_count,
-            'sub_list': sub_list,  # NEW: List of active test subs
-        })
-
-    # ───── Marketplace Traders ─────
-    marketplace_traders = (await db.execute(
-        select(User).where(User.is_trader == True).order_by(desc(User.created_at)).limit(20)
-    )).scalars().all()
-    marketplace_traders_with_stats = []
-    for trader in marketplace_traders:
-        trade_query = select(func.count(Trade.id)).where(Trade.owner_id == trader.id)
-        total_res = await db.execute(trade_query)
-        trade_count = total_res.scalar() or 0
-        marketplace_traders_with_stats.append({
-            'id': trader.id,
-            'name': trader.full_name or f'Trader {trader.id}',
-            'win_rate': round(trader.win_rate or 0, 1),
-            'trades': trade_count,
-            'price': trader.marketplace_price or 19.99
-        })
-
-    # ───── NEW: Pending Trader Applications ─────
-    pending_traders = (await db.execute(
-        select(User).where(User.is_trader_pending == True).order_by(desc(User.created_at)).limit(10)
-    )).scalars().all()
-    pending_traders_with_stats = []
-    for trader in pending_traders:
-        trade_query = select(func.count(Trade.id)).where(Trade.owner_id == trader.id)
-        total_res = await db.execute(trade_query)
-        trade_count = total_res.scalar() or 0
-        wins_res = await db.execute(select(func.count(Trade.id)).where(Trade.owner_id == trader.id, Trade.pnl > 0))
-        wins_count = wins_res.scalar() or 0
-        win_rate = round((wins_count / trade_count * 100), 1) if trade_count > 0 else 0.0
-        pending_traders_with_stats.append({
-            'id': trader.id,
-            'name': trader.full_name or f'Trader {trader.id}',
-            'email': trader.email,
-            'win_rate': win_rate,
-            'trades': trade_count,
-            'applied_at': trader.updated_at.strftime('%b %d, %Y %H:%M') if trader.updated_at else 'N/A'
-        })
-
-    # ───── Recent Trades ─────
-    recent_trades = (await db.execute(select(Trade).order_by(desc(Trade.created_at)).limit(10))).scalars().all()
-    recent_trades_list = []
-    for trade in recent_trades:
-        user = (await db.execute(select(User).where(User.id == trade.owner_id))).scalar()
-        user_name = user.full_name if user else 'Unknown'
-        created_formatted = trade.created_at.strftime('%b %d, %Y') if trade.created_at else 'N/A'
-        recent_trades_list.append({
-            'id': trade.id,
-            'user_name': user_name,
-            'symbol': trade.symbol or 'N/A',
-            'pnl': trade.pnl or 0,
-            'created': created_formatted
-        })
-
-    # ───── NEW: Recent Partial Payments (FIXED: Case-insensitive query)
-    partial_payments = (await db.execute(
-        select(Payment).where(func.lower(Payment.status) == 'partially_paid').order_by(desc(Payment.created_at)).limit(10)
-    )).scalars().all()
-    recent_partial_payments = []
-    for p in partial_payments:
-        sub_result = await db.execute(select(Subscription).where(Subscription.id == p.subscription_id))
-        sub = sub_result.scalar_one_or_none()
-        if not sub:
-            continue
-        user = await db.get(User, sub.user_id)
-        trader = await db.get(User, sub.trader_id) if sub.trader_id else None
-        trader_name = trader.full_name or trader.username if trader else None
-        is_marketplace = bool(sub.trader_id)
-        created_formatted = p.created_at.strftime('%b %d, %Y %H:%M') if p.created_at else 'N/A'
-        recent_partial_payments.append({
-            'id': p.id,
-            'nowpayments_payment_id': p.nowpayments_payment_id,
-            'user_email': user.email if user else 'Unknown',
-            'user_id': sub.user_id,
-            'trader_name': trader_name,
-            'is_marketplace': is_marketplace,
-            'amount_usd': p.amount_usd,
-            'amount_paid_crypto': p.amount_paid_crypto,
-            'crypto_currency': p.crypto_currency,
-            'created': created_formatted,
-        })
+    # Fetch data using utils
+    stats = await compute_admin_stats(db)
+    configs = await get_all_configs(db)
+    revenue = await get_revenue_metrics(db)
+    recent_users = await get_recent_users_with_stats(db, search)
+    marketplace_traders = await get_marketplace_traders_with_stats(db)
+    pending_traders = await get_pending_traders_with_stats(db)
+    recent_trades = await get_recent_trades_list(db)
+    recent_initiated_platform = await get_recent_initiated_platform_list(db)
+    recent_initiated_marketplace = await get_recent_initiated_marketplace_list(db)
+    recent_partial_platform = await get_recent_partial_platform_list(db)
+    recent_partial_marketplace = await get_recent_partial_marketplace_list(db)
+    recent_referrals = await get_recent_referrals_list(db)
+    recent_points = await get_recent_points_list(db)
 
     return templates.TemplateResponse(
         "admin.html",
@@ -311,31 +77,435 @@ async def admin_page(
             "request": request,
             "current_user": current_user,
             "initials": initials,
-            "total_users": total_users,
-            "new_users": new_users,
-            "total_trades": total_trades,
-            "avg_trades_per_user": avg_trades_per_user,
-            "plan_counts": plan_counts,
-            "recent_users": recent_users_with_stats,
-            "marketplace_traders": marketplace_traders_with_stats,
-            "pending_traders": pending_traders_with_stats,
-            "recent_trades": recent_trades_list,
-            "recent_partial_payments": recent_partial_payments,
-            "pricing": pricing,
-            "discount": discount,
-            "marketplace_discount": marketplace_discount,
-            "eligibility": eligibility,
-            "upload_limits": upload_limits,
-            "mrr": round(mrr, 2),
-            "monthly_revenue": round(monthly_revenue, 2),
-            "arpu": round(arpu, 2),
-            "active_subscribers": active_subscribers,
-            "user_churn_rate": round(user_churn_rate, 1),
-            "revenue_churn_rate": round(revenue_churn_rate, 1),
-            "admin_plan": admin_plan_display,
-            "admin_sub": admin_active_sub,
+            **stats,
+            **configs,
+            **revenue,
+            "recent_users": recent_users,
+            "marketplace_traders": marketplace_traders,
+            "pending_traders": pending_traders,
+            "recent_trades": recent_trades,
+            "recent_referrals": recent_referrals,
+            "recent_points": recent_points,
+            "recent_initiated_platform": recent_initiated_platform,
+            "recent_initiated_marketplace": recent_initiated_marketplace,
+            "recent_partial_platform": recent_partial_platform,
+            "recent_partial_marketplace": recent_partial_marketplace,
+            "search": search or "",
+            'now': datetime.now(),
         }
     )
+
+
+# ───── GET USER DETAILS (FULL) ─────
+@router.get("/user/{user_id}", response_class=JSONResponse)
+async def get_user_details(
+    user_id: int,
+    db: AsyncSession = Depends(get_session)
+):
+    data = await get_user_details_data(db, user_id)
+    return data
+
+
+def generate_code(length=8):
+    """Helper to generate a unique beta invite code."""
+    return ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(length))
+
+
+# ───── NEW: TOGGLE BETA MODE ─────
+@router.post("/toggle-beta-mode")
+async def toggle_beta_mode(
+    is_active: bool = Form(False),  # FIXED: Default to False to handle unchecked checkbox
+    required_for_signup: bool = Form(False),
+    award_points_on_use: int = Form(3),
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(auth.get_current_user)
+):
+    if not current_user or current_user.email != "ukovictor8@gmail.com":
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    if award_points_on_use < 0:
+        raise HTTPException(status_code=400, detail="Award points cannot be negative")
+
+    result = await db.execute(select(BetaConfig).where(BetaConfig.id == 1))
+    config = result.scalar_one_or_none()
+    if config:
+        config.is_active = is_active
+        config.required_for_signup = required_for_signup
+        config.award_points_on_use = award_points_on_use
+    else:
+        config = BetaConfig(
+            id=1,
+            is_active=is_active,
+            required_for_signup=required_for_signup,
+            award_points_on_use=award_points_on_use
+        )
+        db.add(config)
+
+    await db.commit()
+
+    status_str = "activated" if is_active else "deactivated"
+    req_str = "required" if required_for_signup else "optional"
+    logger.info(f"Admin {status_str} beta mode (signup code {req_str}, {award_points_on_use} TP award)")
+    return JSONResponse({
+        "success": True,
+        "message": f"Beta mode {status_str}. Signup code is {'required' if required_for_signup else 'optional'}. Award: {award_points_on_use} TP."
+    })
+
+
+# ───── NEW: GENERATE BETA INVITE CODES FOR USER ─────
+@router.post("/generate-beta-invites/{user_id}")
+async def admin_generate_beta_invites(
+    user_id: int,
+    count: int = Form(3, ge=1, le=10),  # Limit to reasonable number
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(auth.get_current_user)
+):
+    if not current_user or current_user.email != "ukovictor8@gmail.com":
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    target_user = await db.get(User, user_id)
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    created_codes = []
+    for _ in range(count):
+        code = generate_code()
+        # Ensure unique
+        while (await db.execute(select(BetaInvite).where(BetaInvite.code == code))).first():
+            code = generate_code()
+        invite = BetaInvite(
+            owner_id=user_id,
+            code=code,
+            created_at=datetime.utcnow(),
+            used_by_id=None,
+            used_at=None
+        )
+        db.add(invite)
+        created_codes.append(code)
+
+    await db.commit()
+
+    logger.info(f"Admin generated {count} beta invites for user {user_id}: {created_codes}")
+    return JSONResponse({
+        "success": True,
+        "message": f"Generated {count} new beta invite codes: {', '.join(created_codes)}"
+    })
+
+
+# ───── NEW: GENERATE BETA POOL CODES (Global access pool) ─────
+@router.post("/generate-beta-pool")
+async def admin_generate_beta_pool(
+    count: int = Form(10, ge=1, le=100),  # Reasonable limit for pool
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(auth.get_current_user)
+):
+    if not current_user or current_user.email != "ukovictor8@gmail.com":
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    created_codes = []
+    for _ in range(count):
+        code = generate_code()
+        # Ensure unique
+        while (await db.execute(select(BetaInvite).where(BetaInvite.code == code))).first():
+            code = generate_code()
+        invite = BetaInvite(
+            owner_id=0,  # FIXED: Global pool: special owner_id=0 (no real user, treated as None in queries)
+            code=code,
+            created_at=datetime.utcnow(),
+            used_by_id=None,
+            used_at=None
+        )
+        db.add(invite)
+        created_codes.append(code)
+
+    await db.commit()
+
+    logger.info(f"Admin generated {count} beta pool invites: {created_codes}")
+    return JSONResponse({
+        "success": True,
+        "message": f"Generated {count} beta pool codes: {', '.join(created_codes)}"
+    })
+
+
+# ───── BULK USER MANAGEMENT ─────
+@router.get("/users")
+async def list_users(
+    search: Optional[str] = Query(None),
+    plan: Optional[str] = Query(None),
+    is_trader: Optional[bool] = Query(None),
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0),
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(auth.get_current_user)
+):
+    if not current_user or current_user.email != "ukovictor8@gmail.com":
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    data = await get_users_list(db, search, plan, is_trader, limit, offset)
+    return data
+
+
+# ───── BULK REFERRAL MANAGEMENT ─────
+@router.get("/referrals")
+async def list_referrals(
+    search: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0),
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(auth.get_current_user)
+):
+    if not current_user or current_user.email != "ukovictor8@gmail.com":
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    data = await get_referrals_list(db, search, status, limit, offset)
+    return data
+
+
+# ───── NEW: BULK BETA INVITES MANAGEMENT ─────
+@router.get("/beta-invites")
+async def list_beta_invites(
+    search: Optional[str] = Query(None),
+    used: Optional[bool] = Query(None),
+    owner_id: Optional[int] = Query(None),
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0),
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(auth.get_current_user)
+):
+    if not current_user or current_user.email != "ukovictor8@gmail.com":
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    query = select(BetaInvite).options(joinedload(BetaInvite.owner), joinedload(BetaInvite.used_by))
+    if search:
+        query = query.where(or_(
+            BetaInvite.code.ilike(f"%{search}%"),
+            BetaInvite.owner.has(User.email.ilike(f"%{search}%")),
+            BetaInvite.used_by.has(User.email.ilike(f"%{search}%"))
+        ))
+    if used is not None:
+        if used:
+            query = query.where(BetaInvite.used_by_id.is_not(None))
+        else:
+            query = query.where(BetaInvite.used_by_id.is_(None))
+    if owner_id:
+        query = query.where(BetaInvite.owner_id == owner_id)
+    query = query.order_by(desc(BetaInvite.created_at))
+    result = await db.execute(query.limit(limit).offset(offset))
+    invites = result.scalars().all()
+    total_result = await db.execute(select(func.count()).select_from(query.subquery()))
+    total_count = total_result.scalar()
+
+    # Serialize
+    serialized = []
+    for invite in invites:
+        used_email = invite.used_by.email if invite.used_by else None
+        owner_email = invite.owner.email if invite.owner else "Global Pool"
+        serialized.append({
+            "id": invite.id,
+            "code": invite.code,
+            "owner_id": invite.owner_id,
+            "owner_email": owner_email,
+            "used_by_id": invite.used_by_id,
+            "used_by_email": used_email,
+            "created_at": invite.created_at.isoformat(),
+            "used_at": invite.used_at.isoformat() if invite.used_at else None
+        })
+    return {"invites": serialized, "total": total_count}
+
+
+# ───── BULK POINT TRANSACTIONS ─────
+@router.get("/points")
+async def list_points(
+    search: Optional[str] = Query(None),
+    type: Optional[str] = Query(None),
+    user_id: Optional[int] = Query(None),
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0),
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(auth.get_current_user)
+):
+    if not current_user or current_user.email != "ukovictor8@gmail.com":
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    data = await get_points_list(db, search, type, user_id, limit, offset)
+    return data
+
+
+# ───── ADMIN ADJUST POINTS (Add/Remove) ─────
+@router.post("/points/adjust")
+async def admin_adjust_points(
+    user_id: int = Form(...),
+    amount: int = Form(...),
+    reason: str = Form("Admin adjustment"),
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(auth.get_current_user)
+):
+    if not current_user or current_user.email != "ukovictor8@gmail.com":
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    user.trade_points += amount
+    user.trade_points = max(0, user.trade_points)
+    
+    tx = PointTransaction(
+        user_id=user_id,
+        type="admin_adjust",
+        amount=amount,
+        description=f"{reason} ({'Added' if amount > 0 else 'Deducted'} {abs(amount)} TP)"
+    )
+    db.add(tx)
+    await db.commit()
+    await db.refresh(user)
+    
+    logger.info(f"Admin adjusted {amount} TP for user {user_id}: {reason}")
+    return JSONResponse({
+        "success": True,
+        "message": f"{'Added' if amount > 0 else 'Deducted'} {abs(amount)} TP for user {user_id}. New balance: {user.trade_points}",
+        "new_balance": user.trade_points
+    })
+
+
+# ───── LIST ALL PAYMENTS WITH FILTERS ─────
+@router.get("/payments")
+async def list_payments(
+    status: Optional[str] = Query(None),
+    user_id: Optional[int] = Query(None),
+    crypto_currency: Optional[str] = Query(None),
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0),
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(auth.get_current_user)
+):
+    if not current_user or current_user.email != "ukovictor8@gmail.com":
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    data = await get_payments_list(db, status, user_id, crypto_currency, limit, offset)
+    return data
+
+
+# ───── REFUND/CANCEL PAYMENT ─────
+@router.post("/payments/refund/{payment_id}")
+async def admin_refund_payment(
+    payment_id: str,
+    reason: str = Form("Admin refund"),
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(auth.get_current_user)
+):
+    if not current_user or current_user.email != "ukovictor8@gmail.com":
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    payment = await db.get(Payment, payment_id, Payment.nowpayments_payment_id)
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    
+    if payment.status not in ['finished', 'partially_paid']:
+        raise HTTPException(status_code=400, detail="Only completed payments can be refunded")
+    
+    payment.status = 'refunded'
+    payment.notes = reason
+    await db.commit()
+    
+    if payment.subscription_id:
+        sub = await db.get(Subscription, payment.subscription_id)
+        if sub:
+            sub.status = 'paused'
+            await db.commit()
+    
+    logger.info(f"Admin refunded payment {payment_id}: {reason}")
+    return JSONResponse({
+        "success": True,
+        "message": f"Payment {payment_id} refunded and marked as 'refunded'. Linked subscription paused if applicable."
+    })
+
+
+# ───── SEND BULK NOTIFICATION ─────
+@router.post("/notifications/send_bulk")
+async def admin_send_bulk_notification(
+    title: str = Form(...),
+    message: str = Form(...),
+    user_ids: List[int] = Body(...),
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(auth.get_current_user)
+):
+    if not current_user or current_user.email != "ukovictor8@gmail.com":
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    if not user_ids:
+        user_ids = [u.id for u in (await db.execute(select(User))).scalars().all()]
+    
+    created_count = 0
+    for uid in user_ids:
+        notif = Notification(
+            user_id=uid,
+            title=title,
+            message=message,
+            type="admin_broadcast"
+        )
+        db.add(notif)
+        created_count += 1
+    
+    await db.commit()
+    logger.info(f"Admin sent bulk notification '{title}' to {created_count} users")
+    return JSONResponse({
+        "success": True,
+        "message": f"Bulk notification sent to {created_count} users",
+        "title": title
+    })
+
+
+# ───── GENERATE FAKE DATA (for testing) ─────
+@router.post("/generate_fake_data")
+async def admin_generate_fake_data(
+    num_users: int = Form(10, ge=1, le=100),
+    num_trades_per_user: int = Form(5, ge=1, le=20),
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(auth.get_current_user)
+):
+    if not current_user or current_user.email != "ukovictor8@gmail.com":
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    from faker import Faker
+    fake = Faker()
+    
+    created_users = 0
+    created_trades = 0
+    
+    for _ in range(num_users):
+        new_user = User(
+            username=fake.user_name(),
+            full_name=fake.name(),
+            email=fake.email(),
+            password_hash="fake_hash",
+            referral_code=fake.uuid4()[:8],
+            plan="starter",
+            created_at=datetime.utcnow() - timedelta(days=fake.random_int(1, 365))
+        )
+        db.add(new_user)
+        created_users += 1
+        
+        for __ in range(num_trades_per_user):
+            new_trade = Trade(
+                owner_id=new_user.id,
+                symbol=fake.random_element(['EUR/USD', 'BTC/USD', 'GBP/JPY']),
+                entry_price=fake.pydecimal(left_digits=3, right_digits=4, positive=True),
+                exit_price=fake.pydecimal(left_digits=3, right_digits=4, positive=True),
+                pnl=fake.pydecimal(left_digits=1, right_digits=2, positive=fake.boolean()),
+                created_at=new_user.created_at + timedelta(days=fake.random_int(1, 365))
+            )
+            db.add(new_trade)
+            created_trades += 1
+    
+    await db.commit()
+    
+    logger.info(f"Generated {created_users} fake users and {created_trades} trades")
+    return JSONResponse({
+        "success": True,
+        "message": f"Generated {created_users} users and {created_trades} trades. Refresh dashboard."
+    })
 
 
 # ───── UPDATE PRICING ─────
@@ -436,19 +606,20 @@ async def update_marketplace_discount(
     return JSONResponse({"success": True, "message": "Marketplace discount updated"})
 
 
-# ───── UPDATE ELIGIBILITY ─────
+# ───── UPDATE ELIGIBILITY (UPDATED: Include trader_share_percent) ─────
 @router.post("/update_eligibility")
 async def update_eligibility(
     min_trades: int = Form(50),
     min_win_rate: float = Form(80.0),
     max_marketplace_price: float = Form(99.99),
+    trader_share_percent: float = Form(70.0),  # NEW: Trader's share (0-100)
     current_user: User = Depends(auth.get_current_user),
     db: AsyncSession = Depends(get_session)
 ):
     if not current_user or current_user.email != "ukovictor8@gmail.com":
         raise HTTPException(status_code=403, detail="Access denied")
 
-    if min_trades < 1 or min_win_rate < 0 or min_win_rate > 100 or max_marketplace_price < 0:
+    if min_trades < 1 or min_win_rate < 0 or min_win_rate > 100 or max_marketplace_price < 0 or trader_share_percent < 0 or trader_share_percent > 100:
         raise HTTPException(status_code=400, detail="Invalid thresholds")
 
     result = await db.execute(select(EligibilityConfig).where(EligibilityConfig.id == 1))
@@ -460,15 +631,16 @@ async def update_eligibility(
     db_config.min_trades = min_trades
     db_config.min_win_rate = min_win_rate
     db_config.max_marketplace_price = max_marketplace_price
+    db_config.trader_share_percent = trader_share_percent  # NEW: Update split
     await db.commit()
 
     return JSONResponse({
         "success": True,
-        "message": f"Eligibility updated: {min_trades} trades, {min_win_rate}% win rate, ${max_marketplace_price} max price"
+        "message": f"Eligibility updated: {min_trades} trades, {min_win_rate}% win rate, ${max_marketplace_price} max price, Trader share: {trader_share_percent}%"
     })
 
 
-# ───── NEW: UPDATE UPLOAD LIMITS ─────
+# ───── UPDATE UPLOAD LIMITS ─────
 @router.post("/update_upload_limits")
 async def update_upload_limits(
     starter_monthly: int = Form(2),
@@ -501,6 +673,176 @@ async def update_upload_limits(
 
     await db.commit()
     return JSONResponse({"success": True, "message": "Upload limits updated"})
+
+
+# ───── UPDATE INSIGHTS LIMITS ─────
+@router.post("/update_insights_limits")
+async def update_insights_limits(
+    starter_monthly: int = Form(3),
+    pro_monthly: int = Form(999),
+    elite_monthly: int = Form(999),
+    current_user: User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_session)
+):
+    if not current_user or current_user.email != "ukovictor8@gmail.com":
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    plans_data = [
+        {'plan': 'starter', 'monthly': starter_monthly},
+        {'plan': 'pro', 'monthly': pro_monthly},
+        {'plan': 'elite', 'monthly': elite_monthly},
+    ]
+
+    for data in plans_data:
+        await db.execute(update(InsightsLimits).where(
+            InsightsLimits.plan == data['plan']
+        ).values(monthly_limit=data['monthly']))
+        if not (await db.execute(select(InsightsLimits).where(InsightsLimits.plan == data['plan']))).scalar():
+            db.add(InsightsLimits(plan=data['plan'], monthly_limit=data['monthly']))
+
+    await db.commit()
+    return JSONResponse({"success": True, "message": "Insights generation limits updated"})
+
+
+# ───── UPDATE AI CHAT LIMITS (NEW: Admin-configurable AI chat monthly limits and TP cost) ─────
+@router.post("/update_ai_chat_limits")
+async def update_ai_chat_limits(
+    starter_monthly: int = Form(5, ge=0),
+    starter_tp: int = Form(1, ge=0),
+    pro_monthly: int = Form(25, ge=0),
+    pro_tp: int = Form(0, ge=0),
+    elite_monthly: int = Form(50, ge=0),
+    elite_tp: int = Form(0, ge=0),
+    current_user: User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_session)
+):
+    if not current_user or current_user.email != "ukovictor8@gmail.com":
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    plans_data = [
+        {'plan': 'starter', 'monthly': starter_monthly, 'tp': starter_tp},
+        {'plan': 'pro', 'monthly': pro_monthly, 'tp': pro_tp},
+        {'plan': 'elite', 'monthly': elite_monthly, 'tp': elite_tp},
+    ]
+
+    for data in plans_data:
+        await db.execute(update(AiChatLimits).where(
+            AiChatLimits.plan == data['plan']
+        ).values(
+            monthly_limit=data['monthly'],
+            tp_cost=data['tp']
+        ))
+        if not (await db.execute(select(AiChatLimits).where(AiChatLimits.plan == data['plan']))).scalar():
+            db.add(AiChatLimits(
+                plan=data['plan'],
+                monthly_limit=data['monthly'],
+                tp_cost=data['tp']
+            ))
+
+    await db.commit()
+    return JSONResponse({"success": True, "message": "AI Chat limits updated"})
+
+
+# ───── UPDATE INITIAL TP GRANT (NEW: Admin-configurable signup TP amount) ─────
+@router.post("/update_initial_tp")
+async def update_initial_tp(
+    amount: int = Form(3, ge=0),
+    current_user: User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_session)
+):
+    if not current_user or current_user.email != "ukovictor8@gmail.com":
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    if amount < 0:
+        raise HTTPException(status_code=400, detail="Amount cannot be negative")
+
+    result = await db.execute(select(InitialTpConfig).where(InitialTpConfig.id == 1))
+    db_config = result.scalar_one_or_none()
+    if not db_config:
+        db_config = InitialTpConfig(id=1)
+        db.add(db_config)
+
+    db_config.amount = amount
+    await db.commit()
+
+    return JSONResponse({
+        "success": True,
+        "message": f"Initial TP grant updated to {amount} TP per new user signup"
+    })
+
+
+# ───── UPDATE UPGRADE TP CONFIG (NEW: Admin-configurable TP for plan upgrades) ─────
+@router.post("/update_upgrade_tp")
+async def update_upgrade_tp(
+    pro_amount: int = Form(10, ge=0),
+    elite_amount: int = Form(20, ge=0),
+    current_user: User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_session)
+):
+    if not current_user or current_user.email != "ukovictor8@gmail.com":
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    if pro_amount < 0 or elite_amount < 0:
+        raise HTTPException(status_code=400, detail="Amounts cannot be negative")
+
+    configs = [
+        {'id': 1, 'plan': 'pro', 'amount': pro_amount},
+        {'id': 2, 'plan': 'elite', 'amount': elite_amount},
+    ]
+
+    for c in configs:
+        await db.execute(update(UpgradeTpConfig).where(
+            UpgradeTpConfig.id == c['id']
+        ).values(amount=c['amount']))
+        if not (await db.execute(select(UpgradeTpConfig).where(
+            UpgradeTpConfig.id == c['id']
+        ))).scalar():
+            db.add(UpgradeTpConfig(**c))
+
+    await db.commit()
+
+    return JSONResponse({
+        "success": True,
+        "message": f"Upgrade TP updated: Pro {pro_amount} TP, Elite {elite_amount} TP"
+    })
+
+
+# ───── UPDATE BETA REFERRAL TP BONUS (NEW: Admin-configurable TP for beta referrals per plan) ─────
+@router.post("/update_beta_referral_tp")
+async def update_beta_referral_tp(
+    starter_amount: int = Form(5, ge=0),
+    pro_amount: int = Form(20, ge=0),
+    elite_amount: int = Form(45, ge=0),
+    current_user: User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_session)
+):
+    if not current_user or current_user.email != "ukovictor8@gmail.com":
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    if starter_amount < 0 or pro_amount < 0 or elite_amount < 0:
+        raise HTTPException(status_code=400, detail="Amounts cannot be negative")
+
+    result = await db.execute(select(BetaReferralTpConfig).where(BetaReferralTpConfig.id == 1))
+    db_config = result.scalar_one_or_none()
+    if not db_config:
+        db_config = BetaReferralTpConfig(
+            id=1,
+            starter_tp=starter_amount,
+            pro_tp=pro_amount,
+            elite_tp=elite_amount
+        )
+        db.add(db_config)
+    else:
+        db_config.starter_tp = starter_amount
+        db_config.pro_tp = pro_amount
+        db_config.elite_tp = elite_amount
+
+    await db.commit()
+
+    return JSONResponse({
+        "success": True,
+        "message": f"Beta referral TP bonuses updated: Starter {starter_amount} TP, Pro {pro_amount} TP, Elite {elite_amount} TP"
+    })
 
 
 # ───── UPDATE USER PLAN ─────
@@ -588,9 +930,21 @@ async def toggle_trader(
     if desired_is_trader and not eligible:
         raise HTTPException(status_code=400, detail=f"User ineligible: Needs {min_trades - total} more trades and/or {min_win_rate - win_rate:.1f}% higher win rate.")
 
+    was_trader = user.is_trader
     user.is_trader = desired_is_trader
-    user.is_trader_pending = False  # Clear pending on toggle
+    user.is_trader_pending = False
     user.updated_at = datetime.utcnow()
+
+    if was_trader and not desired_is_trader:
+        removal_notif = Notification(
+            user_id=user.id,
+            title="Removed from Marketplace",
+            message="You have been removed from the marketplace. Please contact support if you believe this is an error.",
+            type="removal"
+        )
+        db.add(removal_notif)
+        logger.info(f"Removed trader {user.id} from marketplace and sent notification")
+
     await db.commit()
     await db.refresh(user)
 
@@ -604,7 +958,8 @@ async def toggle_trader(
         "min_win_rate": min_win_rate,
     })
 
-# ───── NEW: CREATE TEST MARKETPLACE SUBSCRIPTION ─────
+
+# ───── CREATE TEST MARKETPLACE SUBSCRIPTION ─────
 @router.post("/create_test_subscription")
 async def create_test_subscription(
     user_id: int = Form(...),
@@ -615,7 +970,6 @@ async def create_test_subscription(
     if not current_user or current_user.email != "ukovictor8@gmail.com":
         raise HTTPException(status_code=403, detail="Access denied")
     
-    # Check if sub already exists
     existing = await db.execute(
         select(Subscription).where(
             Subscription.user_id == user_id,
@@ -626,7 +980,6 @@ async def create_test_subscription(
     if existing.scalar():
         raise HTTPException(status_code=400, detail="Test subscription already active")
     
-    # Verify user and trader exist
     user = await db.get(User, user_id)
     trader = await db.get(User, trader_id)
     if not user or not trader:
@@ -634,19 +987,18 @@ async def create_test_subscription(
     if not trader.is_trader:
         raise HTTPException(status_code=400, detail="Trader not eligible")
     
-    # Create fake active sub (monthly, $0 for test)
     test_sub = Subscription(
         user_id=user_id,
         trader_id=trader_id,
         plan_type=f"test_marketplace_{trader_id}_monthly",
         interval_days=30,
-        amount_usd=0.0,  # Free for test
+        amount_usd=0.0,
         status='active',
         start_date=datetime.utcnow(),
         next_billing_date=datetime.utcnow() + timedelta(days=30),
         order_id=f"test_{user_id}_{trader_id}",
         order_description=f"Test sub to {trader.full_name or trader.username}",
-        renewal_url=None  # No real payment
+        renewal_url=None
     )
     db.add(test_sub)
     await db.commit()
@@ -659,7 +1011,8 @@ async def create_test_subscription(
         "sub_id": test_sub.id
     })
 
-# ───── NEW: DELETE TEST MARKETPLACE SUBSCRIPTION ─────
+
+# ───── DELETE TEST MARKETPLACE SUBSCRIPTION ─────
 @router.delete("/delete_test_subscription/{user_id}/{trader_id}")
 async def delete_test_subscription(
     user_id: int,
@@ -690,7 +1043,8 @@ async def delete_test_subscription(
         "message": f"Test access revoked for trader {trader_id}."
     })
 
-# ───── NEW: Approve/Reject Trader Application ─────
+
+# ───── APPROVE TRADER APPLICATION ─────
 @router.post("/approve_trader/{user_id}")
 async def approve_trader(
     user_id: int,
@@ -711,11 +1065,27 @@ async def approve_trader(
         applicant.is_trader = True
         logger.info(f"Approved trader application for user {applicant.id}")
         message = f"Approved: {applicant.full_name or applicant.email}"
+        
+        approval_notif = Notification(
+            user_id=applicant.id,
+            title="Trader Application Approved!",
+            message=f"Congratulations! Your application to become a marketplace trader has been approved. You can now set your subscription price and start earning. Visit your profile to get started.",
+            type="approval"
+        )
+        db.add(approval_notif)
     else:
         applicant.is_trader = False
         applicant.marketplace_price = None
         logger.info(f"Rejected trader application for user {applicant.id}: {reason}")
         message = f"Rejected: {applicant.full_name or applicant.email} ({reason})"
+        
+        rejection_notif = Notification(
+            user_id=applicant.id,
+            title="Trader Application Update",
+            message=f"Your application to become a marketplace trader has been reviewed. Unfortunately, it was not approved at this time. Reason: {reason or 'Did not meet current eligibility criteria.'} Feel free to improve your stats and reapply!",
+            type="rejection"
+        )
+        db.add(rejection_notif)
 
     applicant.updated_at = datetime.utcnow()
     await db.commit()
@@ -723,28 +1093,28 @@ async def approve_trader(
 
     return JSONResponse({"success": True, "message": message})
 
-# ───── NEW: Manual Complete Payment ─────
+
+# ───── MANUAL COMPLETE PAYMENT ─────
 @router.post("/complete-payment")
 async def manual_complete_payment(
-    payment_id: str = Body(...),  # NowPayments payment_id
-    reason: str = Body("Test/manual override"),
+    payload: dict = Body(...),
     current_user: User = Depends(auth.get_current_user),
     db: AsyncSession = Depends(get_session)
 ):
     if not current_user or current_user.email != "ukovictor8@gmail.com":
         raise HTTPException(status_code=403, detail="Access denied")
 
-    # Fetch payment
+    payment_id = payload.get("payment_id")
+    reason = payload.get("reason", "Test/manual override")
+
     result = await db.execute(select(Payment).where(Payment.nowpayments_payment_id == payment_id))
     db_payment = result.scalar_one_or_none()
     if not db_payment:
         raise HTTPException(status_code=404, detail="Payment not found")
     
-    # Verify status
     if db_payment.status not in ["partially_paid", "failed"]:
         raise HTTPException(status_code=400, detail="Only partial/failed payments can be completed")
     
-    # Link to sub if needed
     if not db_payment.subscription_id:
         raise HTTPException(status_code=400, detail="No linked subscription")
     
@@ -753,12 +1123,10 @@ async def manual_complete_payment(
     if not db_sub:
         raise HTTPException(status_code=404, detail="Subscription not found")
     
-    # Complete payment
     db_payment.status = "finished_manual"
     db_payment.notes = reason
     db_payment.updated_at = datetime.utcnow()
     
-    # Activate sub
     db_sub.status = "active"
     if "_renew" in (db_payment.order_id or ""):
         db_sub.next_billing_date += timedelta(days=db_sub.interval_days)
@@ -767,11 +1135,12 @@ async def manual_complete_payment(
     db_sub.renewal_url = None
     db_sub.updated_at = datetime.utcnow()
     
-    # Update user
     result = await db.execute(select(User).where(User.id == db_sub.user_id))
     user = result.scalar_one_or_none()
-    if user:
-        user.plan = db_sub.plan_type
+    if user and db_sub.trader_id is None:  # Only update for PLATFORM subs (no trader_id)
+        # Normalize to base plan (e.g., 'pro_monthly' -> 'pro' for AiChatLimits matching)
+        base_plan = db_sub.plan_type.lower().split('_')[0] if '_' in db_sub.plan_type.lower() else db_sub.plan_type.lower()
+        user.plan = base_plan  # e.g., 'pro' instead of 'pro_monthly'
         user.updated_at = datetime.utcnow()
     
     await db.commit()

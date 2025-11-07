@@ -606,7 +606,7 @@
     /* Chat Offcanvas Styles */
     .chat-offcanvas {
       --bs-offcanvas-width: 400px;
-      z-index: 1065; /* Ensure it layers above FAB */
+      z-index: 1065;
     }
     .chat-offcanvas .offcanvas-body {
       display: flex;
@@ -706,6 +706,13 @@
       background: var(--surface);
       color: var(--text);
       border: 1px solid var(--border);
+    }
+    .upgrade-promo {
+      background: transparent !important;
+      border: none !important;
+      padding: 0 !important;
+      max-width: 100% !important;
+      border-radius: 0 !important;
     }
     .message-time {
       font-size: 0.75rem;
@@ -822,7 +829,7 @@
       z-index: 1060;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       animation: chatPulse 2s infinite;
-      cursor: pointer; /* Ensure clickable */
+      cursor: pointer;
     }
     .chat-fab:hover {
       transform: scale(1.1) rotate(360deg);
@@ -838,10 +845,9 @@
     }
     @media (max-width: 991px) {
       #mobileFab {
-        bottom: 90px; /* Space for chat fab */
+        bottom: 90px;
       }
     }
-    /* Volume Indicator Styles */
     .volume-indicator {
       display: flex;
       align-items: center;
@@ -856,8 +862,8 @@
       position: absolute;
       left: 50%;
       bottom: 100%;
-      margin-bottom: 4px; /* Small gap above button for breathing room */
-      pointer-events: none; /* Prevents interference with button */
+      margin-bottom: 4px;
+      pointer-events: none;
     }
     .volume-indicator.active {
       opacity: 1;
@@ -866,41 +872,40 @@
     .volume-indicator::after {
       content: '';
       position: absolute;
-      bottom: -3px; /* Positions tail just below indicator */
+      bottom: -3px;
       left: 50%;
       transform: translateX(-50%);
       width: 0;
       height: 0;
       border-left: 3px solid transparent;
       border-right: 3px solid transparent;
-      border-top: 3px solid var(--surface); /* Matches button background for seamless connection */
-      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1)); /* Subtle shadow for depth */
+      border-top: 3px solid var(--surface);
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
       transition: border-top-color 0.2s ease;
     }
     .chat-voice.recording ~ .volume-indicator::after {
-      border-top-color: var(--danger); /* Red tail during loud/recording for emphasis */
+      border-top-color: var(--danger);
     }
     .volume-bars {
       display: flex;
-      gap: 1px; /* Tighter gap for compact feel */
+      gap: 1px;
       align-items: flex-end;
-      height: 16px; /* Fixed bar container height */
+      height: 16px;
     }
     .bar {
-      width: 2px; /* Slightly slimmer for 24px total width (5 bars + gaps) */
+      width: 2px;
       height: 16px;
       background: var(--success-gradient);
       border-radius: 1px;
       transform-origin: bottom;
       transition: transform 0.1s ease, background 0.2s ease;
-      transform: scaleY(0); /* Starts hidden, animated in JS */
+      transform: scaleY(0);
     }
-    /* Dark mode tweak */
     [data-theme="dark"] .bar {
       background: linear-gradient(135deg, #22C55E, #16A34A);
     }
     [data-theme="dark"] .volume-indicator::after {
-      border-top-color: var(--surface); /* Ensures tail matches dark button bg */
+      border-top-color: var(--surface);
     }
   </style>
   {% block extra_styles %}{% endblock %}
@@ -921,8 +926,24 @@
       <li class="nav-item"><a class="nav-link {% if request.url.path == '/profile' %}active{% endif %}" href="/profile">Profile</a></li>
     </ul>
     <div class="d-none d-lg-flex align-items-center gap-3">
-    
       <button id="themeToggle" class="btn btn-outline-secondary btn-sm rounded-circle p-2" style="width:40px;height:40px;"><i class="bi bi-moon"></i></button>
+      <div class="dropdown position-relative">
+        <a class="nav-link p-0" href="#" role="button" id="notificationsDropdown" data-bs-toggle="dropdown" aria-expanded="false" style="position: relative;">
+          <i class="bi bi-bell fs-5" style="color: var(--muted);"></i>
+          <span id="notifDot" class="notif-dot" style="display: none;"></span>
+        </a>
+        <ul class="dropdown-menu dropdown-menu-end shadow-lg rounded-3 mt-2" style="min-width: 350px; max-height: 400px; overflow-y: auto;" aria-labelledby="notificationsDropdown">
+          <li>
+            <h6 class="dropdown-header d-flex justify-content-between align-items-center">
+              <span>Notifications</span>
+              <button class="btn btn-sm btn-outline-secondary" onclick="markAllRead()">Mark All Read</button>
+            </h6>
+          </li>
+          <li id="notificationsList">
+            <div class="text-center text-muted py-3">No notifications yet.</div>
+          </li>
+        </ul>
+      </div>
       <div class="dropdown">
         <a class="nav-link p-0" href="#" data-bs-toggle="dropdown">
           <div class="user-avatar rounded-circle d-flex justify-content-center align-items-center text-white fw-bold" style="width:40px; height:40px; background:var(--gradient);" id="userInitials">{{ initials }}</div>
@@ -954,18 +975,18 @@
         <li class="nav-item"><a class="nav-link {% if request.url.path == '/upload' %}active{% endif %}" href="/upload">Upload</a></li>
         <li class="nav-item"><a class="nav-link {% if request.url.path == '/insights' %}active{% endif %}" href="/insights">Insights</a></li>
         <li class="nav-item"><a class="nav-link {% if request.url.path == '/profile' %}active{% endif %}" href="/profile">Profile</a></li>
+        <li class="nav-item"><a class="nav-link" href="#" onclick="loadNotificationsMobile()"><i class="bi bi-bell me-1"></i>Notifications <span id="mobileNotifDot" class="notif-dot" style="display: none;"></span></a></li>
       </ul>
     </div>
   </div>
 </nav>
 
 {% block content %}{% endblock %}
-
 <div class="d-lg-none">
   {% block mobile_fab %}{% endblock %}
 </div>
 
-<!-- Chat FAB (native Bootstrap trigger - no custom onclick) -->
+<!-- Chat FAB -->
 <button id="chatFab" class="chat-fab" type="button" data-bs-toggle="offcanvas" data-bs-target="#chatOffcanvas" aria-controls="chatOffcanvas">
   <i class="bi bi-chat-dots"></i>
 </button>
@@ -983,10 +1004,10 @@
         {% elif 'elite' in current_user.plan.lower() %}
           Elite
         {% else %}
-          Free
+          Starter
         {% endif %}
       {% else %}
-        Free
+        Starter
       {% endif %}
     </span>
     <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
@@ -1060,7 +1081,6 @@
   let dataArray = null;
   let volumeInterval = null;
 
-  // Fetch profile data on load for initials (moved outside DOMContentLoaded to run immediately)
   async function loadProfileData() {
     try {
       const res = await fetch('/api/profile', { credentials: 'include' });
@@ -1080,7 +1100,6 @@
     if (userInitialsHeroEl) userInitialsHeroEl.textContent = initials;
   }
 
-  // Global chat helper functions
   function addChatMessage(role, content) {
     if (!chatMessagesEl) return;
     const messageDiv = document.createElement('div');
@@ -1089,6 +1108,15 @@
       <div class="message-content">${content}</div>
       <div class="message-time">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
     `;
+    chatMessagesEl.appendChild(messageDiv);
+    chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+  }
+
+  function addSpecialMessage(content) {
+    if (!chatMessagesEl) return;
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message assistant';
+    messageDiv.innerHTML = `<div class="message-content upgrade-promo">${content}</div>`;
     chatMessagesEl.appendChild(messageDiv);
     chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
   }
@@ -1115,15 +1143,22 @@
     addChatMessage('user', text);
     chatInputEl.value = '';
     showTypingIndicator();
-    // Call real AI API
     fetch('/ai/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: JSON.stringify({ message: text })
     })
-    .then(res => {
-      if (!res.ok) throw new Error('AI response failed');
+    .then(async res => {
+      if (!res.ok) {
+        try {
+          const data = await res.json();
+          const detail = data.detail || 'AI response failed';
+          throw new Error(detail);
+        } catch {
+          throw new Error('AI response failed');
+        }
+      }
       return res.json();
     })
     .then(data => {
@@ -1132,9 +1167,20 @@
     })
     .catch(err => {
       hideTypingIndicator();
-      console.error(err);
-      addChatMessage('assistant', 'Sorry, I encountered an issue. Try again?');
-      showToast('Chat error. Check connection.');
+      const errorMsg = err.message;
+      const upgradeHTML = `
+        <div style="text-align: center; padding: 20px; background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); color: white; border-radius: 18px; margin: 10px 0;">
+          <p><strong>Oops! AI hit a snag.</strong></p>
+          <p>Error: ${errorMsg}. This might be due to limits. Upgrade to increase access and priority support!</p>
+          <button onclick="window.location.href='/plans'" style="display: inline-block; background: white; color: #DC2626; padding: 12px 24px; border-radius: 12px; font-weight: 600; margin-top: 10px; border: none; cursor: pointer;">Upgrade Now</button>
+        </div>
+      `;
+      if (errorMsg.startsWith('<div')) {
+        addSpecialMessage(errorMsg);
+      } else {
+        addSpecialMessage(upgradeHTML);
+      }
+      showToast('Upgrade for seamless AI chats!');
     });
   }
 
@@ -1144,9 +1190,8 @@
     sendChatMessage();
   }
 
-  // Chat init (called on offcanvas show)
   function initChat() {
-    if (chatMessagesEl) return; // Already initialized
+    if (chatMessagesEl) return;
     chatMessagesEl = document.getElementById('chatMessages');
     chatInputEl = document.getElementById('chatInput');
     chatSendBtn = document.getElementById('chatSend');
@@ -1157,7 +1202,6 @@
       if (e.key === 'Enter') sendChatMessage();
     });
 
-    // Voice input setup (unchanged)
     chatVoiceBtn.addEventListener('click', handleVoiceToggle);
 
     async function handleVoiceToggle() {
@@ -1234,7 +1278,29 @@
               body: formData,
               credentials: 'include'
             });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            if (!res.ok) {
+              try {
+                const errData = await res.json();
+                const detail = errData.detail || 'Transcription failed';
+                const upgradeHTML = `
+                  <div style="text-align: center; padding: 20px; background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); color: white; border-radius: 18px; margin: 10px 0;">
+                    <p><strong>Oops! Voice input hit a snag.</strong></p>
+                    <p>Error: ${detail}. This might be due to limits. Upgrade to increase access!</p>
+                    <button onclick="window.location.href='/plans'" style="display: inline-block; background: white; color: #DC2626; padding: 12px 24px; border-radius: 12px; font-weight: 600; margin-top: 10px; border: none; cursor: pointer;">Upgrade Now</button>
+                  </div>
+                `;
+                if (detail.startsWith('<div')) {
+                  addSpecialMessage(detail);
+                } else {
+                  addSpecialMessage(upgradeHTML);
+                }
+                showToast('Upgrade for seamless voice chats!');
+              } catch {
+                addChatMessage('assistant', 'Voice error: Transcription failed. Please try text input.');
+                showToast('Voice limited.');
+              }
+              return;
+            }
             const data = await res.json();
             const transcript = data.text.trim();
             if (transcript) {
@@ -1250,6 +1316,7 @@
             }
           } catch (err) {
             console.error('Transcription error:', err);
+            addChatMessage('assistant', 'Transcription failed—switching to text input.');
             showToast('Transcription failed—switching to text input.');
           } finally {
             stream.getTracks().forEach(track => track.stop());
@@ -1329,7 +1396,6 @@
     }
   }
 
-  // Theme toggle with localStorage persistence
   const html = document.documentElement;
   const savedTheme = localStorage.getItem('theme') || 'light';
   html.setAttribute('data-theme', savedTheme);
@@ -1351,7 +1417,6 @@
   if (themeToggle) themeToggle.addEventListener('click', toggleTheme);
   if (mobileThemeToggle) mobileThemeToggle.addEventListener('click', toggleTheme);
 
-  // Logout
   document.querySelectorAll('#logoutBtn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.preventDefault();
@@ -1370,44 +1435,115 @@
     });
   });
 
-  // Fade ups
   document.querySelectorAll('.fade-up').forEach((el, i) => {
     el.style.animationDelay = `${i * 0.2}s`;
   });
 
-  // Toast helper
   function showToast(msg) {
     const toastEl = document.getElementById('saveToast');
     toastEl.querySelector('.toast-body').innerHTML = `<i class="bi bi-check-circle-fill me-2"></i>${msg}`;
     new bootstrap.Toast(toastEl).show();
   }
 
-  // Chat offcanvas events (FAB visibility + init) - moved outside DOMContentLoaded for immediate execution
   const chatEl = document.getElementById('chatOffcanvas');
   const chatFab = document.getElementById('chatFab');
   if (chatEl && chatFab) {
     chatEl.addEventListener('show.bs.offcanvas', () => {
-      console.log('Hiding chat FAB'); // Debug: remove after testing
       chatFab.style.display = 'none';
-      initChat(); // Init on first show
+      initChat();
     });
     chatEl.addEventListener('hidden.bs.offcanvas', () => {
-      console.log('Showing chat FAB'); // Debug: remove after testing
       chatFab.style.display = 'block';
     });
-  } else {
-    console.warn('Chat elements not found:', { chatEl, chatFab }); // Debug: remove after testing
   }
 
-  // Load initials immediately (before any overwrites)
   loadProfileData();
 
-  // Empty DOMContentLoaded (no longer needed for chat/initials)
+  let unreadCount = 0;
+
+  async function loadNotifications() {
+    try {
+      const res = await fetch('/api/notifications?unread_only=true', { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to load notifications');
+      const data = await res.json();
+      unreadCount = data.unread_count;
+      
+      const listEl = document.getElementById('notificationsList');
+      const notifDot = document.getElementById('notifDot');
+      const mobileNotifDot = document.getElementById('mobileNotifDot');
+      
+      if (unreadCount > 0) {
+        notifDot.style.display = 'block';
+        mobileNotifDot.style.display = 'inline-block';
+      } else {
+        notifDot.style.display = 'none';
+        mobileNotifDot.style.display = 'none';
+      }
+      
+      if (data.notifications.length === 0) {
+        listEl.innerHTML = '<div class="text-center text-muted py-3">No notifications yet.</div>';
+        return;
+      }
+      
+      listEl.innerHTML = data.notifications.map(notif => `
+        <li>
+          <a class="dropdown-item py-3 px-0 border-bottom" href="#" onclick="markAsRead(${notif.id}, this)">
+            <div class="d-flex align-items-start gap-3">
+              <i class="bi bi-info-circle fs-4 text-info mt-1 flex-shrink-0"></i>
+              <div class="flex-grow-1">
+                <strong class="d-block mb-1">${notif.title}</strong>
+                <p class="mb-1 small text-muted">${notif.message}</p>
+                <small class="text-muted">${new Date(notif.created_at).toLocaleString()}</small>
+              </div>
+              ${!notif.is_read ? '<span class="badge bg-primary rounded-pill ms-auto">New</span>' : ''}
+            </div>
+          </a>
+        </li>
+      `).join('');
+    } catch (err) {
+      console.error('Notifications load error:', err);
+    }
+  }
+
+  async function markAsRead(notifId, element) {
+    try {
+      await fetch(`/api/notifications/${notifId}/read`, { method: 'POST', credentials: 'include' });
+      element.querySelector('.badge')?.remove();
+      element.classList.add('text-muted');
+      unreadCount--;
+      if (unreadCount === 0) {
+        document.getElementById('notifDot').style.display = 'none';
+        document.getElementById('mobileNotifDot').style.display = 'none';
+      }
+    } catch (err) {
+      console.error('Mark read error:', err);
+    }
+  }
+
+  async function markAllRead() {
+    try {
+      await fetch('/api/notifications/mark_all_read', { method: 'POST', credentials: 'include' });
+      unreadCount = 0;
+      document.getElementById('notifDot').style.display = 'none';
+      document.getElementById('mobileNotifDot').style.display = 'none';
+      loadNotifications();
+    } catch (err) {
+      console.error('Mark all read error:', err);
+    }
+  }
+
+  function loadNotificationsMobile() {
+    loadNotifications();
+    showToast('Notifications loaded. Check desktop for full view.');
+  }
+
+  loadNotifications();
+  setInterval(loadNotifications, 30000);
+
   document.addEventListener('DOMContentLoaded', () => {
-    // Any future shared logic can go here
+    // Future shared logic
   });
 </script>
 {% block scripts %}{% endblock %}
-
 </body>
 </html>

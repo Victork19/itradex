@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc, func
+from sqlalchemy import select, desc, func, update, case
 from sqlalchemy.exc import SQLAlchemyError
 from pydantic import BaseModel
 
@@ -56,7 +56,7 @@ class InsightsResponse(BaseModel):
     total_trades: int
     ai_insights: Dict[str, Any]
     insights_based_on: Optional[int] = None
-    credits: int = 0
+    credits: int = 0  # Remaining generations or TP (contextual)
 
 # JSON Schema for structured OpenAI output
 INSIGHTS_JSON_SCHEMA = {
@@ -98,6 +98,78 @@ def normalize_plan(plan: str) -> str:
     if '_' in plan:
         return plan.split('_')[0]
     return plan
+
+async def get_insights_limit(db: AsyncSession, plan: str) -> Dict[str, Any]:
+    """Get monthly insights limit and TP cost for the plan, initializing defaults if needed."""
+    try:
+        result = await db.execute(
+            select(models.InsightsLimits.monthly_limit, models.InsightsLimits.tp_cost_insight)
+            .where(models.InsightsLimits.plan == plan)
+        )
+        row = result.fetchone()
+        if row:
+            return {
+                "monthly_limit": row[0] or 3,
+                "tp_cost": row[1] or 1  # FIXED: Default to 1 for insights (costs TP for starter)
+            }
+    except Exception as e:
+        logger.warning("Failed to fetch insights limits from DB: %s; using hardcoded", e)
+    
+    # FIXED: Hardcoded fallback updated to match DB defaults (starter: monthly=3, tp_insight=1 to enable expenditure)
+    if plan == 'starter':
+        return {"monthly_limit": 3, "tp_cost": 1}  # FIXED: Set to 1 (insights cost TP)
+    elif plan == 'pro':
+        return {"monthly_limit": 1000, "tp_cost": 0}  # Unlimited, no TP cost
+    elif plan == 'elite':
+        return {"monthly_limit": 1000, "tp_cost": 0}
+    else:
+        return {"monthly_limit": 3, "tp_cost": 1}  # FIXED: Default to 1
+
+async def get_monthly_generations_used(db: AsyncSession, user_id: int) -> int:
+    """Count insights generations for the user this month."""
+    now = datetime.utcnow()
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    try:
+        stmt = select(func.count()).select_from(models.TradeInsight).where(
+            models.TradeInsight.user_id == user_id,
+            models.TradeInsight.created_at >= month_start
+        )
+        result = await db.execute(stmt)
+        return result.scalar() or 0
+    except Exception as e:
+        logger.error("Failed to count monthly generations: %s", e)
+        return 0
+
+async def spend_trade_points(db: AsyncSession, user: models.User, action: str, amount: int = 1) -> None:
+    """Deduct Trade Points for an action (e.g., 'insight')."""
+    current_points = user.trade_points or 0  # Coerce None to 0 for check
+    if current_points < amount:
+        raise HTTPException(status_code=402, detail=f"Insufficient Trade Points ({current_points} remaining). Refer friends to earn more!")
+    
+    # FIXED: Direct SQL UPDATE for reliability (bypasses object state issues); handle None as 0
+    stmt = (
+        update(models.User)
+        .where(models.User.id == user.id)
+        .values(trade_points=case((models.User.trade_points.is_(None), 0 - amount), else_=models.User.trade_points - amount))
+        .execution_options(synchronize_session="fetch")
+    )
+    await db.execute(stmt)
+    
+    # Log transaction
+    tx = models.PointTransaction(
+        user_id=user.id,
+        type=action,
+        amount=-amount,
+        description=f"Spent {amount} TP on {action}"
+    )
+    db.add(tx)
+    await db.flush()  # Flush tx before commit for atomicity
+    await db.commit()
+    
+    # FIXED: Refresh user object post-update for in-request consistency
+    await db.refresh(user)
+    
+    logger.info(f"Spent {amount} TP for user {user.id} on {action}; new balance: {user.trade_points}")
 
 async def get_stored_insights(user_id: int, db: AsyncSession, total_trades: Optional[int] = None) -> Tuple[Optional[Dict[str, Any]], Optional[int]]:
     """Get latest stored insights for user (optionally filtered by total_trades). Returns (insights_dict, trades_count_at_save)."""
@@ -148,8 +220,8 @@ def parse_date(date_str: Optional[str]) -> Optional[datetime]:
     formats = [
         '%Y-%m-%d',           # 2025-10-19
         '%d/%m/%Y',           # 19/10/2025
-        '%d/%m/%y',           # 19/10/25
         '%m/%d/%Y',           # 10/19/2025 (US)
+        '%d/%m/%y',           # 19/10/25
         '%m/%d/%y',           # 10/19/25 (US)
         '%d-%m-%Y',           # 19-10-2025
         '%Y-%m-%d %H:%M:%S',  # 2025-10-19 14:30:00
@@ -220,10 +292,10 @@ async def get_total_trades_count(db: AsyncSession, user: models.User) -> int:
     stmt = None
     if hasattr(models.Trade, "owner_id"):
         owner_field = models.Trade.owner_id
-        stmt = select(func.count()).where(models.Trade.owner_id == user.id)
+        stmt = select(func.count(models.Trade.id)).where(models.Trade.owner_id == user.id)
     elif hasattr(models.Trade, "user_id"):
         owner_field = models.Trade.user_id
-        stmt = select(func.count()).where(models.Trade.user_id == user.id)
+        stmt = select(func.count(models.Trade.id)).where(models.Trade.user_id == user.id)
     elif hasattr(models.Trade, "owner"):
         stmt = select(func.count(models.Trade.id)).join(models.Trade.owner).where(models.Trade.owner == user)
     elif hasattr(models.Trade, "user"):
@@ -325,300 +397,290 @@ async def get_insights_page(
 ):
     now = datetime.utcnow()
     
-    # Initialize credits for new starter users ONLY if they've never generated before
-    plan = normalize_plan(getattr(current_user, 'plan', 'free'))
-    if plan == 'starter':
-        credits = getattr(current_user, 'insights_credits', 0) or 0
-        if credits == 0:
-            has_generated = await has_any_insights(current_user.id, db)
-            if not has_generated:
-                current_user.insights_credits = 1
-                await db.commit()
-                await db.refresh(current_user)
-                logger.info("Initialized 1 insight credit for new starter user %s (plan: %s)", current_user.id, plan)
-
     try:
         insights_dict = await compute_insights(current_user, db)
     except Exception as e:
         logger.error(f"Error computing insights: {e}")
-        insights_dict = {"total_trades": 0, "ai_insights": {}, "insights_based_on": None, "credits": getattr(current_user, 'insights_credits', 0)}
+        # Fallback: compute remaining as 0
+        plan = normalize_plan(getattr(current_user, 'plan', 'starter'))
+        limit_dict = await get_insights_limit(db, plan)
+        limit = limit_dict["monthly_limit"]
+        used = await get_monthly_generations_used(db, current_user.id)
+        remaining = -1 if limit >= 999 else max(0, limit - used)
+        insights_dict = {"total_trades": 0, "ai_insights": {}, "insights_based_on": None, "credits": remaining}
     return templates.TemplateResponse("insights.html", {"request": request, "insights": insights_dict, "current_user": current_user, "now": now})
 
 async def compute_insights(current_user: models.User, db: AsyncSession, prompt: Optional[str] = None, force: bool = False) -> Dict[str, Any]:
-    credits = getattr(current_user, 'insights_credits', 0)
+    plan = normalize_plan(getattr(current_user, 'plan', 'starter'))
+    # Always fetch limit from DB
+    limit_dict = await get_insights_limit(db, plan)
+    limit = limit_dict["monthly_limit"]
+    tp_cost = limit_dict["tp_cost"]
+    used = await get_monthly_generations_used(db, current_user.id)
+    if limit >= 999:
+        remaining_generations = -1
+        has_generation_right = True
+    else:
+        remaining_generations = max(0, limit - used)
+        has_generation_right = remaining_generations > 0
+
     total_trades = await get_total_trades_count(db, current_user)  # Exact count, no limit
-    try:
-        trades = await fetch_user_trades(db, current_user)  # Limited for analysis
-        analysis_trades_count = len(trades)  # For equity/aggregates (capped)
-        if total_trades == 0:
-            empty_data = {"total_trades": 0, "ai_insights": {}, "insights_based_on": None, "credits": credits}
-            return empty_data
+    if total_trades == 0:
+        empty_data = {"total_trades": 0, "ai_insights": {}, "insights_based_on": None, "credits": current_user.trade_points}
+        return empty_data
 
-        is_initial = prompt is None and not force
-        ai_part = None
-        stored = None
-        old_total = None
-        if is_initial:
-            stored, old_total = await get_stored_insights(current_user.id, db)  # Latest, no total filter
-            if stored:
-                ai_part = stored
-                analysis_trades_count = old_total or analysis_trades_count  # Use old if available
+    # FIXED: Always compute basic metrics (equity curve, sessions, etc.) - cheap, no AI
+    # Use initial_deposit from user model as starting balance
+    initial_deposit = getattr(current_user, 'initial_deposit', 10000.0)
 
-        # Only compute full insights if we have stored or are generating/regenerating
-        if ai_part is not None or not is_initial:
-            # Use initial_deposit from user model as starting balance
-            initial_deposit = getattr(current_user, 'initial_deposit', 10000.0)
+    trades = await fetch_user_trades(db, current_user)  # Limited for analysis
+    analysis_trades_count = len(trades)  # For equity/aggregates (capped)
 
-            # Compute basic metrics always (fresh)
-            # Parse dates
-            for t in trades:
-                t.parsed_date = get_trade_datetime(t)
-            parsed_trades = [t for t in trades if t.parsed_date is not None]
+    # Parse dates
+    for t in trades:
+        t.parsed_date = get_trade_datetime(t)
+    parsed_trades = [t for t in trades if t.parsed_date is not None]
 
-            # Equity curve computation (ADDITIVE for absolute PnL)
-            if not parsed_trades:
-                current_date = datetime.now()
-                labels = [current_date.strftime('%Y-%m-%d')]
-                datasets = {sess: {'data': [initial_deposit]} for sess in ['all', 'sydney', 'tokyo', 'london', 'newyork']}
-                equity_curve = {'labels': labels, 'datasets': datasets}
-                logger.warning("No dated trades for equity curve; using flat line at initial deposit: %.2f", initial_deposit)
-            else:
-                # Sort trades by date
-                parsed_trades.sort(key=lambda t: t.parsed_date)
+    # Equity curve computation (ADDITIVE for absolute PnL)
+    if not parsed_trades:
+        current_date = datetime.now()
+        labels = [current_date.strftime('%Y-%m-%d')]
+        datasets = {sess: {'data': [initial_deposit]} for sess in ['all', 'sydney', 'tokyo', 'london', 'newyork']}
+        equity_curve = {'labels': labels, 'datasets': datasets}
+        logger.warning("No dated trades for equity curve; using flat line at initial deposit: %.2f", initial_deposit)
+    else:
+        # Sort trades by date
+        parsed_trades.sort(key=lambda t: t.parsed_date)
 
-                # Daily groups for all trades
-                daily_groups_all = defaultdict(list)
-                for t in parsed_trades:
-                    day = t.parsed_date.date()
-                    daily_groups_all[day].append(t)
+        # Daily groups for all trades
+        daily_groups_all = defaultdict(list)
+        for t in parsed_trades:
+            day = t.parsed_date.date()
+            daily_groups_all[day].append(t)
 
-                # Session daily groups
-                session_map = {
-                    'new york': 'newyork',
-                    'newyork': 'newyork',
-                    'new_york': 'newyork',
-                    'ny': 'newyork'
-                }
-                session_daily = defaultdict(lambda: defaultdict(list))
-                unknown_count = 0
-                for t in parsed_trades:
-                    day = t.parsed_date.date()
-                    if t.session:
-                        norm_session = session_map.get(t.session.lower().replace(' ', '_'), t.session.lower().replace(' ', '_'))
-                    else:
-                        inferred = infer_session_from_time(t.parsed_date)
-                        norm_session = inferred or 'unknown'
-                        if norm_session == 'unknown':
-                            unknown_count += 1
-                    session_daily[norm_session][day].append(t)
-
-                # Sessions to include
-                sessions = ['sydney', 'tokyo', 'london', 'newyork']
-                if unknown_count > 0:
-                    sessions.append('unknown')
-
-                # Date range
-                min_date = min(t.parsed_date for t in parsed_trades)
-                max_date = max(t.parsed_date for t in parsed_trades)
-                delta_days = (max_date - min_date).days + 1
-                all_days = [min_date + timedelta(days=i) for i in range(delta_days)]
-                labels = [d.strftime('%Y-%m-%d') for d in all_days]
-
-                # Datasets (ADDITIVE: current += sum(pnl) per day)
-                datasets = {}
-
-                # For 'all'
-                current_cum_all = initial_deposit
-                equity_data_all = []
-                for day_obj in all_days:
-                    day = day_obj.date()
-                    day_pnl_sum = sum(t.pnl or 0 for t in daily_groups_all[day])
-                    current_cum_all += day_pnl_sum
-                    equity_data_all.append(round(current_cum_all, 2))
-                datasets['all'] = {'data': equity_data_all}
-
-                # For each session
-                for sess in sessions:
-                    current_cum_s = initial_deposit
-                    equity_data_s = []
-                    for day_obj in all_days:
-                        day = day_obj.date()
-                        day_pnl_sum = sum(t.pnl or 0 for t in session_daily[sess][day])
-                        current_cum_s += day_pnl_sum
-                        equity_data_s.append(round(current_cum_s, 2))
-                    datasets[sess] = {'data': equity_data_s}
-
-                equity_curve = {'labels': labels, 'datasets': datasets}
-                logger.info("Computed equity curve: start=%.2f, end (all)=%.2f over %d days", initial_deposit, equity_data_all[-1], len(labels))
-
-            # Session data (aggregates)
-            session_groups = defaultdict(list)
-            for t in trades:
-                if t.session:
-                    norm_session = session_map.get(t.session.lower().replace(' ', '_'), t.session.lower().replace(' ', '_'))
-                    session_groups[norm_session].append(t)
-                else:
-                    inferred = infer_session_from_time(t.parsed_date)
-                    if inferred:
-                        session_groups[inferred].append(t)
-                    else:
-                        session_groups['unknown'].append(t)
-
-            session_data = []
-            display_map = {
-                'sydney': 'Sydney',
-                'tokyo': 'Tokyo',
-                'london': 'London',
-                'newyork': 'New York',
-                'unknown': 'Unknown'
-            }
-            for s, s_trades in session_groups.items():
-                if len(s_trades) == 0:
-                    continue
-                s_pnl = [t.pnl or 0 for t in s_trades]
-                s_win = len([p for p in s_pnl if p > 0]) / len(s_pnl) * 100 if s_pnl else 0
-                s_avg = sum(s_pnl) / len(s_pnl) if s_pnl else 0
-                fit = 'High' if s_win > 60 else 'Medium' if s_win > 40 else 'Low'
-                display_session = display_map.get(s, s.capitalize())
-                session_data.append({
-                    'session': display_session,
-                    'win_rate': round(s_win),
-                    'avg_pnl': round(s_avg, 1),
-                    'strategy_fit': fit,
-                    'insight': ''  # Filled later
-                })
-
-            if not session_data:
-                all_pnl = [t.pnl or 0 for t in trades]
-                if len(trades) > 0:
-                    all_win = len([p for p in all_pnl if p > 0]) / len(all_pnl) * 100
-                    all_avg = sum(all_pnl) / len(all_pnl)
-                    fit = 'High' if all_win > 60 else 'Medium' if all_win > 40 else 'Low'
-                    session_data.append({
-                        'session': 'All Trades',
-                        'win_rate': round(all_win),
-                        'avg_pnl': round(all_avg, 1),
-                        'strategy_fit': fit,
-                        'insight': ''
-                    })
-
-            # Strategy distribution
-            strategy_groups = defaultdict(list)
-            for t in trades:
-                if t.strategy:
-                    strategy_groups[t.strategy.lower()].append(t)
-                else:
-                    strategy_groups['unknown'].append(t)
-            strategy_counts = {strat: len(group) for strat, group in strategy_groups.items()}
-            total_strat = sum(strategy_counts.values())
-            colors = ['#2F6BFF', '#22C55E', '#EF4444', '#FACC15', '#94A3B8']
-            strategy_dist = []
-            i = 0
-            for strat, count in strategy_counts.items():
-                strategy_dist.append({'name': strat.capitalize(), 'value': round(count / total_strat * 100) if total_strat else 0, 'color': colors[i % len(colors)]})
-                i += 1
-            if not strategy_dist:
-                strategy_dist = [{'name': 'No Strategies', 'value': 100, 'color': '#94A3B8'}]
-
-            # Symbol allocation
-            symbol_pnl = defaultdict(float)
-            for t in trades:
-                if t.symbol and t.pnl is not None:
-                    symbol_pnl[t.symbol] += float(t.pnl)
-            total_symbol_pnl = sum(symbol_pnl.values())
-            symbol_allocation = {sym: round(pnl / total_symbol_pnl * 100, 2) if total_symbol_pnl else 0 for sym, pnl in symbol_pnl.items()}
-
-            # Advanced metrics
-            pnls = [t.pnl or 0 for t in parsed_trades]
-            advanced = compute_advanced_metrics(pnls)
-
-            # Decide on AI insights
-            plan = normalize_plan(getattr(current_user, 'plan', 'free'))
-            is_unlimited = plan in ['pro', 'elite']
-            has_generation_right = is_unlimited or (plan == 'starter' and credits > 0)
-            prompt_or_force = bool(prompt or force)
-
-            need_generate = False
-            generated_new = False
-            if ai_part is None:
-                # For regenerate/force or first generate
-                need_generate = has_generation_right
-                if need_generate:
-                    # Prepare summary for AI
-                    summary = {
-                        "total_trades": analysis_trades_count,
-                        "sessions": [{k: sd[k] for k in ['session', 'win_rate', 'avg_pnl', 'strategy_fit']} for sd in session_data],
-                        "strategies": strategy_dist,
-                        "advanced_metrics": advanced
-                    }
-                    base_prompt = f"Analyze trading summary: {json.dumps(summary)}. Generate structured insights including per-session insights."
-                    user_prompt = f"{prompt or ''} {base_prompt}" if prompt else base_prompt
-
-                    messages = [{"role": "user", "content": user_prompt}]
-
-                    ai_parsed = await call_openai_structured(messages, SYSTEM_PROMPT, INSIGHTS_JSON_SCHEMA)
-
-                    if ai_parsed:
-                        ai_part = ai_parsed
-                        generated_new = True
-                        # Deduct credit if starter (only after successful generation)
-                        if plan == 'starter':
-                            current_user.insights_credits -= 1
-                            await db.commit()
-                            await db.refresh(current_user)
-                            credits = current_user.insights_credits  # Update local
-                            logger.info("Deducted 1 insight credit for user %s. Remaining: %d", current_user.id, credits)
-                        # Save to DB the AI part
-                        await save_insights_to_db(current_user.id, db, total_trades, ai_part)  # Use exact total_trades
-                    else:
-                        ai_part = get_upgrade_insights(session_data, total_trades)
-                        logger.warning(f"OpenAI generation failed for user {current_user.id}: using upgrade fallback, no credit deducted")
-
-            if ai_part is None:
-                ai_part = get_upgrade_insights(session_data, total_trades)
-
-            # Map session insights if available (for stored/generated)
-            if ai_part and ai_part.get('session_insights'):
-                session_insights_map = {si['session'].lower().replace(' ', ''): si['insight'] for si in ai_part['session_insights']}
-                for sd in session_data:
-                    norm_key = sd['session'].lower().replace(' ', '')
-                    sd['insight'] = session_insights_map.get(norm_key, sd['insight'] or 'No AI insight available')
-
-            # Build full ai_insights
-            ai_insights = ai_part.copy() if ai_part else {}
-            ai_insights['equity_curve'] = equity_curve
-            ai_insights['session_data'] = session_data
-            ai_insights['strategy_distribution'] = strategy_dist
-            ai_insights['bullets'] = ai_insights.get('actions', [])
-            ai_insights['advanced_metrics'] = advanced
-            ai_insights['symbol_allocation'] = symbol_allocation
-            ai_insights['initial_deposit'] = initial_deposit  # Expose for UI notes
-            ai_insights['current_balance'] = initial_deposit + sum(pnls)  # Computed final
-            insights_based_on = old_total if old_total is not None else total_trades
-        else:
-            # Initial load, no stored: empty ai_insights
-            ai_insights = {}
-            insights_based_on = None
-
-        response_data = {
-            "total_trades": total_trades,
-            "ai_insights": ai_insights,
-            "insights_based_on": insights_based_on,
-            "credits": credits
+        # Session daily groups
+        session_map = {
+            'new york': 'newyork',
+            'newyork': 'newyork',
+            'new_york': 'newyork',
+            'ny': 'newyork'
         }
-        
-        logger.info("Generated/loaded insights for user %s: total_trades=%d, insights_based_on=%s, sessions=%d", 
-                    current_user.id, total_trades, insights_based_on, len(session_data) if 'session_data' in locals() else 0)
-        
-        return response_data
-    except SQLAlchemyError as e:
-        logger.error(f"DB error in compute_insights (force={force}): {e}")
-        raise HTTPException(status_code=500, detail="Database error—check trade dates/sessions")
-    except Exception as e:
-        logger.error(f"Unexpected error in compute_insights (force={force}, prompt={prompt}): {e}")
-        # Graceful fallback to upgrade/empty
-        session_data = locals().get('session_data', [])
-        return {"total_trades": total_trades, "ai_insights": get_upgrade_insights(session_data, total_trades), "insights_based_on": None, "credits": credits}
+        session_daily = defaultdict(lambda: defaultdict(list))
+        unknown_count = 0
+        for t in parsed_trades:
+            day = t.parsed_date.date()
+            if t.session:
+                norm_session = session_map.get(t.session.lower().replace(' ', '_'), t.session.lower().replace(' ', '_'))
+            else:
+                inferred = infer_session_from_time(t.parsed_date)
+                norm_session = inferred or 'unknown'
+                if norm_session == 'unknown':
+                    unknown_count += 1
+            session_daily[norm_session][day].append(t)
+
+        # Sessions to include
+        sessions = ['sydney', 'tokyo', 'london', 'newyork']
+        if unknown_count > 0:
+            sessions.append('unknown')
+
+        # Date range
+        min_date = min(t.parsed_date for t in parsed_trades)
+        max_date = max(t.parsed_date for t in parsed_trades)
+        delta_days = (max_date - min_date).days + 1
+        all_days = [min_date + timedelta(days=i) for i in range(delta_days)]
+        labels = [d.strftime('%Y-%m-%d') for d in all_days]
+
+        # Datasets (ADDITIVE: current += sum(pnl) per day)
+        datasets = {}
+
+        # For 'all'
+        current_cum_all = initial_deposit
+        equity_data_all = []
+        for day_obj in all_days:
+            day = day_obj.date()
+            day_pnl_sum = sum(t.pnl or 0 for t in daily_groups_all[day])
+            current_cum_all += day_pnl_sum
+            equity_data_all.append(round(current_cum_all, 2))
+        datasets['all'] = {'data': equity_data_all}
+
+        # For each session
+        for sess in sessions:
+            current_cum_s = initial_deposit
+            equity_data_s = []
+            for day_obj in all_days:
+                day = day_obj.date()
+                day_pnl_sum = sum(t.pnl or 0 for t in session_daily[sess][day])
+                current_cum_s += day_pnl_sum
+                equity_data_s.append(round(current_cum_s, 2))
+            datasets[sess] = {'data': equity_data_s}
+
+        equity_curve = {'labels': labels, 'datasets': datasets}
+        logger.info("Computed equity curve: start=%.2f, end (all)=%.2f over %d days", initial_deposit, equity_data_all[-1], len(labels))
+
+    # Session data (aggregates)
+    session_groups = defaultdict(list)
+    for t in trades:
+        if t.session:
+            norm_session = session_map.get(t.session.lower().replace(' ', '_'), t.session.lower().replace(' ', '_'))
+            session_groups[norm_session].append(t)
+        else:
+            inferred = infer_session_from_time(t.parsed_date)
+            if inferred:
+                session_groups[inferred].append(t)
+            else:
+                session_groups['unknown'].append(t)
+
+    session_data = []
+    display_map = {
+        'sydney': 'Sydney',
+        'tokyo': 'Tokyo',
+        'london': 'London',
+        'newyork': 'New York',
+        'unknown': 'Unknown'
+    }
+    for s, s_trades in session_groups.items():
+        if len(s_trades) == 0:
+            continue
+        s_pnl = [t.pnl or 0 for t in s_trades]
+        s_win = len([p for p in s_pnl if p > 0]) / len(s_pnl) * 100 if s_pnl else 0
+        s_avg = sum(s_pnl) / len(s_pnl) if s_pnl else 0
+        fit = 'High' if s_win > 60 else 'Medium' if s_win > 40 else 'Low'
+        display_session = display_map.get(s, s.capitalize())
+        session_data.append({
+            'session': display_session,
+            'win_rate': round(s_win),
+            'avg_pnl': round(s_avg, 1),
+            'strategy_fit': fit,
+            'insight': ''  # Filled later
+        })
+
+    if not session_data:
+        all_pnl = [t.pnl or 0 for t in trades]
+        if len(trades) > 0:
+            all_win = len([p for p in all_pnl if p > 0]) / len(all_pnl) * 100
+            all_avg = sum(all_pnl) / len(all_pnl)
+            fit = 'High' if all_win > 60 else 'Medium' if all_win > 40 else 'Low'
+            session_data.append({
+                'session': 'All Trades',
+                'win_rate': round(all_win),
+                'avg_pnl': round(all_avg, 1),
+                'strategy_fit': fit,
+                'insight': ''
+            })
+
+    # Strategy distribution
+    strategy_groups = defaultdict(list)
+    for t in trades:
+        if t.strategy:
+            strategy_groups[t.strategy.lower()].append(t)
+        else:
+            strategy_groups['unknown'].append(t)
+    strategy_counts = {strat: len(group) for strat, group in strategy_groups.items()}
+    total_strat = sum(strategy_counts.values())
+    colors = ['#2F6BFF', '#22C55E', '#EF4444', '#FACC15', '#94A3B8']
+    strategy_dist = []
+    i = 0
+    for strat, count in strategy_counts.items():
+        strategy_dist.append({'name': strat.capitalize(), 'value': round(count / total_strat * 100) if total_strat else 0, 'color': colors[i % len(colors)]})
+        i += 1
+    if not strategy_dist:
+        strategy_dist = [{'name': 'No Strategies', 'value': 100, 'color': '#94A3B8'}]
+
+    # Symbol allocation
+    symbol_pnl = defaultdict(float)
+    for t in trades:
+        if t.symbol and t.pnl is not None:
+            symbol_pnl[t.symbol] += float(t.pnl)
+    total_symbol_pnl = sum(symbol_pnl.values())
+    symbol_allocation = {sym: round(pnl / total_symbol_pnl * 100, 2) if total_symbol_pnl else 0 for sym, pnl in symbol_pnl.items()}
+
+    # Advanced metrics
+    pnls = [t.pnl or 0 for t in parsed_trades]
+    advanced = compute_advanced_metrics(pnls)
+
+    # FIXED: Load stored only for non-explicit requests; always generate on prompt/force
+    ai_part = None
+    insights_based_on = None
+    generated_new = False
+    if not (prompt is not None or force):
+        # Normal load: use stored or fallback
+        stored, old_total = await get_stored_insights(current_user.id, db)
+        ai_part = stored
+        insights_based_on = old_total
+    else:
+        # Explicit regenerate: ignore stored, check rights, spend if needed, then generate
+        if has_generation_right:
+            if tp_cost > 0:
+                await spend_trade_points(db, current_user, "insight", tp_cost)
+                # FIXED: Re-fetch balance post-refresh for accurate response
+                await db.refresh(current_user)
+                logger.info(f"Deducted {tp_cost} TP for insights generation; new balance: {current_user.trade_points}")
+
+            # Prepare summary for AI
+            summary = {
+                "total_trades": analysis_trades_count,
+                "sessions": [{k: sd[k] for k in ['session', 'win_rate', 'avg_pnl', 'strategy_fit']} for sd in session_data],
+                "strategies": strategy_dist,
+                "advanced_metrics": advanced
+            }
+            base_prompt = f"Analyze trading summary: {json.dumps(summary)}. Generate structured insights including per-session insights."
+            user_prompt = f"{prompt or ''} {base_prompt}" if prompt else base_prompt
+
+            messages = [{"role": "user", "content": user_prompt}]
+
+            ai_parsed = await call_openai_structured(messages, SYSTEM_PROMPT, INSIGHTS_JSON_SCHEMA)
+
+            if ai_parsed:
+                ai_part = ai_parsed
+                generated_new = True
+                # Save to DB the AI part (this increments the monthly count; overwrites latest for freshness)
+                await save_insights_to_db(current_user.id, db, total_trades, ai_part)  # Use exact total_trades
+                # Recalculate remaining after save
+                used = await get_monthly_generations_used(db, current_user.id)
+                remaining_generations = -1 if limit >= 999 else max(0, limit - used)
+                logger.info("Generated new insights for user %s. Remaining generations: %d", current_user.id, remaining_generations)
+                insights_based_on = total_trades
+            else:
+                # Generation failed: fallback without spend (already deducted? No—spend before call, but refund if failed? For now, fallback)
+                ai_part = get_upgrade_insights(session_data, total_trades)
+                logger.warning(f"OpenAI generation failed for user {current_user.id}: using upgrade fallback")
+        else:
+            # No rights: fallback
+            ai_part = get_upgrade_insights(session_data, total_trades)
+
+    if ai_part is None:
+        # No stored and no explicit generate: fallback (no spend)
+        ai_part = get_upgrade_insights(session_data, total_trades)
+
+    # Map session insights if available (for stored/generated)
+    if ai_part and ai_part.get('session_insights'):
+        session_insights_map = {si['session'].lower().replace(' ', ''): si['insight'] for si in ai_part['session_insights']}
+        for sd in session_data:
+            norm_key = sd['session'].lower().replace(' ', '')
+            sd['insight'] = session_insights_map.get(norm_key, sd['insight'] or 'No AI insight available')
+
+    # Build full ai_insights
+    ai_insights = ai_part.copy() if ai_part else {}
+    ai_insights['equity_curve'] = equity_curve
+    ai_insights['session_data'] = session_data
+    ai_insights['strategy_distribution'] = strategy_dist
+    ai_insights['bullets'] = ai_insights.get('actions', [])
+    ai_insights['advanced_metrics'] = advanced
+    ai_insights['symbol_allocation'] = symbol_allocation
+    ai_insights['initial_deposit'] = initial_deposit  # Expose for UI notes
+    ai_insights['current_balance'] = initial_deposit + sum(pnls)  # Computed final
+
+    response_data = {
+        "total_trades": total_trades,
+        "ai_insights": ai_insights,
+        "insights_based_on": insights_based_on,
+        "credits": current_user.trade_points  # Report TP balance
+    }
+    
+    logger.info("Generated/loaded insights for user %s: total_trades=%d, insights_based_on=%s, sessions=%d, remaining TP=%d, explicit=%s", 
+                current_user.id, total_trades, insights_based_on, len(session_data), current_user.trade_points, bool(prompt or force))
+    
+    return response_data
 
 @router.get("/data", response_model=InsightsResponse)
 async def get_insights_data(

@@ -4,7 +4,7 @@ from typing import Optional
 from collections import defaultdict
 from datetime import datetime, timedelta, date
 import json
-
+import re
 from fastapi import FastAPI, Request, Depends, Cookie, HTTPException, status, Form, Query
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -32,7 +32,8 @@ from auth import get_current_user_optional
 # Routers
 from router import (
     users, uploads, insights, journal, profile,
-    admin, ai, payments, dashboard, subscriptions
+    admin, ai, payments, dashboard, subscriptions,
+    notifications
 )
 
 # --- NEW: Import required functions from payments ---
@@ -46,7 +47,10 @@ STATIC_DIR = BASE_DIR / "static"
 
 app = FastAPI(title="iTrade Journal")
 
-# CORS
+# SessionMiddleware FIRST (before CORS, for better cookie/response handling)
+app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)
+
+# CORS (after Session)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:8000", "http://127.0.0.1:8000", "http://localhost:3000"],
@@ -54,8 +58,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)
 
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
@@ -104,7 +106,7 @@ async def init_models():
     logger.info("Database models initialized and seeded")
 
 # --- AUTO RENEWALS CRON JOB (MOVED HERE) ---
-async def auto_generate_renewals(db: AsyncSession = Depends(get_session)):
+async def auto_generate_renewals(db: AsyncSession):
     """Generate renewal invoices 3 days before next_billing_date."""
     due_date = datetime.utcnow() + timedelta(days=3)
     result = await db.execute(
@@ -167,17 +169,6 @@ async def startup_event():
 
     # Start APScheduler
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(
-        auto_generate_renewals,
-        trigger=CronTrigger(hour=2, minute=0),  # Daily at 2:00 AM UTC
-        id="auto_renewals",
-        replace_existing=True,
-        # NOTE: Dependencies can't be passed directly; use a wrapper or global session
-        # For simplicity, we'll recreate session inside the job if needed
-    )
-    scheduler.start()
-    logger.info("APScheduler started: auto-renewals scheduled at 2:00 AM UTC")
-
     # Patch: Run auto_generate_renewals with session via wrapper
     async def wrapped_renewals():
         async with get_session() as db:
@@ -188,6 +179,8 @@ async def startup_event():
         id="auto_renewals_wrapped",
         replace_existing=True
     )
+    scheduler.start()
+    logger.info("APScheduler started: auto-renewals scheduled at 2:00 AM UTC")
 
 # --- Middleware (UPDATED: Exempt /payment-success from auth) ---
 @app.middleware("http")
@@ -208,8 +201,20 @@ async def auth_redirect_middleware(request: Request, call_next):
 @app.get("/", response_class=HTMLResponse)
 async def root(
     request: Request,
-    current_user: Optional[models.User] = Depends(get_current_user_optional)
+    current_user: Optional[models.User] = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_session)
 ):
+    # Fetch beta config (with fallback)
+    result = await db.execute(select(models.BetaConfig).where(models.BetaConfig.id == 1))
+    beta_config = result.scalar_one_or_none()
+    if not beta_config:
+        beta_config = models.BetaConfig(
+            id=1,
+            is_active=False,  # Default: inactive (normal referral mode)
+            required_for_signup=False,
+            award_points_on_use=3
+        )
+
     context = {
         "request": request,
         "tab": request.query_params.get("tab", "signup"),
@@ -217,7 +222,8 @@ async def root(
         "is_logged_in": bool(current_user),
         "current_user": current_user,
         "success": "success" in request.query_params,
-        "ref_code": request.query_params.get("ref")
+        "ref_code": request.query_params.get("ref"),
+        "beta_config": beta_config  # NEW: Pass to template for conditional rendering
     }
     return templates.TemplateResponse("index.html", context)
 
@@ -431,6 +437,42 @@ async def plans_page(
         "current_subscription": current_sub, "now": datetime.utcnow()
     })
 
+@app.post("/wallet-verify")
+async def verify_and_set_wallet(
+    request: Request,
+    db: AsyncSession = Depends(get_session),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    """Set/update the payout wallet address after basic validation. Requires trader status."""
+    if not current_user.is_trader:
+        raise HTTPException(status_code=403, detail="Access denied: Not a marketplace trader")
+
+    body = await request.json()
+    wallet = body.get("wallet", "").strip()
+
+    if not wallet:
+        raise HTTPException(status_code=400, detail="wallet address required")
+
+    if not re.match(r'^0x[a-fA-F0-9]{40}$', wallet):
+        raise HTTPException(status_code=400, detail="Invalid Ethereum wallet address")
+
+    try:
+        # Set or update wallet
+        current_user.wallet_address = wallet
+        current_user.updated_at = datetime.utcnow()
+        await db.commit()
+        await db.refresh(current_user)
+        
+        logger.info(f"Wallet set for trader {current_user.id}: {wallet}")
+        
+        return {
+            "verified": True,
+            "message": "Wallet address set successfully"
+        }
+    except Exception as e:
+        logger.error(f"Wallet setting failed for user {current_user.id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to set wallet address")
+
 # --- Include Routers ---
 app.include_router(users.router)
 app.include_router(uploads.router)
@@ -442,6 +484,7 @@ app.include_router(ai.router)
 app.include_router(payments.router)
 app.include_router(dashboard.router)
 app.include_router(subscriptions.router)
+app.include_router(notifications.router)
 
 # --- Redirects ---
 @app.get("/subscriptions", response_class=RedirectResponse)

@@ -40,21 +40,31 @@
     border-color: var(--bs-primary) !important;
   }
 
-  /* NEW: Active Subs Widget */
-  .active-subs-widget {
+  /* UPDATED: Subscriptions Widget (Includes Active + Pending) */
+  .subscriptions-widget {
     background: var(--surface);
     border-radius: var(--radius);
     padding: 16px;
     margin-bottom: 20px;
   }
-  .active-sub-item {
+  .subscriptions-widget h6 { margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+  .sub-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 8px 0;
     border-bottom: 1px solid var(--border);
   }
-  .active-sub-item:last-child { border-bottom: none; }
+  .sub-item:last-child { border-bottom: none; }
+  .sub-item.pending { opacity: 0.7; }
+  .sub-item.pending .status-badge { background: var(--warning); color: #000; }
+  .sub-item.active .status-badge { background: var(--success); color: white; }
+  .status-badge {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
 
   /* Marketplace Subscribe Modals (Adapted from plans.html) */
   .processing-modal .modal-content { border: none; border-radius: var(--radius); box-shadow: var(--shadow-lg); background: linear-gradient(145deg, var(--surface), rgba(255,255,255,0.8)); backdrop-filter: blur(10px); }
@@ -193,6 +203,313 @@
   .processing-modal .text-success {
     color: var(--success) !important;
   }
+
+  /* IMPROVED: Trade Points Widget - More visual with icons, better spacing, and a subtle gradient accent */
+  .trade-points-widget {
+    background: linear-gradient(145deg, var(--surface), rgba(var(--brand-500-rgb), 0.05));
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .trade-points-widget::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--brand-500), var(--gold));
+  }
+  .trade-points-widget h6 { 
+    margin-bottom: 16px; 
+    border-bottom: none; 
+    color: var(--text);
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .trade-points-widget h6::before {
+    content: '';
+    width: 24px;
+    height: 24px;
+    background: linear-gradient(135deg, var(--brand-500), var(--gold));
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    color: white;
+    content: '⭐';
+  }
+  .points-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .points-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) - 4px);
+    transition: all 0.2s ease;
+  }
+  .points-item:hover {
+    border-color: var(--brand-500);
+    box-shadow: 0 2px 8px rgba(var(--brand-500-rgb), 0.1);
+  }
+  .points-item .label {
+    font-size: 0.8rem;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .points-item .label i {
+    font-size: 0.9rem;
+  }
+  .points-item .value {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--brand-500);
+    margin: 0;
+  }
+  .tier-badge {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8); /* ← FIXED: Hardcoded blue gradient for consistent visibility in both themes (matches .btn-premium) */
+    color: white !important; /* ← KEY FIX: Forces white text for visibility in dark/light */
+    box-shadow: 0 2px 4px rgba(47,107,255,0.2); /* ← UPDATED: Hardcoded blue shadow for consistency */
+    text-shadow: 0 1px 1px rgba(0,0,0,0.1);
+    display: inline-block;
+    min-width: fit-content;
+  }
+  .points-info {
+    background: rgba(var(--brand-500-rgb), 0.05);
+    border: 1px solid rgba(var(--brand-500-rgb), 0.1);
+    border-radius: calc(var(--radius) - 4px);
+    padding: 12px;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+
+  /* IMPROVED: Invites Section - Card-based layout with better visuals, icons, and consistent theming */
+  .referrals-section {
+    margin-bottom: 40px;
+  }
+  .referrals-section .session-title {
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .referral-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .referral-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--brand-500), var(--gold));
+  }
+  .referral-card .fw-bold {
+    font-size: 1.25rem;
+    color: var(--text);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .referral-card .fw-bold i {
+    color: var(--brand-500);
+  }
+  .referral-card .text-muted {
+    font-size: 0.95rem;
+    margin-bottom: 20px;
+    color: var(--muted);
+  }
+  .referral-code {
+    font-family: 'SF Mono', monospace;
+    font-weight: 700;
+    font-size: 1.5rem;
+    color: var(--brand-500);
+    background: linear-gradient(135deg, rgba(var(--brand-500-rgb), 0.1), rgba(var(--gold-rgb), 0.1));
+    padding: 16px;
+    border-radius: 12px;
+    text-align: center;
+    border: 2px dashed var(--brand-500);
+    margin-bottom: 20px;
+    letter-spacing: 0.05em;
+  }
+  .beta-codes-list {
+    max-height: 250px;
+    overflow-y: auto;
+    margin-bottom: 20px;
+  }
+  .beta-code-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) - 4px);
+    margin-bottom: 8px;
+    transition: all 0.2s ease;
+  }
+  .beta-code-item:hover,
+  .beta-code-item:last-child {
+    border-color: var(--brand-500);
+    box-shadow: 0 2px 8px rgba(var(--brand-500-rgb), 0.1);
+  }
+  .beta-code-item:last-child {
+    margin-bottom: 0;
+  }
+  .beta-code {
+    font-family: 'SF Mono', monospace;
+    font-weight: 700;
+    color: var(--brand-500);
+    background: rgba(var(--brand-500-rgb), 0.1);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 1rem;
+  }
+  .beta-actions {
+    display: flex;
+    gap: 6px;
+  }
+  .beta-btn {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+    border-radius: 6px;
+    border: none;
+    background: linear-gradient(135deg, var(--brand-500), var(--brand-600));
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .beta-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(var(--brand-500-rgb), 0.2);
+  }
+  .no-invites-msg {
+    text-align: center;
+    padding: 32px 16px;
+    color: var(--muted);
+    font-style: italic;
+    background: var(--bg);
+    border: 1px dashed var(--border);
+    border-radius: calc(var(--radius) - 4px);
+  }
+  .no-invites-msg i {
+    font-size: 2rem;
+    color: var(--brand-500);
+    display: block;
+    margin-bottom: 12px;
+  }
+  .referral-stats {
+    display: flex;
+    justify-content: center;
+    margin: 20px 0;
+  }
+  .stat-item {
+    text-align: center;
+    padding: 12px;
+    background: linear-gradient(135deg, rgba(var(--brand-500-rgb), 0.1), rgba(var(--gold-rgb), 0.1));
+    border-radius: 12px;
+    flex: 1;
+    max-width: 120px;
+  }
+  .stat-number {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--brand-500);
+    margin-bottom: 4px;
+  }
+  .stat-label {
+    font-size: 0.8rem;
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .share-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .share-btn {
+    padding: 10px 16px;
+    border-radius: 24px;
+    border: none;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+  .share-btn-copy {
+    background: linear-gradient(135deg, var(--brand-500), var(--brand-600));
+    color: white;
+  }
+  .share-btn-copy:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(var(--brand-500-rgb), 0.2);
+  }
+  .share-btn-twitter {
+    background: linear-gradient(135deg, #1DA1F2, #0D8BD9);
+    color: white;
+  }
+  .share-btn-twitter:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(29, 161, 242, 0.3);
+  }
+
+  /* Mobile tweaks for improved sections */
+  @media (max-width: 768px) {
+    .points-grid {
+      grid-template-columns: 1fr;
+    }
+    .share-buttons {
+      flex-direction: column;
+      width: 100%;
+    }
+    .share-btn {
+      justify-content: center;
+    }
+    .beta-actions {
+      flex-direction: column;
+    }
+    .beta-btn {
+      width: 100%;
+      justify-content: center;
+    }
+  }
 </style>
 <main class="container py-5">
   <div class="row justify-content-center">
@@ -227,23 +544,119 @@
         </div>
       </div>
 
-  <!-- NEW: Active Subscriptions Widget -->
-  {% if active_subs %}
-  <div class="active-subs-widget">
-    <h6 class="mb-3">Active Subscriptions</h6>
-    {% for sub in active_subs %}
-    <div class="active-sub-item">
-      {% if sub.trader_id %}
-        <span>{{ sub.trader_name }} ({{ sub.win_rate }}% Win)</span>
-      {% else %}
-        <span>Platform: {{ sub.plan_type | title }} Plan</span>
-      {% endif %}
-      <small class="text-muted">Renews {{ sub.next_bill }}</small>
-    </div>
-    {% endfor %}
-    <a href="/subscriptions" class="btn btn-sm btn-outline-primary mt-2">Manage Subs</a>
+  <!-- UPDATED: Subscriptions Widget (Includes Active + Pending) -->
+  <div class="subscriptions-widget">
+    <h6>Active Subscriptions</h6>
+    {% if active_subs %}
+      {% for sub in active_subs %}
+      <div class="sub-item active">
+        {% if sub.trader_id %}
+          <span>{{ sub.trader_name }} ({{ sub.win_rate }}% Win)</span>
+        {% else %}
+          <span>Platform: {{ sub.plan_type | title }} Plan</span>
+        {% endif %}
+        <span class="status-badge">Active</span>
+        <small class="text-muted">Renews {{ sub.next_bill }}</small>
+      </div>
+      {% endfor %}
+    {% else %}
+      <p class="text-muted small mb-0">No active subscriptions yet.</p>
+    {% endif %}
+
+{% if pending_subs %}
+<h6 class="mt-3">Pending Payments</h6>
+  {% for sub in pending_subs %}
+  <div class="sub-item pending">
+    {% if sub.trader_id %}
+      <span>{{ sub.trader_name }} ({{ sub.win_rate }}% Win)</span>
+    {% else %}
+      <span>Platform: {{ sub.plan_type | title }} Plan</span>
+    {% endif %}
+    <span class="status-badge">Pending</span>
+    <small class="text-muted">Payment in progress</small>
   </div>
-  {% endif %}
+  {% endfor %}
+{% endif %}
+
+<a href="/subscriptions" class="btn btn-sm btn-outline-primary mt-3">Manage Subscriptions</a>  </div>
+
+  <!-- IMPROVED: Trade Points Widget -->
+  <div class="trade-points-widget">
+    <h6>Trade Points</h6>
+    <div class="points-grid">
+      <div class="points-item">
+        <div class="label"><i class="bi bi-crown"></i> Tier</div>
+        <div class="value"><span class="tier-badge">{{ referral_tier | title }}</span></div>
+      </div>
+      <div class="points-item">
+        <div class="label"><i class="bi bi-wallet2"></i> Current Balance</div>
+        <div class="value">{{ points_balance }} TP</div>
+      </div>
+      <div class="points-item">
+        <div class="label"><i class="bi bi-graph-up-arrow"></i> Total Earned</div>
+        <div class="value">{{ total_tp_earned }} TP</div>
+      </div>
+    </div>
+    <div class="points-info">
+      <small><i class="bi bi-lightbulb me-1"></i>Use TP to unlock trade uploads, AI insights, and chat sessions. Earn more by referring friends!</small>
+    </div>
+  </div>
+
+  <!-- IMPROVED: Integrated Invites Section -->
+  <section class="referrals-section fade-up">
+    <h5 class="session-title"><i class="bi bi-share-fill"></i> Your Invites</h5>
+    <div class="card-radius">
+      <div class="referral-card">
+        {% if beta_active %}
+        <div class="fw-bold mb-2"><i class="bi bi-lock-fill"></i> Beta Invites</div>
+        <p class="text-muted mb-4">Share your beta codes. Friends signing up with your code will earn you Trade Points (TP) for uploads and insights.</p>
+        <div class="beta-codes-list">
+          {% if available_beta_codes %}
+            {% for code in available_beta_codes %}
+            <div class="beta-code-item">
+              <span class="beta-code">{{ code }}</span>
+              <div class="beta-actions">
+                <button class="beta-btn" onclick="copyBetaCode('{{ code }}')" title="Copy Invite Link">
+                  <i class="bi bi-copy"></i> Copy
+                </button>
+                <button class="beta-btn" onclick="shareBetaOnX('{{ code }}')" title="Share on X">
+                  <i class="bi bi-twitter-x"></i> X
+                </button>
+              </div>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div class="no-invites-msg">
+              <i class="bi bi-inbox"></i>
+              <p>No available invites at the moment.</p>
+              <small>Contact support for more opportunities.</small>
+            </div>
+          {% endif %}
+        </div>
+        {% else %}
+        <div class="fw-bold mb-2"><i class="bi bi-people"></i> Referral Code</div>
+        <p class="text-muted mb-4">Share your unique code. Friends signing up with your code will earn you Trade Points (TP) for uploads and insights.</p>
+        <div class="referral-code" id="referralCode">{{ referral_code }}</div>
+        {% endif %}
+        <div class="referral-stats">
+          <div class="stat-item">
+            <div class="stat-number">{{ used_beta_count if beta_active else referrals_count }}</div>
+            <div class="stat-label">Referred</div>
+          </div>
+        </div>
+        {% if not beta_active %}
+        <div class="share-buttons">
+          <button class="share-btn share-btn-copy" onclick="copyReferralCode()">
+            <i class="bi bi-copy"></i> Copy Link
+          </button>
+          <button class="share-btn share-btn-twitter" onclick="shareOnTwitter()">
+            <i class="bi bi-twitter-x"></i> Share on X
+          </button>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </section>
 
   <!-- Marketplace Section -->
   <section class="marketplace-section fade-up">
@@ -273,7 +686,7 @@
               {% if rec.status == 'active' %}
               <button class="btn btn-success rounded-pill w-100" disabled data-subbed="true">Subscribed</button>
               {% elif rec.status == 'pending' %}
-              <button class="btn btn-warning rounded-pill w-100" disabled data-subbed="true">Pending Payment</button>
+              <button class="btn btn-warning rounded-pill w-100 pending-btn" data-subbed="true">Pending Payment</button>
               {% endif %}
             {% else %}
             <button class="btn btn-outline-primary rounded-pill w-100 subscribe-btn" data-trader="{{ rec.id }}" data-price="{{ rec.monthly_price }}" data-name="{{ rec.name }}" data-subbed="false">Sub ${{ "%.2f"|format(rec.monthly_price) }}/mo</button>
@@ -306,7 +719,7 @@
               {% if trader.status == 'active' %}
               <button class="btn btn-success rounded-pill w-100" disabled data-subbed="true">Subscribed</button>
               {% elif trader.status == 'pending' %}
-              <button class="btn btn-warning rounded-pill w-100" disabled data-subbed="true">Pending Payment</button>
+              <button class="btn btn-warning rounded-pill w-100 pending-btn" data-subbed="true">Pending Payment</button>
               {% endif %}
             {% else %}
             <button class="btn btn-primary rounded-pill w-100 subscribe-btn" data-trader="{{ trader.id }}" data-price="{{ trader.monthly_price }}" data-name="{{ trader.name }}" data-subbed="false">Subscribe for ${{ "%.2f"|format(trader.monthly_price) }}/mo</button>
@@ -468,36 +881,6 @@
     </div>
   </section>
 
-  <!-- Referrals Section -->
-  <section class="referrals-section fade-up">
-    <h5 class="session-title"><i class="bi bi-share-fill"></i> Your Referrals</h5>
-    <div class="card-radius">
-      <div class="referral-card">
-        <div class="fw-bold mb-2">Invite friends, earn free AI analyses</div>
-        <p class="text-muted mb-4">Share your unique code. Each successful referral gives you both 1 free AI analysis.</p>
-        <div class="referral-code" id="referralCode">{{ referral_code }}</div>
-        <div class="referral-stats">
-          <div class="stat-item">
-            <div class="stat-number">{{ referrals_count }}</div>
-            <div class="stat-label">Referred</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-number">{{ earned_analyses }}</div>
-            <div class="stat-label">Free Analyses</div>
-          </div>
-        </div>
-        <div class="share-buttons">
-          <button class="share-btn share-btn-copy" onclick="copyReferralCode()">
-            <i class="bi bi-copy"></i> Copy Link
-          </button>
-          <button class="share-btn share-btn-twitter" onclick="shareOnTwitter()">
-            <i class="bi bi-twitter-x"></i> Share on X
-          </button>
-        </div>
-      </div>
-    </div>
-  </section>
-
   <!-- Quick Actions -->
   <div class="quick-actions fade-up">
     <div class="quick-action-btn" onclick="location.href='/upload'">
@@ -534,6 +917,7 @@
   const pnlHistory = {{ pnl_history | tojson }};
   const pnlData = {{ pnl_summary | tojson }};  // ← FIXED: was `pnl`
   const marketplaceDiscount = {{ marketplace_discount | tojson }};
+  const betaActive = {{ beta_active | tojson }};
 
   // PNL Sparkline improved - no animation
   function initPnlSpark(view = 'daily') {
@@ -757,6 +1141,7 @@
       btn.innerHTML = 'Pending Payment';
       btn.classList.replace('btn-primary', 'btn-warning');
       btn.classList.replace('btn-outline-primary', 'btn-warning');
+      btn.classList.add('pending-btn');
 
     } catch (err) {
       console.error('Marketplace Checkout error:', err);
@@ -783,6 +1168,16 @@
       currentTraderName = btn.dataset.name;
       currentTraderPrice = parseFloat(btn.dataset.price);
       handleMarketplaceCheckout(currentTraderId, currentTraderName, currentTraderPrice);
+    });
+  });
+
+  // NEW: Pending Payment Button Handler - Redirect to Subscriptions
+  document.querySelectorAll('.pending-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      showToast('Redirecting to complete payment...');
+      window.location.href = '/subscriptions';
     });
   });
 
@@ -849,6 +1244,7 @@
   style.innerHTML = `@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(47,107,255,0.4); } 70% { box-shadow: 0 0 0 10px rgba(47,107,255,0); } 100% { box-shadow: 0 0 0 0 rgba(47,107,255,0); } }`;
   document.head.appendChild(style);
 
+  {% if not beta_active %}
   // Referral functions
   function copyReferralCode() {
     const code = document.getElementById('referralCode').textContent;
@@ -868,7 +1264,30 @@
 
   function shareOnTwitter() {
     const code = document.getElementById('referralCode').textContent;
-    const text = `Join me on iTrade Journal! Use my referral code ${code} for a free AI analysis. Your trades. Your edge. ${window.location.origin}/?ref=${code}`;
+    const text = `Join me on iTrade Journal! Use my referral code ${code} to get started. Earn TP together! ${window.location.origin}/?ref=${code}`;
+    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+  }
+  {% endif %}
+
+  // Beta Invite Functions (always available)
+  function copyBetaCode(code) {
+    const betaUrl = `${window.location.origin}/?beta=${code}`;
+    navigator.clipboard.writeText(betaUrl).then(() => {
+      showToast('Beta invite link copied!');
+    }).catch(() => {
+      const textArea = document.createElement('textarea');
+      textArea.value = betaUrl;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      showToast('Beta invite link copied!');
+    });
+  }
+
+  function shareBetaOnX(code) {
+    const text = `Exclusive beta access to iTrade Journal! Use my code ${code} to join the beta. ${window.location.origin}/?beta=${code}`;
     const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   }

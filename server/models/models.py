@@ -1,11 +1,13 @@
 # Updated models/models.py
-from sqlalchemy import Column, Integer, String, Text, JSON, Float, ForeignKey, DateTime, Boolean, Date, Enum as SQLEnum
+from sqlalchemy import Column,Index, Integer, String, Text, JSON, Float, ForeignKey, DateTime, Boolean, Date, Enum as SQLEnum
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 from datetime import datetime
 from database import Base
 from enum import Enum
+from sqlalchemy import UniqueConstraint  # NEW: For unique constraints on Referral
 
-# Enums for trade attributes
+# Enums for trade attributes (unchanged)
 class TradeDirection(Enum):
     LONG = "LONG"
     SHORT = "SHORT"
@@ -37,6 +39,7 @@ class CaseInsensitiveSQLEnum(SQLEnum):
             return value
         return process
 
+# UPDATED: User model - Added trade_points, tier for referrals, chat limits tracking
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
@@ -50,9 +53,14 @@ class User(Base):
     referred_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     is_admin = Column(Integer, default=0)
 
+    
+
     plan = Column(String, default='starter', nullable=False)  # e.g., 'starter', 'pro', 'elite'
-    insights_credits = Column(Integer, default=0, nullable=False)
-    ai_chats_used = Column(Integer, default=0, nullable=False)
+    # UPDATED: Centralize to trade_points (replaces insights_credits; migrate on upgrade)
+    trade_points = Column(Integer, default=3, nullable=False)  # Unified TP balance (starts at 3 for free tier)
+    ai_chats_used = Column(Integer, default=0, nullable=False)  # Tracks text/voice chats (reset monthly via cron)
+    # NEW: Referral tier (gamification)
+    referral_tier = Column(String, default='rookie', nullable=False)  # e.g., 'rookie', 'pro_trader', 'elite_alpha'
     bio = Column(String, nullable=True)
     trading_style = Column(String, nullable=True)  # e.g., 'scalping', 'swing'
     goals = Column(String, nullable=True)
@@ -88,11 +96,17 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
+    beta_invites_owned = relationship("BetaInvite", foreign_keys="BetaInvite.owner_id", back_populates="owner")
+    beta_invites_used = relationship("BetaInvite", foreign_keys="BetaInvite.used_by_id")
     trades = relationship("Trade", back_populates="owner", cascade="all, delete-orphan")
     insights = relationship("TradeInsight", back_populates="user", cascade="all, delete-orphan")
     # FIXED: Specify foreign_keys to resolve multiple FK paths (user_id vs trader_id)
     subscriptions = relationship("Subscription", back_populates="user", foreign_keys="Subscription.user_id", cascade="all, delete-orphan")
+    # NEW: Relationships for referrals and points
+    referrals = relationship("Referral", back_populates="referrer", foreign_keys="Referral.referrer_id", cascade="all, delete-orphan")
+    point_transactions = relationship("PointTransaction", back_populates="user", cascade="all, delete-orphan")
 
+# Trade model (unchanged)
 class Trade(Base):
     __tablename__ = "trades"
     id = Column(Integer, primary_key=True, index=True)
@@ -126,6 +140,19 @@ class Trade(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+# Notification model (unchanged)
+class Notification(Base):
+    __tablename__ = "notifications"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    title = Column(String, nullable=False)
+    message = Column(Text, nullable=False)
+    type = Column(String, default="info")  # e.g., "approval", "rejection", "info"
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+# TradeInsight model (unchanged)
 class TradeInsight(Base):
     __tablename__ = "trade_insights"
     id = Column(Integer, primary_key=True, index=True)
@@ -136,6 +163,7 @@ class TradeInsight(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     user = relationship("User", back_populates="insights")
 
+# Subscription model (unchanged)
 class Subscription(Base):
     __tablename__ = "subscriptions"
     id = Column(Integer, primary_key=True, index=True)
@@ -154,7 +182,10 @@ class Subscription(Base):
     renewal_url = Column(String, nullable=True)  # NEW: For storing generated invoice URLs
     user = relationship("User", back_populates="subscriptions", foreign_keys="Subscription.user_id")
     payments = relationship("Payment", back_populates="subscription", cascade="all, delete-orphan")
+    # NEW: Link to referrals for marketplace (if sub via ref)
+    referral = relationship("Referral", back_populates="subscription", uselist=False)  # Optional 1:1
 
+# Payment model (unchanged, but add ref tracking if needed)
 class Payment(Base):
     __tablename__ = "payments"
     id = Column(Integer, primary_key=True, index=True)
@@ -174,6 +205,7 @@ class Payment(Base):
     user = relationship("User")
     subscription = relationship("Subscription", back_populates="payments")
 
+# Pricing model (unchanged)
 class Pricing(Base):
     __tablename__ = "pricing"
     id = Column(Integer, primary_key=True, index=True)
@@ -181,6 +213,7 @@ class Pricing(Base):
     interval = Column(String, index=True)  # e.g., monthly, yearly
     amount = Column(Float)  # Price in USD
 
+# Discount model (unchanged)
 class Discount(Base):
     __tablename__ = "discounts"
     id = Column(Integer, primary_key=True, index=True)
@@ -188,6 +221,7 @@ class Discount(Base):
     percentage = Column(Float, default=0.0)
     expiry = Column(Date, nullable=True)  # Discount expiration date
 
+# EligibilityConfig model (unchanged)
 class EligibilityConfig(Base):
     __tablename__ = 'eligibility_config'
     id = Column(Integer, primary_key=True, index=True)
@@ -195,10 +229,137 @@ class EligibilityConfig(Base):
     min_win_rate = Column(Float, default=80.0)
     max_marketplace_price = Column(Float, default=99.99)
     is_active = Column(Boolean, default=True)
+    trader_share_percent = Column(
+        Float,
+        default=70.0,
+        nullable=False,
+        comment="Percentage of marketplace subscription revenue that goes to the trader (0–100)"
+    )
 
+# UPDATED: UploadLimits - Now ties to Trade Points (TP cost per upload)
 class UploadLimits(Base):
     __tablename__ = "upload_limits"
     id = Column(Integer, primary_key=True, index=True)
     plan = Column(String, index=True, unique=True, nullable=False)  # e.g., 'starter', 'pro', 'elite'
-    monthly_limit = Column(Integer, default=3, nullable=False)  # Number of uploads per month
-    batch_limit = Column(Integer, default=3, nullable=False)  # Max files per batch
+    monthly_limit = Column(Integer, default=3, nullable=False)  # Number of uploads per month (TP-gated)
+    batch_limit   = Column(Integer, default=5, nullable=False) 
+    tp_cost = Column(Integer, default=1, nullable=False)  # TP cost per upload (1 default)
+
+# UPDATED: InsightsLimits - Extend for chats; TP-gated
+class InsightsLimits(Base):
+    __tablename__ = 'insights_limits'
+
+    id = Column(Integer, primary_key=True, index=True)
+    plan = Column(String(50), unique=True, nullable=False)  # e.g., 'starter', 'pro', 'elite'
+    monthly_limit = Column(Integer, default=0, nullable=False)  # Monthly generation limit
+    # NEW: For AI chats (text/voice)
+    monthly_chat_limit = Column(Integer, default=5, nullable=False)  # e.g., 5 text chats/mo for free
+    voice_chat_limit = Column(Integer, default=3, nullable=False)  # Voice-specific cap
+    tp_cost_insight = Column(Integer, default=1, nullable=False)  # TP per insight
+    tp_cost_chat = Column(Integer, default=1, nullable=False)  # TP per chat session
+
+# NEW: Referral model - Tracks refs, earnings, tiers
+class Referral(Base):
+    __tablename__ = "referrals"
+    id = Column(Integer, primary_key=True, index=True)
+    referrer_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    referee_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)  # The new user
+    status = Column(String, default='pending', nullable=False)  # pending, active, churned
+    commission_rate = Column(Float, default=0.0, nullable=False)  # DISABLED: Set to 0% (no commissions earned)
+    commission_earned = Column(Float, default=0.0, nullable=False)  # Running total $ (will remain 0)
+    points_earned = Column(Integer, default=0, nullable=False)  # TP from this ref
+    tier_bonus = Column(Float, default=1.0, nullable=False)  # Multiplier from referrer's tier (e.g., 1.2 for Pro Hunter)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # NEW: Optional link to first sub (for marketplace refs)
+    subscription_id = Column(Integer, ForeignKey("subscriptions.id"), nullable=True)
+    
+    # Relationships
+    referrer = relationship("User", foreign_keys=[referrer_id], back_populates="referrals")
+    referee = relationship("User", foreign_keys=[referee_id])
+    subscription = relationship("Subscription", back_populates="referral")
+    
+    # Constraint: No self-referrals
+    __table_args__ = (UniqueConstraint('referrer_id', 'referee_id', name='unique_ref_pair'),)
+
+# NEW: PointTransaction model - Logs all TP movements
+class PointTransaction(Base):
+    __tablename__ = "point_transactions"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    type = Column(String, nullable=False)  # e.g., 'upload', 'insight', 'chat', 'ref_earn', 'ref_redeem', 'payout'
+    amount = Column(Integer, nullable=False)  # Positive for earn, negative for spend
+    description = Column(String, nullable=True)  # e.g., "Earned 500 TP from ref signup"
+    related_ref_id = Column(Integer, ForeignKey("referrals.id"), nullable=True)  # Link to ref if applicable
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User", back_populates="point_transactions")
+    referral = relationship("Referral")
+
+class InitialTpConfig(Base):
+    __tablename__ = "initial_tp_configs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    amount = Column(Integer, default=3, nullable=False)
+
+class UpgradeTpConfig(Base):
+    __tablename__ = "upgrade_tp_configs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    plan = Column(String, index=True)  # 'pro' or 'elite'
+    amount = Column(Integer, default=0, nullable=False)
+
+class AiChatLimits(Base):
+    """
+    AI Chat limits per plan (monthly limit and TP cost per chat).
+    """
+    __tablename__ = "ai_chat_limits"
+
+    id = Column(Integer, primary_key=True, index=True)
+    plan = Column(String(50), nullable=False, unique=True)  # e.g., 'starter', 'pro', 'elite'
+    monthly_limit = Column(Integer, default=5)  # Monthly chat sessions allowed
+    tp_cost = Column(Integer, default=1)  # Trade Points cost per chat (0 for free)
+
+class BetaInvite(Base):
+    __tablename__ = "beta_invites"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(10), unique=True, index=True, nullable=False)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    used_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    used_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    # Relationships (optional, for easier querying)
+    owner = relationship("User", foreign_keys=[owner_id], back_populates="beta_invites_owned")
+    used_by = relationship("User", foreign_keys=[used_by_id])
+
+    __table_args__ = (
+        Index('idx_beta_invites_owner', 'owner_id'),  # Explicit for owner_id
+        Index('idx_beta_invites_used_by', 'used_by_id'),  # Explicit for used_by_id
+    )
+
+# NEW: BetaConfig model for toggling beta mode
+class BetaConfig(Base):
+    __tablename__ = "beta_configs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    is_active = Column(Boolean, default=True, nullable=False)  # Whether beta mode is on
+    required_for_signup = Column(Boolean, default=True, nullable=False)  # Require code for signup
+    award_points_on_use = Column(Integer, default=3, nullable=False)  # TP awarded to inviter/referrer on successful signup
+
+class BetaReferralTpConfig(Base):
+    __tablename__ = 'beta_referral_tp_configs'
+
+    id = Column(Integer, primary_key=True, index=True)
+    starter_tp = Column(Integer, default=5, nullable=False)
+    pro_tp = Column(Integer, default=20, nullable=False)
+    elite_tp = Column(Integer, default=45, nullable=False)
+
+# Tier bonus mapping (can be used in utils)
+REFERRAL_TIER_BONUSES = {
+    'rookie': 1.0,
+    'pro_trader': 1.2,
+    'elite_alpha': 1.5,
+}

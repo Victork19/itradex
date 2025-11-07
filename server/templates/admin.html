@@ -1,260 +1,213 @@
-<!doctype html>
-<html lang="en" data-theme="light">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>iTrade Journal — Admin</title>
+{% extends "base.html" %}
+{% block title %}Admin{% endblock %}
+{% block extra_styles %}
+<style>
+  :root {
+    --brand-500: #2F6BFF;
+    --brand-600: #1F55E0;
+    --success: #22C55E;
+    --danger: #EF4444;
+    --bg: #F8FAFC;
+    --surface: #FFFFFF;
+    --text: #1E293B;
+    --muted: #64748B;
+    --border: #E2E8F0;
+    --radius: 12px;
+    --card-shadow: 0 4px 12px rgba(15,23,42,0.06);
+    --card-shadow-strong: 0 8px 24px rgba(15,23,42,0.12);
+    --accent: #06B6D4;
+  }
+  [data-theme="dark"] {
+    --bg: #0B0F16;
+    --surface: #0F1724;
+    --text: #E5E7EB;
+    --muted: #94A3B8;
+    --border: rgba(148,163,184,0.18);
+  }
 
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  html, body { height: 100%; margin: 0; padding: 0; font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial; }
+  body { background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 
-  <style>
-    :root {
-      --brand-500: #2F6BFF;
-      --brand-600: #1F55E0;
-      --success: #22C55E;
-      --danger: #EF4444;
-      --bg: #F8FAFC;
-      --surface: #FFFFFF;
-      --text: #1E293B;
-      --muted: #64748B;
-      --border: #E2E8F0;
-      --radius: 12px;
-      --card-shadow: 0 4px 12px rgba(15,23,42,0.06);
-      --card-shadow-strong: 0 8px 24px rgba(15,23,42,0.12);
-      --accent: #06B6D4;
+  .nav-link {
+    position: relative;
+    color: var(--muted);
+    font-weight: 500;
+    padding-bottom: 6px;
+    transition: color .25s ease;
+  }
+  .nav-link::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    transform-origin: center;
+    transform: translateX(-50%) scaleX(0);
+    width: 60%;
+    height: 2px;
+    background: var(--brand-500);
+    border-radius: 2px;
+    transition: transform .25s ease;
+  }
+  .nav-link:hover::after, .nav-link.active::after {
+    transform: translateX(-50%) scaleX(1);
+  }
+
+  @media (max-width: 991px) {
+    .offcanvas .nav-link {
+      padding-left: 12px;
+      padding-right: 12px;
+      padding-bottom: 8px;
     }
-    [data-theme="dark"] {
-      --bg: #0B0F16;
-      --surface: #0F1724;
-      --text: #E5E7EB;
-      --muted: #94A3B8;
-      --border: rgba(148,163,184,0.18);
+    .offcanvas .nav-link::after {
+      left: 0;
+      transform-origin: left center;
+      width: 100%;
+      transform: scaleX(0);
     }
-
-    html, body { height: 100%; margin: 0; padding: 0; font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial; }
-    body { background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
-
-    .nav-link {
-      position: relative;
-      color: var(--muted);
-      font-weight: 500;
-      padding-bottom: 6px;
-      transition: color .25s ease;
+    .offcanvas .nav-link:hover::after, .offcanvas .nav-link.active::after {
+      transform: scaleX(1);
     }
-    .nav-link::after {
-      content: '';
-      position: absolute;
-      left: 50%;
-      bottom: 0;
-      transform-origin: center;
-      transform: translateX(-50%) scaleX(0);
-      width: 60%;
-      height: 2px;
-      background: var(--brand-500);
-      border-radius: 2px;
-      transition: transform .25s ease;
-    }
-    .nav-link:hover::after, .nav-link.active::after {
-      transform: translateX(-50%) scaleX(1);
-    }
+    .offcanvas .navbar-nav { gap: 8px; }
+  }
 
-    @media (max-width: 991px) {
-      .offcanvas .nav-link {
-        padding-left: 12px;
-        padding-right: 12px;
-        padding-bottom: 8px;
-      }
-      .offcanvas .nav-link::after {
-        left: 0;
-        transform-origin: left center;
-        width: 100%;
-        transform: scaleX(0);
-      }
-      .offcanvas .nav-link:hover::after, .offcanvas .nav-link.active::after {
-        transform: scaleX(1);
-      }
-      .offcanvas .navbar-nav { gap: 8px; }
-    }
+  .notif-dot { position: absolute; top: 4px; right: 4px; width: 8px; height: 8px; background: var(--danger); border-radius: 50%; }
+  .user-avatar { font-size: 0.85rem; text-transform: uppercase; cursor: pointer; transition: transform .2s ease; }
+  .user-avatar:hover { transform: scale(1.1); }
+  .container-main { max-width: 1200px; margin: 0 auto; padding: 22px; }
+  .brand { color: var(--brand-500); font-weight: 700; font-size: 1.125rem; }
+  #themeBtn { width: 40px; height: 40px; border-radius: 999px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; background: var(--surface); color: var(--muted); }
 
-    .notif-dot { position: absolute; top: 4px; right: 4px; width: 8px; height: 8px; background: var(--danger); border-radius: 50%; }
-    .user-avatar { font-size: 0.85rem; text-transform: uppercase; cursor: pointer; transition: transform .2s ease; }
-    .user-avatar:hover { transform: scale(1.1); }
-    .container-main { max-width: 1200px; margin: 0 auto; padding: 22px; }
-    .brand { color: var(--brand-500); font-weight: 700; font-size: 1.125rem; }
-    #themeBtn { width: 40px; height: 40px; border-radius: 999px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; background: var(--surface); color: var(--muted); }
+  .admin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+  .admin-card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--card-shadow); border: 1px solid var(--border); padding: 20px; }
+  .admin-card h5 { margin-bottom: 15px; color: var(--text); font-weight: 600; }
+  .stat-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .stat-item:last-child { border-bottom: none; }
+  .stat-label { color: var(--muted); font-size: .9rem; }
+  .stat-value { font-weight: 600; color: var(--text); }
 
-    .admin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
-    .admin-card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--card-shadow); border: 1px solid var(--border); padding: 20px; }
-    .admin-card h5 { margin-bottom: 15px; color: var(--text); font-weight: 600; }
-    .stat-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
-    .stat-item:last-child { border-bottom: none; }
-    .stat-label { color: var(--muted); font-size: .9rem; }
-    .stat-value { font-weight: 600; color: var(--text); }
+  .table-admin th { font-weight: 600; color: var(--text); }
+  .table-admin td { color: var(--muted); }
+  .badge-starter { background: rgba(34,197,94,0.1); color: var(--success); }
+  .badge-pro { background: rgba(47,107,255,0.1); color: var(--brand-500); }
+  .badge-elite { background: rgba(6,182,212,0.1); color: var(--accent); }
+  .btn-admin-sm { padding: 4px 8px; font-size: .8rem; }
+  .table-trades th { font-weight: 600; color: var(--text); }
+  .table-trades td { color: var(--muted); }
+  .plan-dist { height: 200px; background: #f0f0f0; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--muted); }
+  .pricing-form-group, .discount-form-group, .eligibility-form-group, .upload-limits-form-group, .insights-limits-form-group, .initial-tp-form-group, .upgrade-tp-form-group, .ai-chat-limits-form-group, .beta-form-group, .beta-referral-tp-form-group { margin-bottom: 1rem; }
+  .pricing-input, .discount-input, .eligibility-input, .upload-limits-input, .insights-limits-input, .initial-tp-input, .upgrade-tp-input, .ai-chat-limits-input, .beta-referral-tp-input { width: 120px; display: inline-block; }
+  .save-pricing, .save-discount, .save-eligibility, .save-upload-limits, .save-insights-limits, .save-initial-tp, .save-upgrade-tp, .save-ai-chat-limits, .save-beta-referral-tp { margin-top: 1rem; }
+  .metric-positive { color: var(--success); }
+  .metric-negative { color: var(--danger); }
+  .metric-neutral { color: var(--text); }
+  .fade-up { animation: fadeUp .28s ease both; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
-    .table-admin th { font-weight: 600; color: var(--text); }
-    .table-admin td { color: var(--muted); }
-    .badge-starter { background: rgba(34,197,94,0.1); color: var(--success); }
-    .badge-pro { background: rgba(47,107,255,0.1); color: var(--brand-500); }
-    .badge-elite { background: rgba(6,182,212,0.1); color: var(--accent); }
-    .btn-admin-sm { padding: 4px 8px; font-size: .8rem; }
-    .table-trades th { font-weight: 600; color: var(--text); }
-    .table-trades td { color: var(--muted); }
-    .plan-dist { height: 200px; background: #f0f0f0; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--muted); }
-    .pricing-form-group, .discount-form-group, .eligibility-form-group, .upload-limits-form-group { margin-bottom: 1rem; }
-    .pricing-input, .discount-input, .eligibility-input, .upload-limits-input { width: 120px; display: inline-block; }
-    .save-pricing, .save-discount, .save-eligibility, .save-upload-limits { margin-top: 1rem; }
-    .metric-positive { color: var(--success); }
-    .metric-negative { color: var(--danger); }
-    .metric-neutral { color: var(--text); }
-    .fade-up { animation: fadeUp .28s ease both; }
-    @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    min-width: 300px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--card-shadow-strong);
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    opacity: 0;
+    transform: translateX(100%);
+    transition: all 0.3s ease;
+  }
+  .toast.show { opacity: 1; transform: translateX(0); }
+  .toast.success { border-left: 4px solid var(--success); }
+  .toast.error { border-left: 4px solid var(--danger); }
+  .toast i { font-size: 1.25rem; }
 
-    .toast {
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      z-index: 9999;
-      min-width: 300px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: var(--card-shadow-strong);
-      padding: 1rem;
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      opacity: 0;
-      transform: translateX(100%);
-      transition: all 0.3s ease;
-    }
-    .toast.show { opacity: 1; transform: translateX(0); }
-    .toast.success { border-left: 4px solid var(--success); }
-    .toast.error { border-left: 4px solid var(--danger); }
-    .toast i { font-size: 1.25rem; }
+  @media (max-width: 768px) { .container-main { padding: 14px; } }
 
-    @media (max-width: 768px) { .container-main { padding: 14px; } }
+  /* NEW: Test Sub Modal Styles */
+  #testSubModal .modal-content { border-radius: var(--radius); }
+  #testSubModal .form-select { max-width: 300px; }
 
-    /* NEW: Test Sub Modal Styles */
-    #testSubModal .modal-content { border-radius: var(--radius); }
-    #testSubModal .form-select { max-width: 300px; }
+  /* UPDATED: Test Access List Styles */
+  .test-access-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 8px;
+    background: rgba(47,107,255,0.05);
+    border-radius: 6px;
+    margin-bottom: 4px;
+    font-size: 0.875rem;
+  }
+  .test-access-item .text-muted { font-size: 0.8rem; }
 
-    /* UPDATED: Test Access List Styles */
-    .test-access-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 4px 8px;
-      background: rgba(47,107,255,0.05);
-      border-radius: 6px;
-      margin-bottom: 4px;
-      font-size: 0.875rem;
-    }
-    .test-access-item .text-muted { font-size: 0.8rem; }
+  /* NEW: Partial Payment Styles */
+  .partial-progress { background: rgba(34,197,94,0.1); color: var(--success); padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; }
 
-    /* NEW: Partial Payment Styles */
-    .partial-progress { background: rgba(34,197,94,0.1); color: var(--success); padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; }
+  /* NEW: Wallet Truncation Style */
+  .wallet-truncated { font-family: monospace; font-size: 0.85em; color: var(--muted); }
 
-    /* NEW: Admin Plan Card Styles */
-    .admin-plan-card { border-left: 4px solid var(--brand-500); background: linear-gradient(90deg, rgba(47,107,255,0.03) 0%, transparent 100%); }
-  </style>
-</head>
-<body>
-  <!-- NAVBAR (unchanged) -->
-  <nav class="navbar sticky-top" style="background: var(--surface); border-bottom: 1px solid var(--border); box-shadow: 0 2px 6px rgba(15,23,42,0.06);">
-    <div class="container-fluid px-3 d-flex justify-content-between align-items-center">
-      <a class="navbar-brand fw-bold fs-5 text-primary d-flex align-items-center gap-2" href="/">
-        <i class="bi bi-graph-up-arrow"></i> iTrade
-      </a>
-      <ul class="navbar-nav d-none d-lg-flex flex-row align-items-center gap-3">
-        <li class="nav-item"><a class="nav-link" href="/dashboard">Dashboard</a></li>
-        <li class="nav-item"><a class="nav-link" href="/journal">Journal</a></li>
-        <li class="nav-item"><a class="nav-link" href="/upload">Upload</a></li>
-        <li class="nav-item"><a class="nav-link" href="/insights">Insights</a></li>
-        <li class="nav-item"><a class="nav-link" href="/profile">Profile</a></li>
-        <li class="nav-item"><a class="nav-link active" href="/admin">Admin</a></li>
-      </ul>
-      <div class="d-none d-lg-flex align-items-center gap-3">
-        <div class="dropdown">
-          <a class="nav-link position-relative" href="#" data-bs-toggle="dropdown">
-            <i class="bi bi-bell fs-5"></i>
-            <span class="notif-dot"></span>
-          </a>
-          <ul class="dropdown-menu dropdown-menu-end shadow-sm rounded-3 p-2">
-            <li class="dropdown-header fw-semibold text-muted">Notifications</li>
-            <li><a class="dropdown-item small py-2 rounded" href="#">Trade #102 logged</a></li>
-            <li><a class="dropdown-item small py-2 rounded" href="#">AI insight ready</a></li>
-          </ul>
-        </div>
-        <button id="themeToggle" class="btn btn-outline-secondary btn-sm"><i class="bi bi-moon"></i></button>
-        <div class="dropdown">
-          <a class="nav-link p-0" href="#" data-bs-toggle="dropdown">
-            <div class="user-avatar rounded-circle d-flex justify-content-center align-items-center text-white fw-bold" style="width:32px; height:32px; background:#2F6BFF;">
-              {{ initials }}
-            </div>
-          </a>
-          <ul class="dropdown-menu dropdown-menu-end shadow-sm rounded-3 mt-2">
-            <li><a class="dropdown-item" href="/profile">Profile</a></li>
-            <li><a class="dropdown-item" href="/plans">Upgrade</a></li>
-            <li><a class="dropdown-item text-danger" href="/users/logout">Logout</a></li>
-          </ul>
-        </div>
-      </div>
-      <button class="navbar-toggler d-lg-none border-0" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasNav">
-        <span class="navbar-toggler-icon"></span>
-      </button>
+  /* NEW: Search Form Style */
+  .search-form { max-width: 400px; }
+
+  /* UPDATED: User Details Modal Styles - Fixed grid layout for clarity */
+  #userDetailsModal .modal-lg { max-width: 800px; }
+  #userDetailsModal .user-info { background: rgba(47,107,255,0.05); padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+  #userDetailsModal .user-info dl { 
+    display: grid; 
+    grid-template-columns: auto 1fr; 
+    gap: 0.75rem 1.5rem; 
+  }
+  #userDetailsModal .user-info dt { 
+    font-weight: 600; 
+    color: var(--text); 
+    text-align: right; 
+    padding-right: 0.5rem;
+  }
+  #userDetailsModal .user-info dd { 
+    color: var(--muted); 
+    margin: 0; 
+  }
+  #referralsTable { font-size: 0.9rem; }
+  #referralsTable .table th { background: var(--bg); }
+  .no-referrals { text-align: center; color: var(--muted); padding: 40px; }
+  #pointsTable { font-size: 0.9rem; margin-top: 20px; }
+  #pointsTable .table th { background: var(--bg); }
+  .no-points { text-align: center; color: var(--muted); padding: 40px; }
+  #invitesTable { font-size: 0.9rem; margin-top: 20px; }
+  #invitesTable .table th { background: var(--bg); }
+  .no-invites { text-align: center; color: var(--muted); padding: 40px; }
+  .points-adjust { background: rgba(34,197,94,0.05); padding: 15px; border-radius: 8px; margin-top: 20px; }
+  .points-adjust .form-control { margin-bottom: 10px; }
+
+  /* NEW: Upgrade TP Form Styles */
+  .upgrade-tp-form-group { margin-bottom: 1rem; }
+  .upgrade-tp-input { width: 100px; display: inline-block; }
+
+  /* UPDATED: Plan Badge Handling for Marketplace Add-ons */
+  .badge-marketplace { background: rgba(34,197,94,0.1); color: var(--success); }
+
+  /* NEW: Beta Pool Generation Styles */
+  #poolResult { min-height: 50px; }
+
+  /* NEW: Beta Referral TP Form Styles */
+  .beta-referral-tp-form-group { margin-bottom: 1rem; }
+  .beta-referral-tp-input { width: 100px; display: inline-block; }
+</style>
+{% endblock %}
+{% block content %}<main class="container-main">
+  <div class="position-relative fade-up" style="margin-bottom:18px">
+    <div>
+      <div style="font-size:1rem;color:var(--muted)">Admin Panel</div>
+      <div style="font-size:1.6rem;font-weight:700">System Overview</div>
     </div>
-    <div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasNav">
-      <div class="offcanvas-header">
-        <h5 class="offcanvas-title">Menu</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
-      </div>
-      <div class="offcanvas-body">
-        <ul class="navbar-nav gap-2">
-          <li class="nav-item"><a class="nav-link" href="/dashboard">Dashboard</a></li>
-          <li class="nav-item"><a class="nav-link" href="/journal">Journal</a></li>
-          <li class="nav-item"><a class="nav-link" href="/upload">Upload</a></li>
-          <li class="nav-item"><a class="nav-link" href="/insights">Insights</a></li>
-          <li class="nav-item"><a class="nav-link" href="/profile">Profile</a></li>
-          <li class="nav-item"><a class="nav-link active" href="/admin">Admin</a></li>
-        </ul>
-      </div>
-    </div>
-  </nav>
+  </div>
 
-  <main class="container-main">
-    <div class="position-relative fade-up" style="margin-bottom:18px">
-      <div>
-        <div style="font-size:1rem;color:var(--muted)">Admin Panel</div>
-        <div style="font-size:1.6rem;font-weight:700">System Overview</div>
-      </div>
-    </div>
-
-    <!-- NEW: Admin's Own Plan Card -->
-    <div class="admin-card admin-plan-card fade-up mb-4">
-      <h5><i class="bi bi-person-badge text-primary me-2"></i>Your Live Plan (Non-Testing)</h5>
-      <div class="row">
-        <div class="col-md-6">
-          <p><strong>Plan Level:</strong> <span class="badge badge-{{ admin_plan.lower() }} px-3 py-2 fs-6">{{ admin_plan }}</span></p>
-          {% if admin_sub %}
-            <p><strong>Subscription ID:</strong> {{ admin_sub.id }}</p>
-            <p><strong>Status:</strong> <span class="badge bg-success">{{ admin_sub.status.upper() }}</span></p>
-            <p><strong>Plan Type:</strong> {{ admin_sub.plan_type }}</p>
-            <p><strong>Amount:</strong> ${{ "%.2f"|format(admin_sub.amount_usd) }} ({{ admin_sub.interval_days }} days)</p>
-            <p><strong>Start Date:</strong> {{ admin_sub.start_date.strftime('%Y-%m-%d') }}</p>
-            <p><strong>Next Billing:</strong> {{ admin_sub.next_billing_date.strftime('%Y-%m-%d') }}</p>
-          {% else %}
-            <p class="text-muted">No active subscription. <a href="/plans">Upgrade here</a> for live access.</p>
-          {% endif %}
-        </div>
-        <div class="col-md-6">
-          <p class="text-muted small"><i class="bi bi-info-circle me-1"></i>This shows your real, non-testing plan status. Use the users table below only for demo/testing switches.</p>
-        </div>
-      </div>
-    </div>
-
-<!-- STATS GRID (unchanged) -->
+<!-- UPDATED STATS GRID (added Beta Invites) -->
 <section class="admin-grid mb-4 fade-up">
   <div class="admin-card">
     <h5><i class="bi bi-people-fill text-primary me-2"></i>Total Users</h5>
@@ -277,6 +230,32 @@
       <span class="stat-label">Avg per User</span>
       <span class="stat-value">{{ avg_trades_per_user }}</span>
     </div>
+  </div>
+  <div class="admin-card">
+    <h5><i class="bi bi-people text-info me-2"></i>Referrals</h5>
+    <div class="stat-item">
+      <span class="stat-label">Total Referrals</span>
+      <span class="stat-value">{{ total_referrals }}</span>
+    </div>
+  </div>
+  <div class="admin-card">
+    <h5><i class="bi bi-star-fill text-warning me-2"></i>Trade Points</h5>
+    <div class="stat-item">
+      <span class="stat-label">Total Issued</span>
+      <span class="stat-value">{{ total_points_issued }}</span>
+    </div>
+  </div>
+  <div class="admin-card">
+    <h5><i class="bi bi-key text-secondary me-2"></i>Beta Invites</h5>
+    <div class="stat-item">
+      <span class="stat-label">Total Generated</span>
+      <span class="stat-value">{{ total_beta_invites }}</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">Used</span>
+      <span class="stat-value">{{ used_beta_invites }}</span>
+    </div>
+    <button class="btn btn-outline-primary btn-sm mt-2" onclick="window.location.href='/admin/beta-invites'">View All</button>
   </div>
   <div class="admin-card">
     <h5><i class="bi bi-credit-card text-info me-2"></i>Plan Distribution</h5>
@@ -328,30 +307,34 @@
   </div>
 </section>
 
-<!-- UPDATED: ELIGIBILITY CONFIG CARD -->
+<!-- UPDATED: ELIGIBILITY CONFIG CARD (added Trader Share Percent) -->
 <div class="admin-card fade-up mb-4">
   <h5><i class="bi bi-shield-check text-success me-2"></i>Marketplace Eligibility</h5>
   <form id="eligibilityForm">
     <div class="eligibility-form-group">
       <div class="row g-3">
-        <div class="col-md-4">
+        <div class="col-md-3">
           <label class="form-label fw-semibold">Minimum Trades</label>
           <input type="number" class="form-control eligibility-input" name="min_trades" value="{{ eligibility.min_trades }}" min="1" required>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
           <label class="form-label fw-semibold">Minimum Win Rate (%)</label>
           <input type="number" class="form-control eligibility-input" name="min_win_rate" value="{{ eligibility.min_win_rate }}" min="0" max="100" step="0.1" required>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
           <label class="form-label fw-semibold">Max Marketplace Price ($)</label>
           <input type="number" class="form-control eligibility-input" name="max_marketplace_price" value="{{ eligibility.max_marketplace_price }}" step="0.01" min="0" required>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label fw-semibold">Trader Share Percent (%)</label>
+          <input type="number" class="form-control eligibility-input" name="trader_share_percent" value="{{ eligibility.trader_share_percent }}" min="0" max="100" step="0.1" required>
         </div>
       </div>
     </div>
     <button type="submit" class="btn btn-primary save-eligibility">Update Eligibility</button>
   </form>
   <div class="alert alert-info mt-3">
-    <small><i class="bi bi-info-circle me-1"></i>Only users meeting these criteria can be enabled as marketplace traders.</small>
+    <small><i class="bi bi-info-circle me-1"></i>Only users meeting these criteria can be enabled as marketplace traders. Trader share percent determines the revenue split (e.g., 70% to trader, 30% to platform).</small>
   </div>
 </div>
 
@@ -389,6 +372,160 @@
   </form>
   <div class="alert alert-info mt-3">
     <small><i class="bi bi-info-circle me-1"></i>Configure monthly upload quotas and batch sizes per plan. Use a very high number (e.g., 999999) for unlimited.</small>
+  </div>
+</div>
+
+<!-- NEW: INSIGHTS LIMITS CARD -->
+<div class="admin-card fade-up mb-4">
+  <h5><i class="bi bi-lightbulb text-primary me-2"></i>AI Insights Generations (Monthly)</h5>
+  <form id="insightsLimitsForm">
+    <div class="row g-3">
+      {% for plan in ['starter', 'pro', 'elite'] %}
+      <div class="col-md-4">
+        <label class="form-label fw-semibold">{{ plan.title() }}</label>
+        <input type="number" class="form-control insights-limits-input" name="{{ plan }}_monthly" id="insights-{{ plan }}" value="{{ insights_limits[plan] }}" min="0" required>
+      </div>
+      {% endfor %}
+    </div>
+    <button type="submit" class="btn btn-primary save-insights-limits mt-3">Save Insights Limits</button>
+  </form>
+  <div class="alert alert-info mt-3">
+    <small><i class="bi bi-info-circle me-1"></i>Configure monthly AI insights generation quotas per plan. Use a very high number (e.g., 999) for unlimited.</small>
+  </div>
+</div>
+
+<!-- NEW: AI CHAT LIMITS CARD -->
+<div class="admin-card fade-up mb-4">
+  <h5><i class="bi bi-chat-dots text-primary me-2"></i>AI Chat Sessions (Monthly)</h5>
+  <form id="aiChatLimitsForm">
+    <div class="row g-3">
+      {% for plan in ['starter', 'pro', 'elite'] %}
+      <div class="col-md-3">
+        <label class="form-label fw-semibold">{{ plan.title() }} Monthly Limit</label>
+        <input type="number" class="form-control ai-chat-limits-input" name="{{ plan }}_monthly" value="{{ ai_chat_limits[plan].monthly_limit }}" min="0" required>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label fw-semibold">{{ plan.title() }} TP Cost per Chat</label>
+        <input type="number" class="form-control ai-chat-limits-input" name="{{ plan }}_tp" value="{{ ai_chat_limits[plan].tp_cost }}" min="0" required>
+      </div>
+      {% endfor %}
+    </div>
+    <button type="submit" class="btn btn-primary save-ai-chat-limits mt-3">Save AI Chat Limits</button>
+  </form>
+  <div class="alert alert-info mt-3">
+    <small><i class="bi bi-info-circle me-1"></i>Configure monthly AI chat quotas and Trade Points (TP) cost per session per plan. Use high numbers for unlimited.</small>
+  </div>
+</div>
+
+<!-- NEW: INITIAL TP GRANT CARD -->
+<div class="admin-card fade-up mb-4">
+  <h5><i class="bi bi-star-fill text-warning me-2"></i>Initial TP Grant on Signup</h5>
+  <form id="initialTpForm">
+    <div class="initial-tp-form-group">
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Starting TP Amount</label>
+          <input type="number" class="form-control initial-tp-input" name="amount" value="{{ initial_tp.amount }}" min="0" required>
+        </div>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary save-initial-tp">Save Initial TP</button>
+  </form>
+  <div class="alert alert-info mt-3">
+    <small><i class="bi bi-info-circle me-1"></i>New users receive this amount of Trade Points (TP) upon signup.</small>
+  </div>
+</div>
+
+<!-- NEW: UPGRADE TP CONFIG CARD -->
+<div class="admin-card fade-up mb-4">
+  <h5><i class="bi bi-arrow-up-circle text-success me-2"></i>Upgrade TP Grants</h5>
+  <form id="upgradeTpForm">
+    <div class="upgrade-tp-form-group">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Pro Upgrade TP Amount</label>
+          <input type="number" class="form-control upgrade-tp-input" name="pro_amount" value="{{ upgrade_tp.pro }}" min="0" required>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Elite Upgrade TP Amount</label>
+          <input type="number" class="form-control upgrade-tp-input" name="elite_amount" value="{{ upgrade_tp.elite }}" min="0" required>
+        </div>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary save-upgrade-tp">Save Upgrade TP</button>
+  </form>
+  <div class="alert alert-info mt-3">
+    <small><i class="bi bi-info-circle me-1"></i>Users receive these amounts of Trade Points (TP) upon upgrading to the respective plan.</small>
+  </div>
+</div>
+
+<!-- NEW: BETA REFERRAL TP CONFIG CARD -->
+<div class="admin-card fade-up mb-4">
+  <h5><i class="bi bi-share-fill text-primary me-2"></i>Beta Referral TP Bonuses</h5>
+  <form id="betaReferralTpForm">
+    <div class="beta-referral-tp-form-group">
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Starter TP per Referral</label>
+          <input type="number" class="form-control beta-referral-tp-input" name="starter_amount" value="{{ beta_referral_tp.starter_tp }}" min="0" required>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Pro TP per Referral</label>
+          <input type="number" class="form-control beta-referral-tp-input" name="pro_amount" value="{{ beta_referral_tp.pro_tp }}" min="0" required>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Elite TP per Referral</label>
+          <input type="number" class="form-control beta-referral-tp-input" name="elite_amount" value="{{ beta_referral_tp.elite_tp }}" min="0" required>
+        </div>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary save-beta-referral-tp">Save Beta Referral TP</button>
+  </form>
+  <div class="alert alert-info mt-3">
+    <small><i class="bi bi-info-circle me-1"></i>Configure Trade Points (TP) bonuses awarded to users for successful beta referrals, tiered by the referrer's plan.</small>
+  </div>
+</div>
+
+<!-- NEW: BETA MODE SETTINGS CARD -->
+<div class="admin-card fade-up mb-4">
+  <h5><i class="bi bi-gear text-info me-2"></i>Beta Mode Settings</h5>
+  <form id="betaForm">
+    <div class="beta-form-group">
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Active</label>
+          <input type="checkbox" class="form-check-input" name="is_active" {% if beta_settings.is_active %}checked{% endif %}>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Required for Signup</label>
+          <input type="checkbox" class="form-check-input" name="required_for_signup" {% if beta_settings.required_for_signup %}checked{% endif %}>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">TP Award on Use</label>
+          <input type="number" class="form-control" name="award_points_on_use" value="{{ beta_settings.award_points_on_use }}" min="0" required>
+        </div>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary">Save Beta Settings</button>
+  </form>
+  <div class="alert alert-info mt-3">
+    <small><i class="bi bi-info-circle me-1"></i>Controls beta invite mode. When active and required, users must use a code to sign up.</small>
+  </div>
+</div>
+
+<!-- NEW: BETA POOL CODES GENERATION CARD -->
+<div class="admin-card fade-up mb-4">
+  <h5><i class="bi bi-people-fill text-secondary me-2"></i>Generate Beta Pool Codes (Global Access)</h5>
+  <div class="row g-3 mb-3">
+    <div class="col-md-4">
+      <label class="form-label fw-semibold">Number of Codes (1-100)</label>
+      <input type="number" class="form-control" id="poolCount" value="10" min="1" max="100">
+    </div>
+  </div>
+  <button class="btn btn-primary" onclick="generatePoolCodes()">Generate Pool Codes</button>
+  <div id="poolResult"></div>
+  <div class="alert alert-info mt-3">
+    <small><i class="bi bi-info-circle me-1"></i>Generates global beta invite codes for general access (no owner).</small>
   </div>
 </div>
 
@@ -480,9 +617,117 @@
   </div>
 </div>
 
-<!-- NEW: RECENT PARTIAL PAYMENTS -->
+<!-- NEW: RECENT PLATFORM INITIATED PAYMENTS -->
 <div class="admin-card fade-up mb-4">
-  <h5><i class="bi bi-credit-card-2-front text-warning me-2"></i>Recent Partial Payments</h5>
+  <h5><i class="bi bi-clock text-info me-2"></i>Recent Platform Initiated Payments</h5>
+  <div class="table-responsive">
+    <table class="table table-admin table-hover">
+      <thead>
+        <tr>
+          <th>Sub ID</th>
+          <th>User</th>
+          <th>Plan</th>
+          <th>Amount ($)</th>
+          <th>Status</th>
+          <th>Started</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in recent_initiated_platform %}
+        <tr>
+          <td>{{ item.id }}</td>
+          <td>{{ item.user_email }} (ID: {{ item.user_id }})</td>
+          <td>{{ item.trader_name }}</td>
+          <td>${{ "%.2f"|format(item.amount_usd) }}</td>
+          <td><span class="badge bg-warning">{{ item.status.replace('_', ' ').title() }}</span></td>
+          <td>{{ item.started }}</td>
+        </tr>
+        {% endfor %}
+        {% if not recent_initiated_platform %}
+        <tr><td colspan="6" class="text-center text-muted">No platform initiated payments</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- NEW: RECENT MARKETPLACE INITIATED PAYMENTS -->
+<div class="admin-card fade-up mb-4">
+  <h5><i class="bi bi-shop text-success me-2"></i>Recent Marketplace Initiated Payments</h5>
+  <div class="table-responsive">
+    <table class="table table-admin table-hover">
+      <thead>
+        <tr>
+          <th>Sub ID</th>
+          <th>User</th>
+          <th>Trader</th>
+          <th>Amount ($)</th>
+          <th>Status</th>
+          <th>Started</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in recent_initiated_marketplace %}
+        <tr>
+          <td>{{ item.id }}</td>
+          <td>{{ item.user_email }} (ID: {{ item.user_id }})</td>
+          <td>{{ item.trader_name }}</td>
+          <td>${{ "%.2f"|format(item.amount_usd) }}</td>
+          <td><span class="badge bg-warning">{{ item.status.replace('_', ' ').title() }}</span></td>
+          <td>{{ item.started }}</td>
+        </tr>
+        {% endfor %}
+        {% if not recent_initiated_marketplace %}
+        <tr><td colspan="6" class="text-center text-muted">No marketplace initiated payments</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- NEW: RECENT PLATFORM PARTIAL PAYMENTS -->
+<div class="admin-card fade-up mb-4">
+  <h5><i class="bi bi-credit-card-2-front text-warning me-2"></i>Recent Platform Partial Payments</h5>
+  <div class="table-responsive">
+    <table class="table table-admin table-hover">
+      <thead>
+        <tr>
+          <th>Payment ID</th>
+          <th>User</th>
+          <th>Plan</th>
+          <th>Expected ($)</th>
+          <th>Paid (Crypto)</th>
+          <th>Date</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for payment in recent_partial_platform %}
+        <tr>
+          <td>{{ payment.nowpayments_payment_id }}</td>
+          <td>{{ payment.user_email }} (ID: {{ payment.user_id }})</td>
+          <td><span class="text-muted">Platform</span></td>
+          <td>${{ "%.2f"|format(payment.amount_usd) }}</td>
+          <td>{{ payment.amount_paid_crypto }} {{ payment.crypto_currency }}</td>
+          <td>{{ payment.created }}</td>
+          <td>
+            <button class="btn btn-sm btn-success btn-admin-sm" data-bs-toggle="modal" data-bs-target="#completePaymentModal" onclick="openCompleteModal('{{ payment.nowpayments_payment_id }}', '{{ payment.user_email }}')">
+              <i class="bi bi-check-lg"></i> Complete
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+        {% if not recent_partial_platform %}
+        <tr><td colspan="7" class="text-center text-muted">No platform partial payments</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- NEW: RECENT MARKETPLACE PARTIAL PAYMENTS -->
+<div class="admin-card fade-up mb-4">
+  <h5><i class="bi bi-shop text-danger me-2"></i>Recent Marketplace Partial Payments</h5>
   <div class="table-responsive">
     <table class="table table-admin table-hover">
       <thead>
@@ -497,11 +742,11 @@
         </tr>
       </thead>
       <tbody>
-        {% for payment in recent_partial_payments %}
+        {% for payment in recent_partial_marketplace %}
         <tr>
           <td>{{ payment.nowpayments_payment_id }}</td>
           <td>{{ payment.user_email }} (ID: {{ payment.user_id }})</td>
-          <td>{% if payment.is_marketplace %}{{ payment.trader_name }}{% else %}<span class="text-muted">Platform</span>{% endif %}</td>
+          <td>{{ payment.trader_name }}</td>
           <td>${{ "%.2f"|format(payment.amount_usd) }}</td>
           <td>{{ payment.amount_paid_crypto }} {{ payment.crypto_currency }}</td>
           <td>{{ payment.created }}</td>
@@ -512,17 +757,60 @@
           </td>
         </tr>
         {% endfor %}
-        {% if not recent_partial_payments %}
-        <tr><td colspan="7" class="text-center text-muted">No partial payments</td></tr>
+        {% if not recent_partial_marketplace %}
+        <tr><td colspan="7" class="text-center text-muted">No marketplace partial payments</td></tr>
         {% endif %}
       </tbody>
     </table>
   </div>
 </div>
 
-<!-- UPDATED: RECENT USERS WITH TRADER TOGGLE & PENDING STATUS -->
+<!-- NEW: RECENT REFERRALS -->
 <div class="admin-card fade-up mb-4">
-  <h5><i class="bi bi-person-lines-fill text-warning me-2"></i>Recent Users (Demo/Testing Plan Switcher)</h5>
+  <h5><i class="bi bi-share text-primary me-2"></i>Recent Referrals</h5>
+  <div class="table-responsive">
+    <table class="table table-admin table-hover">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Referrer</th>
+          <th>Referee</th>
+          <th>Status</th>
+          <th>Commission ($)</th>
+          <th>Points</th>
+          <th>Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ref in recent_referrals %}
+        <tr>
+          <td>{{ ref.id }}</td>
+          <td>{{ ref.referrer_email }} (ID: {{ ref.referrer_id }})</td>
+          <td>{{ ref.referee_email }} (ID: {{ ref.referee_id }})</td>
+          <td><span class="badge bg-{{ 'success' if ref.status == 'active' else 'secondary' }}">{{ ref.status.title() }}</span></td>
+          <td>${{ ref.commission_earnings }}</td>
+          <td>{{ ref.points_earned }}</td>
+          <td>{{ ref.created }}</td>
+        </tr>
+        {% endfor %}
+        {% if not recent_referrals %}
+        <tr><td colspan="7" class="text-center text-muted">No recent referrals</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+  <button class="btn btn-outline-primary btn-sm" onclick="window.location.href='/admin/referrals'">View All Referrals</button>
+</div>
+
+<!-- UPDATED: RECENT USERS WITH SEARCH (added Total Invites and Available columns) -->
+<div class="admin-card fade-up mb-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h5><i class="bi bi-person-lines-fill text-warning me-2"></i>Recent Users (Demo/Testing Plan Switcher)</h5>
+    <form method="GET" class="search-form d-flex">
+      <input type="text" name="search" class="form-control me-2" placeholder="Search by email or name..." value="{{ search }}">
+      <button type="submit" class="btn btn-outline-secondary"><i class="bi bi-search"></i></button>
+    </form>
+  </div>
   <div class="table-responsive">
     <table class="table table-admin table-hover">
       <thead>
@@ -532,9 +820,17 @@
           <th>Full Name</th>
           <th>Joined</th>
           <th>Trades</th>
+          <th>Win Rate</th>
           <th>Plan</th>
+          <th>Wallet</th>
+          <th>Monthly Earnings</th>
           <th>Trader</th>
           <th>Test Access</th>
+          <th>Referrals</th>
+          <th>Total Earnings</th>
+          <th>TP Balance</th>
+          <th>Total Invites</th>
+          <th>Available</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -546,76 +842,91 @@
           <td>{{ user.full_name }}</td>
           <td>{{ user.joined }}</td>
           <td>{{ user.trades }}</td>
-          <td><span class="badge badge-{{ user.plan.lower() }} px-2 py-1">{{ user.plan }}</span></td>
+          <td>{{ user.win_rate }}%</td>
+          <td>
+            {% set plan_base = user.plan.lower().split()[0] %}
+            <span class="badge badge-{{ 'starter' if plan_base == 'starter' else 'pro' if plan_base == 'pro' else 'elite' if plan_base == 'elite' else 'marketplace' }} px-2 py-1">{{ user.plan }}</span>
+          </td>
+          <td><span class="wallet-truncated">{{ user.wallet_address[:6] + '...' + user.wallet_address[-4:] if user.wallet_address else 'None' }}</span></td>
+          <td>${{ "%.2f"|format(user.monthly_earnings) }}</td>
 
-      <!-- TRADER TOGGLE WITH PENDING STATUS -->
-      <td>
-        <div class="form-check form-switch d-inline-block">
-          <input
-            class="form-check-input trader-toggle"
-            type="checkbox"
-            id="trader-{{ user.id }}"
-            data-user-id="{{ user.id }}"
-            data-min-trades="{{ eligibility.min_trades }}"
-            data-min-win-rate="{{ eligibility.min_win_rate }}"
-            {% if user.is_trader %}checked{% endif %}
-          >
-          <label class="form-check-label" for="trader-{{ user.id }}"></label>
-        </div>
-        <small class="ms-1 eligibility-msg" data-user-id="{{ user.id }}">
-          {% if user.is_trader_pending %}
-            <span class="text-warning">Pending Review</span>
-          {% elif user.is_trader %}
-            <span class="text-success">Live ({{ "%.1f"|format(user.win_rate) }}% win)</span>
-          {% else %}
-            {% if user.trades < eligibility.min_trades %}
-              <span class="text-muted">Need {{ eligibility.min_trades - user.trades }} more trades</span>
-            {% elif user.win_rate < eligibility.min_win_rate %}
-              <span class="text-muted">Win-rate {{ "%.1f"|format(user.win_rate) }}%</span>
-            {% else %}
-              <span class="text-success">Eligible</span>
-            {% endif %}
-          {% endif %}
-        </small>
-      </td>
-
-      <!-- TEST ACCESS COLUMN (unchanged) -->
-      <td>
-        {% if user.sub_list %}
-          {% for sub in user.sub_list %}
-          <div class="test-access-item">
-            <span class="text-muted">{{ sub.trader_name }}</span>
-            <button class="btn btn-sm btn-outline-danger" onclick="revokeTestAccess({{ user.id }}, {{ sub.trader_id }})">
-              <i class="bi bi-x-lg"></i>
-            </button>
-          </div>
-          {% endfor %}
+  <!-- TRADER TOGGLE WITH PENDING STATUS -->
+  <td>
+    <div class="form-check form-switch d-inline-block">
+      <input
+        class="form-check-input trader-toggle"
+        type="checkbox"
+        id="trader-{{ user.id }}"
+        data-user-id="{{ user.id }}"
+        data-min-trades="{{ eligibility.min_trades }}"
+        data-min-win-rate="{{ eligibility.min_win_rate }}"
+        {% if user.is_trader %}checked{% endif %}
+      >
+      <label class="form-check-label" for="trader-{{ user.id }}"></label>
+    </div>
+    <small class="ms-1 eligibility-msg" data-user-id="{{ user.id }}">
+      {% if user.is_trader_pending %}
+        <span class="text-warning">Pending Review</span>
+      {% elif user.is_trader %}
+        <span class="text-success">Live ({{ user.win_rate }}% win)</span>
+      {% else %}
+        {% if user.trades < eligibility.min_trades %}
+          <span class="text-muted">Need {{ eligibility.min_trades - user.trades }} more trades</span>
+        {% elif user.win_rate < eligibility.min_win_rate %}
+          <span class="text-muted">Win-rate {{ user.win_rate }}%</span>
         {% else %}
-          <span class="text-muted small">No access</span>
+          <span class="text-success">Eligible</span>
         {% endif %}
-        <button class="btn btn-sm btn-outline-primary btn-admin-sm mt-2 w-100" data-bs-toggle="modal" data-bs-target="#testSubModal" onclick="openTestSubModal({{ user.id }}, '{{ (user.full_name or user.email)|e }}')">
-          <i class="bi bi-plus-circle"></i> Grant
-        </button>
-      </td>
+      {% endif %}
+    </small>
+  </td>
 
-      <td>
-        <select id="plan-{{ user.id }}" class="form-select form-select-sm d-inline-block w-auto" style="width:auto;">
-          <option value="starter" {% if user.plan.lower() == 'starter' %}selected{% endif %}>Starter</option>
-          <option value="pro" {% if user.plan.lower() == 'pro' %}selected{% endif %}>Pro</option>
-          <option value="elite" {% if user.plan.lower() == 'elite' %}selected{% endif %}>Elite</option>
-        </select>
-        <button onclick="updatePlan({{ user.id }})" class="btn btn-sm btn-primary btn-admin-sm ms-1">Update</button>
-      </td>
-    </tr>
-    {% endfor %}
-    {% if not recent_users %}
-    <tr><td colspan="9" class="text-center text-muted">No users found</td></tr>
+  <!-- TEST ACCESS COLUMN (unchanged) -->
+  <td>
+    {% if user.sub_list %}
+      {% for sub in user.sub_list %}
+      <div class="test-access-item">
+        <span class="text-muted">{{ sub.trader_name }}</span>
+        <button class="btn btn-sm btn-outline-danger" onclick="revokeTestAccess({{ user.id }}, {{ sub.trader_id }})">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+      {% endfor %}
+    {% else %}
+      <span class="text-muted small">No access</span>
     {% endif %}
-  </tbody>
+    <button class="btn btn-sm btn-outline-primary btn-admin-sm mt-2 w-100" data-bs-toggle="modal" data-bs-target="#testSubModal" onclick="openTestSubModal({{ user.id }}, '{{ (user.full_name or user.email)|e }}')">
+      <i class="bi bi-plus-circle"></i> Grant
+    </button>
+  </td>
+
+      <td>{{ user.referrals_count }}</td>
+      <td>${{ user.total_earnings }}</td>
+      <td>{{ user.points_balance }}</td>
+      <td>{{ user.total_invites }}</td>
+      <td>{{ user.available_invites }}</td>
+
+  <td>
+    <select id="plan-{{ user.id }}" class="form-select form-select-sm d-inline-block w-auto" style="width:auto;">
+      <option value="starter" {% if user.plan.lower().split()[0] == 'starter' %}selected{% endif %}>Starter</option>
+      <option value="pro" {% if user.plan.lower().split()[0] == 'pro' %}selected{% endif %}>Pro</option>
+      <option value="elite" {% if user.plan.lower().split()[0] == 'elite' %}selected{% endif %}>Elite</option>
+    </select>
+    <button onclick="updatePlan({{ user.id }})" class="btn btn-sm btn-primary btn-admin-sm ms-1">Update</button>
+    
+    <button onclick="viewUserDetails({{ user.id }})" class="btn btn-sm btn-info btn-admin-sm w-100" data-bs-toggle="modal" data-bs-target="#userDetailsModal">
+      <i class="bi bi-eye"></i> Details
+    </button>
+  </td>
+</tr>
+{% endfor %}
+{% if not recent_users %}
+<tr><td colspan="17" class="text-center text-muted">No users found{% if search %} for "{{ search }}"{% endif %}</td></tr>
+{% endif %}  </tbody>
 </table>  </div>
 </div>
 
-<!-- MARKETPLACE TRADERS (unchanged) -->
+<!-- UPDATED: MARKETPLACE TRADERS (added referrals and earnings from refs) -->
 {% if marketplace_traders %}<div class="admin-card fade-up mb-4">
   <h5><i class="bi bi-shop-window text-info me-2"></i>Marketplace Traders</h5>
   <div class="table-responsive">
@@ -627,6 +938,10 @@
           <th>Win Rate</th>
           <th>Trades</th>
           <th>Price ($/mo)</th>
+          <th>Wallet</th>
+          <th>Monthly Earnings</th>
+          <th>Referrals</th>
+          <th>Ref Earnings</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -638,6 +953,10 @@
           <td>{{ trader.win_rate }}%</td>
           <td>{{ trader.trades }}</td>
           <td id="price-display-{{ trader.id }}">${{ "%.2f"|format(trader.price) }}</td>
+          <td><span class="wallet-truncated">{{ trader.wallet_address[:6] + '...' + trader.wallet_address[-4:] if trader.wallet_address else 'None' }}</span></td>
+          <td>${{ "%.2f"|format(trader.monthly_earnings) }}</td>
+          <td>{{ trader.referrals_count }}</td>
+          <td>${{ "%.2f"|format(trader.total_earnings_from_refs) }}</td>
           <td>
             <input type="number" class="form-control form-control-sm d-inline-block w-auto" id="price-{{ trader.id }}" value="{{ trader.price }}" step="0.01" min="0" style="width:100px;">
             <button onclick="updateMarketplacePrice({{ trader.id }})" class="btn btn-sm btn-primary btn-admin-sm ms-1">Update</button>
@@ -646,11 +965,10 @@
         {% endfor %}
       </tbody>
     </table>
-  </div>
-</div>
+  </div></div>
 {% endif %}
 
-<!-- NEW: PENDING TRADER APPLICATIONS -->
+<!-- UPDATED: PENDING TRADER APPLICATIONS (added referrals and earnings from refs) -->
 <div class="admin-card fade-up mb-4">
   <h5><i class="bi bi-clock-history text-warning me-2"></i>Pending Trader Applications</h5>
   <div class="table-responsive">
@@ -662,6 +980,10 @@
           <th>Email</th>
           <th>Win Rate</th>
           <th>Trades</th>
+          <th>Wallet</th>
+          <th>Earnings</th>
+          <th>Referrals</th>
+          <th>Ref Earnings</th>
           <th>Applied</th>
           <th>Actions</th>
         </tr>
@@ -674,6 +996,10 @@
           <td>{{ trader.email }}</td>
           <td>{{ trader.win_rate }}%</td>
           <td>{{ trader.trades }}</td>
+          <td><span class="wallet-truncated">{{ trader.wallet_address[:6] + '...' + trader.wallet_address[-4:] if trader.wallet_address else 'None' }}</span></td>
+          <td>${{ "%.2f"|format(trader.monthly_earnings) }}</td>
+          <td>{{ trader.referrals_count }}</td>
+          <td>${{ "%.2f"|format(trader.total_earnings_from_refs) }}</td>
           <td>{{ trader.applied_at }}</td>
           <td>
             <button class="btn btn-sm btn-success btn-admin-sm me-1" onclick="approveTrader({{ trader.id }})">Approve</button>
@@ -682,7 +1008,7 @@
         </tr>
         {% endfor %}
         {% if not pending_traders %}
-        <tr><td colspan="7" class="text-center text-muted">No pending applications</td></tr>
+        <tr><td colspan="11" class="text-center text-muted">No pending applications</td></tr>
         {% endif %}
       </tbody>
     </table>
@@ -725,6 +1051,41 @@
   </div>
 </div>
 
+<!-- NEW: RECENT POINT TRANSACTIONS -->
+<div class="admin-card fade-up mb-4">
+  <h5><i class="bi bi-star-fill text-warning me-2"></i>Recent Point Transactions</h5>
+  <div class="table-responsive">
+    <table class="table table-admin table-hover">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>User</th>
+          <th>Type</th>
+          <th>Amount</th>
+          <th>Description</th>
+          <th>Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for pt in recent_points %}
+        <tr class="{% if pt.amount >= 0 %}table-success{% else %}table-danger{% endif %}">
+          <td>{{ pt.id }}</td>
+          <td>{{ pt.user_email }} (ID: {{ pt.user_id }})</td>
+          <td>{{ pt.type }}</td>
+          <td class="{% if pt.amount >= 0 %}text-success{% else %}text-danger{% endif %} fw-bold">{{ pt.amount }}</td>
+          <td>{{ pt.description }}</td>
+          <td>{{ pt.created }}</td>
+        </tr>
+        {% endfor %}
+        {% if not recent_points %}
+        <tr><td colspan="6" class="text-center text-muted">No point transactions</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+  <button class="btn btn-outline-primary btn-sm" onclick="window.location.href='/admin/points'">View All Points Transactions</button>
+</div>
+
 <!-- TEST SUB MODAL (unchanged) -->
 <div class="modal fade" id="testSubModal" tabindex="-1">
   <div class="modal-dialog">
@@ -745,6 +1106,112 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
         <button type="button" class="btn btn-primary" id="grantTestAccess">Grant Access</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- UPDATED: USER DETAILS MODAL (added Beta Invites section with dynamic count) -->
+<div class="modal fade" id="userDetailsModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">User Details & Referrals</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="userInfo" class="user-info">
+          <dl id="userInfoList"></dl>
+        </div>
+        <h6>Referrals (<span id="referralCount">0</span>)</h6>
+        <div class="table-responsive">
+          <table class="table table-admin table-hover" id="referralsTable">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Referee Email</th>
+                <th>Status</th>
+                <th>Commission ($)</th>
+                <th>Points Earned</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody id="referralsBody">
+              <!-- Populated via JS -->
+            </tbody>
+          </table>
+        </div>
+        <div id="noReferrals" class="no-referrals" style="display: none;">
+          <i class="bi bi-people fs-1 text-muted mb-2"></i>
+          <p>No referrals yet.</p>
+        </div>
+        <h6>Point Transactions (Last 50)</h6>
+        <div class="table-responsive">
+          <table class="table table-admin table-hover" id="pointsTable">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Type</th>
+                <th>Amount</th>
+                <th>Description</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody id="pointsBody">
+              <!-- Populated via JS -->
+            </tbody>
+          </table>
+        </div>
+        <div id="noPoints" class="no-points" style="display: none;">
+          <i class="bi bi-star fs-1 text-muted mb-2"></i>
+          <p>No point transactions yet.</p>
+        </div>
+        <h6>Beta Invites</h6>
+        <div class="table-responsive">
+          <table class="table table-admin table-hover" id="invitesTable">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Code</th>
+                <th>Used By</th>
+                <th>Created</th>
+                <th>Used At</th>
+              </tr>
+            </thead>
+            <tbody id="invitesBody">
+              <!-- Populated via JS -->
+            </tbody>
+          </table>
+        </div>
+        <div id="noInvites" class="no-invites" style="display: none;">
+          <i class="bi bi-key fs-1 text-muted mb-2"></i>
+          <p>No beta invites yet.</p>
+        </div>
+        <div class="mt-3">
+          <h6>Generate New Beta Invites</h6>
+          <div class="input-group" style="max-width: 200px;">
+            <input type="number" class="form-control" id="inviteCount" value="3" min="1" max="10" placeholder="Count">
+            <button class="btn btn-primary" onclick="generateInvites(document.querySelector('#userInfoList').dataset.userId)">Generate</button>
+          </div>
+          <p class="small text-muted">Generates codes tied to this user. Available invites: <span id="availableInvitesCount">0</span> (0 means expended).</p>
+        </div>
+        <div class="points-adjust">
+          <h6>Adjust Trade Points</h6>
+          <div class="row g-3">
+            <div class="col-md-3">
+              <label class="form-label">Amount (positive to add, negative to deduct)</label>
+              <input type="number" class="form-control" id="adjustAmount" placeholder="e.g., 10 or -5">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Reason</label>
+              <input type="text" class="form-control" id="adjustReason" placeholder="e.g., Bonus for testing">
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+              <button class="btn btn-primary w-100" onclick="adjustPoints(document.querySelector('#userInfoList').dataset.userId)">Adjust</button>
+            </div>
+          </div>
+          <p class="small text-muted mt-2">Current balance: <span id="currentPoints">0</span> TP</p>
+        </div>
       </div>
     </div>
   </div>
@@ -800,395 +1267,704 @@
   </div>
 </div>
 
-  </main>
+</main>
+{% endblock %}
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-  <script>
-    // Toast Notification (unchanged)
-    function showToast(message, type = 'success') {
-      const toast = document.createElement('div');
-      toast.className = `toast ${type} show`;
-      toast.innerHTML = `
-        <i class="bi ${type === 'success' ? 'bi-check-circle-fill text-success' : 'bi-exclamation-triangle-fill text-danger'}"></i>
-        <div>${message}</div>
+{% block scripts %}<script>
+  // Hide AI Chat in Admin
+  document.getElementById('chatFab').style.display = 'none';
+  document.getElementById('chatOffcanvas').style.display = 'none';
+
+  // Add Admin Nav Link
+  const desktopNav = document.querySelector('.navbar-nav.d-none.d-lg-flex');
+  if (desktopNav) {
+    const adminLi = document.createElement('li');
+    adminLi.className = 'nav-item';
+    adminLi.innerHTML = '<a class="nav-link active" href="/admin">Admin</a>';
+    desktopNav.appendChild(adminLi);
+  }
+  const mobileNav = document.querySelector('.offcanvas-body .navbar-nav');
+  if (mobileNav) {
+    const mobileAdminLi = document.createElement('li');
+    mobileAdminLi.className = 'nav-item';
+    mobileAdminLi.innerHTML = '<a class="nav-link active" href="/admin">Admin</a>';
+    mobileNav.appendChild(mobileAdminLi);
+  }
+
+  // Toast Notification (unchanged)
+  function showToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    toast.className = `toast ${type} show`;
+    toast.innerHTML = `
+      <i class="bi ${type === 'success' ? 'bi-check-circle-fill text-success' : 'bi-exclamation-triangle-fill text-danger'}"></i>
+      <div>${message}</div>
+    `;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+  }
+
+  // UPDATED: View User Details Function - Updated to include beta invites
+  async function viewUserDetails(userId) {
+    try {
+      const response = await fetch(`/admin/user/${userId}`);
+      if (!response.ok) throw new Error('Failed to fetch user details');
+      const data = await response.json();
+
+      // Set userId for adjust
+      document.querySelector('#userInfoList').dataset.userId = data.user.id;
+
+      // Populate user info with improved handling
+      const userInfoList = document.getElementById('userInfoList');
+      const planName = data.user.plan.charAt(0).toUpperCase() + data.user.plan.slice(1);
+      const planClass = `badge-${data.user.plan.toLowerCase()}`;
+      userInfoList.innerHTML = `
+        <dt>ID</dt><dd>${data.user.id}</dd>
+        <dt>Email</dt><dd>${data.user.email}</dd>
+        <dt>Username</dt><dd>${data.user.username || 'N/A'}</dd>
+        <dt>Full Name</dt><dd>${data.user.full_name}</dd>
+        <dt>Referral Code</dt><dd>${data.user.referral_code || 'N/A'}</dd>
+        <dt>Plan</dt><dd><span class="badge ${planClass} px-2 py-1">${planName}</span></dd>
+        <dt>Created</dt><dd>${data.user.created_at}</dd>
+        <dt>Wallet</dt><dd><span class="wallet-truncated">${data.user.wallet_address ? data.user.wallet_address.slice(0,6) + '...' + data.user.wallet_address.slice(-4) : 'None'}</span></dd>
+        <dt>Monthly Earnings</dt><dd>$${data.user.monthly_earnings.toFixed(2)}</dd>
+        <dt>Is Trader</dt><dd>${data.user.is_trader ? 'Yes' : 'No'}</dd>
+        <dt>Is Trader Pending</dt><dd>${data.user.is_trader_pending ? 'Yes' : 'No'}</dd>
+        <dt>Referral Tier</dt><dd>${data.user.referral_tier}</dd>
+        <dt>Total Referrals</dt><dd>${data.user.referral_count}</dd>
+        <dt>Total Earnings</dt><dd>$${data.user.total_earnings.toFixed(2)}</dd>
+        <dt>Total Points Earned</dt><dd>${data.user.total_points_earned}</dd>
+        <dt>Trade Points</dt><dd>${data.user.trade_points}</dd>
       `;
-      document.body.appendChild(toast);
-      setTimeout(() => toast.remove(), 3000);
-    }
 
-    // Theme toggle (unchanged)
-    document.getElementById('themeToggle').addEventListener('click', () => {
-      const html = document.documentElement;
-      const icon = document.querySelector('#themeToggle i');
-      if (html.getAttribute('data-theme') === 'dark') {
-        html.setAttribute('data-theme', 'light');
-        icon.classList.replace('bi-sun', 'bi-moon');
+      // Set current points
+      document.getElementById('currentPoints').textContent = data.user.trade_points;
+
+      // Populate referrals
+      const referralCount = document.getElementById('referralCount');
+      const referralsBody = document.getElementById('referralsBody');
+      const noReferrals = document.getElementById('noReferrals');
+      referralCount.textContent = data.referrals.length;
+
+      if (data.referrals.length === 0) {
+        referralsBody.innerHTML = '';
+        noReferrals.style.display = 'block';
       } else {
-        html.setAttribute('data-theme', 'dark');
-        icon.classList.replace('bi-moon', 'bi-sun');
+        noReferrals.style.display = 'none';
+        referralsBody.innerHTML = data.referrals.map(ref => `
+          <tr>
+            <td>${ref.id}</td>
+            <td>${ref.referee_email}</td>
+            <td><span class="badge bg-${ref.status === 'active' ? 'success' : 'secondary'}">${ref.status}</span></td>
+            <td>$${ref.commission_earned.toFixed(2)}</td>
+            <td>${ref.points_earned}</td>
+            <td>${ref.created}</td>
+          </tr>
+        `).join('');
       }
-    });
 
-    // Update Plan (unchanged)
-    function updatePlan(userId) {
-      const select = document.getElementById(`plan-${userId}`);
-      const plan = select.value;
-      fetch(`/admin/update_plan/${userId}`, {
+      // Populate point transactions
+      const pointsBody = document.getElementById('pointsBody');
+      const noPoints = document.getElementById('noPoints');
+      if (data.point_transactions.length === 0) {
+        pointsBody.innerHTML = '';
+        noPoints.style.display = 'block';
+      } else {
+        noPoints.style.display = 'none';
+        pointsBody.innerHTML = data.point_transactions.map(pt => `
+          <tr class="${pt.amount >= 0 ? 'table-success' : 'table-danger'}">
+            <td>${pt.id}</td>
+            <td>${pt.type}</td>
+            <td class="${pt.amount >= 0 ? 'text-success' : 'text-danger'} fw-bold">${pt.amount}</td>
+            <td>${pt.description}</td>
+            <td>${pt.created}</td>
+          </tr>
+        `).join('');
+      }
+
+      // Populate beta invites
+      const invitesBody = document.getElementById('invitesBody');
+      const noInvites = document.getElementById('noInvites');
+      if (data.beta_invites.length === 0) {
+        invitesBody.innerHTML = '';
+        noInvites.style.display = 'block';
+      } else {
+        noInvites.style.display = 'none';
+        invitesBody.innerHTML = data.beta_invites.map(invite => `
+          <tr>
+            <td>${invite.id}</td>
+            <td>${invite.code}</td>
+            <td>${invite.used_by_email || 'Available'}</td>
+            <td>${invite.created_at}</td>
+            <td>${invite.used_at || '-'}</td>
+          </tr>
+        `).join('');
+      }
+
+      // Update available invites count
+      document.getElementById('availableInvitesCount').textContent = data.user.available_invites || 0;
+    } catch (error) {
+      showToast('Failed to load user details', 'error');
+    }
+  }
+
+  // UPDATED: Generate Beta Invites Function (dynamic count)
+  async function generateInvites(userId) {
+    const countInput = document.getElementById('inviteCount');
+    const count = parseInt(countInput.value);
+    if (isNaN(count) || count < 1 || count > 10) {
+      showToast('Count must be between 1 and 10', 'error');
+      return;
+    }
+    if (!confirm(`Generate ${count} new beta invite codes for this user?`)) return;
+    try {
+      const res = await fetch(`/admin/generate-beta-invites/${userId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `plan=${plan}`
-      })
-      .then(r => r.json())
-      .then(data => {
-        if (data.success) {
-          showToast('Plan updated successfully!');
-          setTimeout(() => location.reload(), 1000);
-        } else {
-          showToast(data.message || 'Failed to update plan', 'error');
-        }
-      })
-      .catch(() => showToast('Network error', 'error'));
-    }
-
-    // Pricing Form (updated with reload on success)
-    document.getElementById('pricingForm').addEventListener('submit', e => {
-      e.preventDefault();
-      const fd = new FormData(e.target);
-      fetch('/admin/update_pricing', { method: 'POST', body: fd })
-        .then(r => r.json())
-        .then(d => {
-          if (d.success) {
-            showToast('Pricing saved!');
-            setTimeout(() => location.reload(), 1000);
-          } else {
-            showToast('Failed to save pricing', 'error');
-          }
-        })
-        .catch(() => showToast('Network error', 'error'));
-    });
-
-    // Platform Discount Form (updated with reload on success)
-    document.getElementById('discountForm').addEventListener('submit', e => {
-      e.preventDefault();
-      const fd = new FormData(e.target);
-      fetch('/admin/update_discount', { method: 'POST', body: fd })
-        .then(r => r.json())
-        .then(d => {
-          if (d.success) {
-            showToast('Discount saved!');
-            setTimeout(() => location.reload(), 1000);
-          } else {
-            showToast('Failed to save discount', 'error');
-          }
-        })
-        .catch(() => showToast('Network error', 'error'));
-    });
-
-    // Marketplace Discount Form (updated with reload on success)
-    document.getElementById('marketplaceDiscountForm').addEventListener('submit', e => {
-      e.preventDefault();
-      const fd = new FormData(e.target);
-      fetch('/admin/update_marketplace_discount', { method: 'POST', body: fd })
-        .then(r => r.json())
-        .then(d => {
-          if (d.success) {
-            showToast('Marketplace discount saved!');
-            setTimeout(() => location.reload(), 1000);
-          } else {
-            showToast('Failed to save marketplace discount', 'error');
-          }
-        })
-        .catch(() => showToast('Network error', 'error'));
-    });
-
-    // NEW: Upload Limits Form
-    document.getElementById('uploadLimitsForm').addEventListener('submit', e => {
-      e.preventDefault();
-      const fd = new FormData(e.target);
-      fetch('/admin/update_upload_limits', { method: 'POST', body: fd })
-        .then(r => r.json())
-        .then(d => {
-          if (d.success) {
-            showToast('Upload limits saved!');
-            setTimeout(() => location.reload(), 1000);
-          } else {
-            showToast('Failed to save upload limits', 'error');
-          }
-        })
-        .catch(() => showToast('Network error', 'error'));
-    });
-
-    // Eligibility Form (updated with reload on success)
-    document.getElementById('eligibilityForm').addEventListener('submit', async e => {
-      e.preventDefault();
-      const fd = new FormData(e.target);
-      const btn = e.target.querySelector('button');
-      btn.disabled = true;
-      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
-
-      try {
-        const resp = await fetch('/admin/update_eligibility', { method: 'POST', body: fd });
-        const data = await resp.json();
-        if (data.success) {
-          showToast(data.message);
-          setTimeout(() => location.reload(), 1000);
-        } else {
-          showToast(data.detail || 'Failed', 'error');
-        }
-      } catch {
-        showToast('Network error', 'error');
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = 'Update Eligibility';
-      }
-    });
-
-    // Enable/disable discount inputs (unchanged)
-    document.querySelector('input[name="discount_enabled"]').addEventListener('change', function () {
-      const inputs = document.querySelectorAll('#discountForm .discount-input');
-      inputs.forEach(i => i.disabled = !this.checked);
-    });
-
-    // Enable/disable marketplace discount inputs (unchanged)
-    document.querySelector('input[name="marketplace_discount_enabled"]').addEventListener('change', function () {
-      const inputs = document.querySelectorAll('#marketplaceDiscountForm .discount-input');
-      inputs.forEach(i => i.disabled = !this.checked);
-    });
-
-    // Trader Toggle with Dynamic Feedback (unchanged)
-    document.querySelectorAll('.trader-toggle').forEach(toggle => {
-      toggle.addEventListener('change', async function () {
-        const userId = this.dataset.userId;
-        const minTrades = parseInt(this.dataset.minTrades);
-        const minWinRate = parseFloat(this.dataset.minWinRate);
-        const desiredOn = this.checked;
-        const small = this.closest('td').querySelector('.eligibility-msg');
-
-        this.disabled = true;
-
-        try {
-          const resp = await fetch(`/admin/toggle_trader/${userId}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: `desired_is_trader=${desiredOn}`
-          });
-          const data = await resp.json();
-
-          if (!data.success) throw new Error(data.detail || 'Failed');
-
-          // Update UI based on server response
-          if (data.is_trader) {
-            small.innerHTML = `<span class="text-success">Live (${data.win_rate.toFixed(1)}% win)</span>`;
-          } else {
-            let msg = '';
-            if (data.total_trades < minTrades) {
-              msg = `Need ${minTrades - data.total_trades} more trades`;
-            } else if (data.win_rate < minWinRate) {
-              msg = `Win-rate ${data.win_rate.toFixed(1)}%`;
-            } else {
-              msg = 'Eligible';
-            }
-            small.innerHTML = `<span class="${data.eligible ? 'text-success' : 'text-muted'}">${msg}</span>`;
-          }
-
-          showToast(`Trader ${data.is_trader ? 'enabled' : 'disabled'}`);
-        } catch (e) {
-          showToast(e.message, 'error');
-          this.checked = !desiredOn;
-        } finally {
-          this.disabled = false;
-        }
+        body: `count=${count}`
       });
-    });
-
-    // Update Marketplace Price (unchanged)
-    function updateMarketplacePrice(userId) {
-      const input = document.getElementById(`price-${userId}`);
-      const price = parseFloat(input.value);
-      if (isNaN(price) || price < 0) {
-        showToast('Invalid price', 'error');
-        return;
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message);
+        setTimeout(() => viewUserDetails(userId), 1000); // Refresh details
+      } else {
+        showToast(data.message || 'Failed to generate invites', 'error');
       }
-      fetch(`/admin/update_marketplace_price/${userId}`, {
+    } catch (err) {
+      showToast('Network error', 'error');
+    }
+  }
+
+  // NEW: Generate Beta Pool Codes Function
+  async function generatePoolCodes() {
+    const countInput = document.getElementById('poolCount');
+    const count = parseInt(countInput.value);
+    if (isNaN(count) || count < 1 || count > 100) {
+      showToast('Count must be between 1 and 100', 'error');
+      return;
+    }
+    if (!confirm(`Generate ${count} global beta pool codes?`)) return;
+    try {
+      const res = await fetch('/admin/generate-beta-pool', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `price=${price}`
-      })
-      .then(r => r.json())
-      .then(data => {
-        if (data.success) {
-          showToast('Price updated successfully!');
-          const priceCell = document.getElementById(`price-display-${userId}`);
-          priceCell.textContent = `$${price.toFixed(2)}`;
-        } else {
-          showToast(data.message || 'Failed to update price', 'error');
-        }
-      })
-      .catch(() => showToast('Network error', 'error'));
-    }
-
-    // Test Sub Modal Functions (unchanged)
-    let currentUserIdForModal = null;
-    function openTestSubModal(userId, userName) {
-      currentUserIdForModal = userId;
-      const userNameEl = document.getElementById('modalUserName');
-      userNameEl.textContent = userName;
-      
-      const select = document.getElementById('traderSelect');
-      select.value = '';
-    }
-
-    document.getElementById('grantTestAccess').addEventListener('click', async () => {
-      const traderId = parseInt(document.getElementById('traderSelect').value);
-      if (!traderId) {
-        showToast('Select a trader', 'error');
-        return;
+        body: `count=${count}`
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message);
+        document.getElementById('poolResult').innerHTML = `<div class="alert alert-success">${data.message}</div>`;
+      } else {
+        showToast(data.message || 'Failed to generate pool codes', 'error');
       }
-      
-      const btn = document.getElementById('grantTestAccess');
-      btn.disabled = true;
-      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Granting...';
-      
-      try {
-        const res = await fetch('/admin/create_test_subscription', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: `user_id=${currentUserIdForModal}&trader_id=${traderId}`
-        });
-        const data = await res.json();
-        
-        if (data.success) {
-          showToast(data.message);
-          setTimeout(() => location.reload(), 1500);
-        } else {
-          showToast(data.detail || 'Failed', 'error');
-        }
-      } catch (err) {
-        showToast('Network error', 'error');
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = 'Grant Access';
-        const modal = bootstrap.Modal.getInstance(document.getElementById('testSubModal'));
-        modal.hide();
-      }
-    });
+    } catch (err) {
+      showToast('Network error', 'error');
+    }
+  }
 
-    // Revoke Test Access Function (unchanged)
-    function revokeTestAccess(userId, traderId) {
-      if (!confirm('Revoke test access to this trader\'s journal?')) return;
-      
-      fetch(`/admin/delete_test_subscription/${userId}/${traderId}`, { 
-        method: 'DELETE' 
-      })
-      .then(r => r.json())
-      .then(data => {
-        if (data.success) {
-          showToast(data.message);
-          setTimeout(() => location.reload(), 1000);
-        } else {
-          showToast(data.detail || 'Failed to revoke access', 'error');
-        }
-      })
-      .catch(() => showToast('Network error', 'error'));
+  // NEW: Adjust Points Function
+  async function adjustPoints(userId) {
+    const amountStr = document.getElementById('adjustAmount').value;
+    const reason = document.getElementById('adjustReason').value || 'Admin adjustment';
+    const amount = parseInt(amountStr);
+
+    if (isNaN(amount)) {
+      showToast('Please enter a valid amount', 'error');
+      return;
     }
 
-    // NEW: Pending Trader Approval/Rejection Functions
-    let currentTraderIdForReject = null;
-
-    function openRejectModal(traderId, traderName) {
-      currentTraderIdForReject = traderId;
-      document.getElementById('rejectTraderName').textContent = traderName;
-      document.getElementById('rejectReason').value = '';
-    }
-
-    function approveTrader(traderId) {
-      if (!confirm('Approve this trader application?')) return;
-      
-      fetch(`/admin/approve_trader/${traderId}`, {
+    try {
+      const res = await fetch('/admin/points/adjust', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'approve=true'
-      })
+        body: `user_id=${userId}&amount=${amount}&reason=${encodeURIComponent(reason)}`
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        showToast(data.message);
+        document.getElementById('currentPoints').textContent = data.new_balance;
+        document.getElementById('adjustAmount').value = '';
+        document.getElementById('adjustReason').value = '';
+      } else {
+        showToast(data.message || 'Failed to adjust points', 'error');
+      }
+    } catch (err) {
+      showToast('Network error', 'error');
+    }
+  }
+
+  // Update Plan (unchanged)
+  function updatePlan(userId) {
+    const select = document.getElementById(`plan-${userId}`);
+    const plan = select.value;
+    fetch(`/admin/update_plan/${userId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `plan=${plan}`
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        showToast('Plan updated successfully!');
+        setTimeout(() => location.reload(), 1000);
+      } else {
+        showToast(data.message || 'Failed to update plan', 'error');
+      }
+    })
+    .catch(() => showToast('Network error', 'error'));
+  }
+
+  // Pricing Form (updated with reload on success)
+  document.getElementById('pricingForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    fetch('/admin/update_pricing', { method: 'POST', body: fd })
       .then(r => r.json())
-      .then(data => {
-        if (data.success) {
-          showToast(data.message);
+      .then(d => {
+        if (d.success) {
+          showToast('Pricing saved!');
           setTimeout(() => location.reload(), 1000);
         } else {
-          showToast(data.detail || 'Failed to approve', 'error');
+          showToast('Failed to save pricing', 'error');
         }
       })
       .catch(() => showToast('Network error', 'error'));
-    }
+  });
 
-    document.getElementById('rejectTraderBtn').addEventListener('click', async () => {
-      const reason = document.getElementById('rejectReason').value.trim();
-      const btn = document.getElementById('rejectTraderBtn');
-      btn.disabled = true;
-      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Rejecting...';
-      
+  // Platform Discount Form (updated with reload on success)
+  document.getElementById('discountForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    fetch('/admin/update_discount', { method: 'POST', body: fd })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          showToast('Discount saved!');
+          setTimeout(() => location.reload(), 1000);
+        } else {
+          showToast('Failed to save discount', 'error');
+        }
+      })
+      .catch(() => showToast('Network error', 'error'));
+  });
+
+  // Marketplace Discount Form (updated with reload on success)
+  document.getElementById('marketplaceDiscountForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    fetch('/admin/update_marketplace_discount', { method: 'POST', body: fd })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          showToast('Marketplace discount saved!');
+          setTimeout(() => location.reload(), 1000);
+        } else {
+          showToast('Failed to save marketplace discount', 'error');
+        }
+      })
+      .catch(() => showToast('Network error', 'error'));
+  });
+
+  // NEW: Upload Limits Form
+  document.getElementById('uploadLimitsForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    fetch('/admin/update_upload_limits', { method: 'POST', body: fd })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          showToast('Upload limits saved!');
+          setTimeout(() => location.reload(), 1000);
+        } else {
+          showToast('Failed to save upload limits', 'error');
+        }
+      })
+      .catch(() => showToast('Network error', 'error'));
+  });
+
+  // NEW: Insights Limits Form
+  document.getElementById('insightsLimitsForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    fetch('/admin/update_insights_limits', { method: 'POST', body: fd })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          showToast('Insights limits saved!');
+          setTimeout(() => location.reload(), 1000);
+        } else {
+          showToast('Failed to save insights limits', 'error');
+        }
+      })
+      .catch(() => showToast('Network error', 'error'));
+  });
+
+  // NEW: AI Chat Limits Form
+  document.getElementById('aiChatLimitsForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    fetch('/admin/update_ai_chat_limits', { method: 'POST', body: fd })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          showToast('AI Chat limits saved!');
+          setTimeout(() => location.reload(), 1000);
+        } else {
+          showToast('Failed to save AI Chat limits', 'error');
+        }
+      })
+      .catch(() => showToast('Network error', 'error'));
+  });
+
+  // NEW: Initial TP Form
+  document.getElementById('initialTpForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    fetch('/admin/update_initial_tp', { method: 'POST', body: fd })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          showToast(d.message);
+          setTimeout(() => location.reload(), 1000);
+        } else {
+          showToast('Failed to save initial TP', 'error');
+        }
+      })
+      .catch(() => showToast('Network error', 'error'));
+  });
+
+  // NEW: Upgrade TP Form
+  document.getElementById('upgradeTpForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    fetch('/admin/update_upgrade_tp', { method: 'POST', body: fd })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          showToast(d.message);
+          setTimeout(() => location.reload(), 1000);
+        } else {
+          showToast('Failed to save upgrade TP', 'error');
+        }
+      })
+      .catch(() => showToast('Network error', 'error'));
+  });
+
+  // NEW: Beta Referral TP Form
+  document.getElementById('betaReferralTpForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    fetch('/admin/update_beta_referral_tp', { method: 'POST', body: fd })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          showToast(d.message);
+          setTimeout(() => location.reload(), 1000);
+        } else {
+          showToast('Failed to save beta referral TP', 'error');
+        }
+      })
+      .catch(() => showToast('Network error', 'error'));
+  });
+
+  // UPDATED: Beta Settings Form (ensure fields are always sent)
+  document.getElementById('betaForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const form = e.target;
+    const fd = new FormData(form);
+    // Ensure checkboxes are always included
+    fd.append('is_active', form.querySelector('input[name="is_active"]').checked ? 'true' : 'false');
+    fd.append('required_for_signup', form.querySelector('input[name="required_for_signup"]').checked ? 'true' : 'false');
+    // Ensure award_points_on_use has value
+    const awardInput = form.querySelector('input[name="award_points_on_use"]');
+    if (!awardInput.value) {
+      showToast('Please enter TP award amount', 'error');
+      return;
+    }
+    fd.append('award_points_on_use', awardInput.value);
+    fetch('/admin/toggle-beta-mode', { method: 'POST', body: fd })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          showToast(d.message);
+          setTimeout(() => location.reload(), 1000);
+        } else {
+          showToast('Failed to save beta settings', 'error');
+        }
+      })
+      .catch(() => showToast('Network error', 'error'));
+  });
+
+  // Eligibility Form (updated with reload on success)
+  document.getElementById('eligibilityForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const btn = e.target.querySelector('button');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
+
+    try {
+      const resp = await fetch('/admin/update_eligibility', { method: 'POST', body: fd });
+      const data = await resp.json();
+      if (data.success) {
+        showToast(data.message);
+        setTimeout(() => location.reload(), 1000);
+      } else {
+        showToast(data.detail || 'Failed', 'error');
+      }
+    } catch {
+      showToast('Network error', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = 'Update Eligibility';
+    }
+  });
+
+  // Enable/disable discount inputs (unchanged)
+  document.querySelector('input[name="discount_enabled"]').addEventListener('change', function () {
+    const inputs = document.querySelectorAll('#discountForm .discount-input');
+    inputs.forEach(i => i.disabled = !this.checked);
+  });
+
+  // Enable/disable marketplace discount inputs (unchanged)
+  document.querySelector('input[name="marketplace_discount_enabled"]').addEventListener('change', function () {
+    const inputs = document.querySelectorAll('#marketplaceDiscountForm .discount-input');
+    inputs.forEach(i => i.disabled = !this.checked);
+  });
+
+  // Trader Toggle with Dynamic Feedback (unchanged)
+  document.querySelectorAll('.trader-toggle').forEach(toggle => {
+    toggle.addEventListener('change', async function () {
+      const userId = this.dataset.userId;
+      const minTrades = parseInt(this.dataset.minTrades);
+      const minWinRate = parseFloat(this.dataset.minWinRate);
+      const desiredOn = this.checked;
+      const small = this.closest('td').querySelector('.eligibility-msg');
+
+      this.disabled = true;
+
       try {
-        const res = await fetch(`/admin/approve_trader/${currentTraderIdForReject}`, {
+        const resp = await fetch(`/admin/toggle_trader/${userId}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: `approve=false&reason=${encodeURIComponent(reason)}`
+          body: `desired_is_trader=${desiredOn}`
         });
-        const data = await res.json();
-        
-        if (data.success) {
-          showToast(data.message);
-          setTimeout(() => location.reload(), 1500);
+        const data = await resp.json();
+
+        if (!data.success) throw new Error(data.detail || 'Failed');
+
+        // Update UI based on server response
+        if (data.is_trader) {
+          small.innerHTML = `<span class="text-success">Live (${data.win_rate.toFixed(1)}% win)</span>`;
         } else {
-          showToast(data.detail || 'Failed', 'error');
+          let msg = '';
+          if (data.total_trades < minTrades) {
+            msg = `Need ${minTrades - data.total_trades} more trades`;
+          } else if (data.win_rate < minWinRate) {
+            msg = `Win-rate ${data.win_rate.toFixed(1)}%`;
+          } else {
+            msg = 'Eligible';
+          }
+          small.innerHTML = `<span class="${data.eligible ? 'text-success' : 'text-muted'}">${msg}</span>`;
         }
-      } catch (err) {
-        showToast('Network error', 'error');
+
+        showToast(`Trader ${data.is_trader ? 'enabled' : 'disabled'}`);
+      } catch (e) {
+        showToast(e.message, 'error');
+        this.checked = !desiredOn;
       } finally {
-        btn.disabled = false;
-        btn.innerHTML = 'Reject Application';
-        const modal = bootstrap.Modal.getInstance(document.getElementById('rejectModal'));
-        modal.hide();
+        this.disabled = false;
       }
     });
+  });
 
-    // NEW: Complete Payment Modal Functions
-    let currentPaymentIdForComplete = null;
-    function openCompleteModal(paymentId, userEmail) {
-      currentPaymentIdForComplete = paymentId;
-      document.getElementById('completePaymentId').value = paymentId;
-      document.getElementById('completeUserEmail').textContent = userEmail;
-      document.getElementById('completeReason').value = '';
+  // Update Marketplace Price (unchanged)
+  function updateMarketplacePrice(userId) {
+    const input = document.getElementById(`price-${userId}`);
+    const price = parseFloat(input.value);
+    if (isNaN(price) || price < 0) {
+      showToast('Invalid price', 'error');
+      return;
     }
-
-    document.getElementById('completePaymentBtn').addEventListener('click', async () => {
-      const reason = document.getElementById('completeReason').value.trim() || 'Manual completion';
-      const btn = document.getElementById('completePaymentBtn');
-      btn.disabled = true;
-      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Completing...';
-      
-      try {
-        const res = await fetch('/admin/complete-payment', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ payment_id: currentPaymentIdForComplete, reason: reason })
-        });
-        const data = await res.json();
-        
-        if (data.success) {
-          showToast(data.message);
-          setTimeout(() => location.reload(), 1500);
-        } else {
-          showToast(data.detail || 'Failed to complete payment', 'error');
-        }
-      } catch (err) {
-        showToast('Network error', 'error');
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = 'Complete Payment';
-        const modal = bootstrap.Modal.getInstance(document.getElementById('completePaymentModal'));
-        modal.hide();
+    fetch(`/admin/update_marketplace_price/${userId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `price=${price}`
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        showToast('Price updated successfully!');
+        const priceCell = document.getElementById(`price-display-${userId}`);
+        priceCell.textContent = `$${price.toFixed(2)}`;
+      } else {
+        showToast(data.message || 'Failed to update price', 'error');
       }
-    });
-  </script>
-</body>
-</html>
+    })
+    .catch(() => showToast('Network error', 'error'));
+  }
+
+  // Test Sub Modal Functions (unchanged)
+  let currentUserIdForModal = null;
+  function openTestSubModal(userId, userName) {
+    currentUserIdForModal = userId;
+    const userNameEl = document.getElementById('modalUserName');
+    userNameEl.textContent = userName;
+    
+    const select = document.getElementById('traderSelect');
+    select.value = '';
+  }
+
+  document.getElementById('grantTestAccess').addEventListener('click', async () => {
+    const traderId = parseInt(document.getElementById('traderSelect').value);
+    if (!traderId) {
+      showToast('Select a trader', 'error');
+      return;
+    }
+    
+    const btn = document.getElementById('grantTestAccess');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Granting...';
+    
+    try {
+      const res = await fetch('/admin/create_test_subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `user_id=${currentUserIdForModal}&trader_id=${traderId}`
+      });
+      const data = await res.json();
+      
+      if (data.success) {
+        showToast(data.message);
+        setTimeout(() => location.reload(), 1500);
+      } else {
+        showToast(data.detail || 'Failed', 'error');
+      }
+    } catch (err) {
+      showToast('Network error', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = 'Grant Access';
+      const modal = bootstrap.Modal.getInstance(document.getElementById('testSubModal'));
+      modal.hide();
+    }
+  });
+
+  // Revoke Test Access Function (unchanged)
+  function revokeTestAccess(userId, traderId) {
+    if (!confirm('Revoke test access to this trader\'s journal?')) return;
+    
+    fetch(`/admin/delete_test_subscription/${userId}/${traderId}`, { 
+      method: 'DELETE' 
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        showToast(data.message);
+        setTimeout(() => location.reload(), 1000);
+      } else {
+        showToast(data.detail || 'Failed to revoke access', 'error');
+      }
+    })
+    .catch(() => showToast('Network error', 'error'));
+  }
+
+  // NEW: Pending Trader Approval/Rejection Functions
+  let currentTraderIdForReject = null;
+
+  function openRejectModal(traderId, traderName) {
+    currentTraderIdForReject = traderId;
+    document.getElementById('rejectTraderName').textContent = traderName;
+    document.getElementById('rejectReason').value = '';
+  }
+
+  function approveTrader(traderId) {
+    if (!confirm('Approve this trader application?')) return;
+    
+    fetch(`/admin/approve_trader/${traderId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'approve=true'
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        showToast(data.message);
+        setTimeout(() => location.reload(), 1000);
+      } else {
+        showToast(data.detail || 'Failed to approve', 'error');
+      }
+    })
+    .catch(() => showToast('Network error', 'error'));
+  }
+
+  document.getElementById('rejectTraderBtn').addEventListener('click', async () => {
+    const reason = document.getElementById('rejectReason').value.trim();
+    const btn = document.getElementById('rejectTraderBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Rejecting...';
+    
+    try {
+      const res = await fetch(`/admin/approve_trader/${currentTraderIdForReject}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `approve=false&reason=${encodeURIComponent(reason)}`
+      });
+      const data = await res.json();
+      
+      if (data.success) {
+        showToast(data.message);
+        setTimeout(() => location.reload(), 1500);
+      } else {
+        showToast(data.detail || 'Failed', 'error');
+      }
+    } catch (err) {
+      showToast('Network error', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = 'Reject Application';
+      const modal = bootstrap.Modal.getInstance(document.getElementById('rejectModal'));
+      modal.hide();
+    }
+  });
+
+  // NEW: Complete Payment Modal Functions
+  let currentPaymentIdForComplete = null;
+  function openCompleteModal(paymentId, userEmail) {
+    currentPaymentIdForComplete = paymentId;
+    document.getElementById('completePaymentId').value = paymentId;
+    document.getElementById('completeUserEmail').textContent = userEmail;
+    document.getElementById('completeReason').value = '';
+  }
+
+  document.getElementById('completePaymentBtn').addEventListener('click', async () => {
+    const reason = document.getElementById('completeReason').value.trim() || 'Manual completion';
+    const btn = document.getElementById('completePaymentBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Completing...';
+    
+    try {
+      const res = await fetch('/admin/complete-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payment_id: currentPaymentIdForComplete, reason: reason })
+      });
+      const data = await res.json();
+      
+      if (data.success) {
+        showToast(data.message);
+        setTimeout(() => location.reload(), 1500);
+      } else {
+        showToast(data.detail || 'Failed to complete payment', 'error');
+      }
+    } catch (err) {
+      showToast('Network error', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = 'Complete Payment';
+      const modal = bootstrap.Modal.getInstance(document.getElementById('completePaymentModal'));
+      modal.hide();
+    }
+  });
+</script>
+{% endblock %}

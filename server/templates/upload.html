@@ -422,6 +422,12 @@
     border-radius: 0 8px 8px 0;
     margin-top: 16px;
   }
+  #uploadInfo {
+    margin-top: 16px;
+    padding: 12px;
+    border-radius: 8px;
+    border-left: 3px solid var(--info);
+  }
   /* Inline editing styles */
   .editable-cell {
     position: relative;
@@ -439,7 +445,8 @@
     color: var(--brand);
   }
 </style>
-{% endblock %}{% block content %}<main class="container py-5 flex-grow-1">
+{% endblock %}
+{% block content %}<main class="container py-5 flex-grow-1">
   <div class="row justify-content-center">
     <div class="col-lg-8">
       <div class="upload-header">
@@ -451,6 +458,7 @@
         </div>
       </div>
       <div id="uploadLimitInfo" class="d-none"></div>
+      <div id="uploadInfo" class="alert alert-info"></div>
       <div id="dropZone" class="card-radius dropzone" tabindex="0">
         <div><i class="bi bi-cloud-upload" style="font-size:48px;color:var(--brand)"></i></div>
         <p class="mt-2 mb-1 fw-semibold">Drag screenshot here</p>
@@ -523,7 +531,7 @@
       </div>
       <div class="modal-body">
         {% set base_plan = current_user.plan.split('_')[0] %}
-        <p id="upgradeMessage">You've reached your monthly upload limit on the {{ base_plan.title() }} plan ({{ upload_limit }} uploads). Upgrade to Pro for unlimited uploads and AI insights!</p>
+        <p id="upgradeMessage">You've reached your monthly upload limit on the <span id="planNameSpan">{{ base_plan.title() }}</span> plan. Upgrade to Pro for unlimited uploads and AI insights!</p>
         <ul class="list-unstyled mb-3">
           <li><i class="bi bi-check-circle text-success me-2"></i>Unlimited uploads & AI analyses</li>
           <li><i class="bi bi-check-circle text-success me-2"></i>Advanced analytics</li>
@@ -556,988 +564,1049 @@
 {% endblock %}
 
 <!-- Updated template section (only the <script> block changes; rest remains the same) -->
-  {% block scripts %}<script>
-    // Plan-based limits (now dynamic - no hardcodes)
-    let monthlyLimit = 2;  // Fallback
-    let batchLimit = 3;    // Fallback
-    {% set base_plan = current_user.plan.split('_')[0] %}
-    const currentPlan = '{{ base_plan }}';
-    
-    // Fetch dynamic limits on load
-    async function fetchUploadLimits() {
-      try {
-        const res = await fetch(`/upload/limits?plan=${currentPlan}`, { credentials: 'include' });
-        if (res.ok) {
-          const data = await res.json();
-          monthlyLimit = data.monthly_limit || 2;  // Direct access now (flattened response)
-          batchLimit = data.batch_limit || 3;
-          console.log(`Loaded limits for ${currentPlan}: Monthly ${monthlyLimit}, Batch ${batchLimit}`);
-        } else {
-          console.warn('Failed to fetch limits; using fallbacks');
-          // Fallback to updated hardcodes if DB query fails
-          const fallbacks = {
-            'starter': { monthly: 2, batch: 3 },
-            'pro': { monthly: 29, batch: 10 },
-            'elite': { monthly: 1000, batch: 10 }
-          };
-          const fb = fallbacks[currentPlan] || fallbacks.starter;
-          monthlyLimit = fb.monthly;
-          batchLimit = fb.batch;
-        }
-      } catch (err) {
-        console.error('Error fetching limits:', err);
-        // Same fallback as above
+{% block scripts %}<script>
+  // FIXED: Plan-based limits (now dynamic - fallback updated to 3/5 for starter to match DB)
+  let monthlyLimit = 3;  // FIXED: Updated fallback from 2 to 3
+  let batchLimit = 5;    // FIXED: Updated fallback from 3 to 5
+  let tpCostUpload = 1;  // Default TP cost
+  let tpBalance = 0;     // TP balance
+  {% set base_plan = current_user.plan.split('_')[0] %}
+  const currentPlan = '{{ base_plan }}';
+  
+  // Fetch dynamic limits on load
+  async function fetchUploadLimits() {
+    try {
+      const res = await fetch(`/upload/limits?plan=${currentPlan}`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        monthlyLimit = data.monthly_upload_limit || 3;  // FIXED: Fallback to 3
+        batchLimit = data.batch_upload_limit || 5;      // FIXED: Fallback to 5
+        tpCostUpload = data.tp_cost_upload || (currentPlan === 'starter' ? 1 : 0);
+        console.log(`Loaded limits for ${currentPlan}: Monthly ${monthlyLimit}, Batch ${batchLimit}, TP cost ${tpCostUpload}`);
+      } else {
+        console.warn('Failed to fetch limits; using fallbacks');
+        // FIXED: Fallback to updated hardcodes if DB query fails
         const fallbacks = {
-          'starter': { monthly: 2, batch: 3 },
-          'pro': { monthly: 29, batch: 10 },
-          'elite': { monthly: 1000, batch: 10 }
+          'starter': { monthly: 3, batch: 5, tp: 1 },
+          'pro': { monthly: 29, batch: 10, tp: 0 },
+          'elite': { monthly: 1000, batch: 10, tp: 0 }
         };
         const fb = fallbacks[currentPlan] || fallbacks.starter;
         monthlyLimit = fb.monthly;
         batchLimit = fb.batch;
+        tpCostUpload = fb.tp;
       }
-      updateUploadBadge();  // Re-render badge after limits are set
-    }
-    
-    let monthlyUploads = 0;
-    
-    const fileInput = document.getElementById('fileInput');
-    const dropZone = document.getElementById('dropZone');
-    const thumbnailsContainer = document.getElementById('thumbnails');
-    const analyzeBtn = document.getElementById('analyzeBtn');
-    const uploadProgress = document.getElementById('uploadProgress');
-    const processingOverlay = document.getElementById('processingOverlay');
-    const funFactEl = processingOverlay.querySelector('.fun-fact');
-    const invalidImageModal = document.getElementById('invalidImageModal');
-    const invalidImagePreview = document.getElementById('invalidImagePreview');
-    const reviewModalEl = document.getElementById('reviewModal');
-    const sessionSelect = document.getElementById('sessionSelect');
-    const strategySelect = document.getElementById('strategySelect');
-    const uploadCountBadge = document.getElementById('uploadCountBadge');
-    const uploadLimitInfo = document.getElementById('uploadLimitInfo');
-    const funFacts = [
-      'Analyzing chart patterns...',
-      'Detecting entry/exit points...',
-      'Inferring strategy from visuals...',
-      'Cross-checking with your profile...',
-      'Calculating risk/reward ratios...'
-    ];
-    let files = [];
-    let factIndex = 0;
-    let extractedData = [];
-    
-    // Dropdown options
-    const SESSION_OPTIONS = [
-      {value: '', text: 'Select session'},
-      {value: 'London', text: 'London'},
-      {value: 'New York', text: 'New York'},
-      {value: 'Tokyo', text: 'Tokyo'},
-      {value: 'Sydney', text: 'Sydney'},
-      {value: 'UTC', text: 'UTC'}
-    ];
-    const STRATEGY_OPTIONS = [
-      {value: '', text: 'Unknown'},
-      {value: 'Breakout', text: 'Breakout'},
-      {value: 'Scalp', text: 'Scalp'},
-      {value: 'Reversal', text: 'Reversal'},
-      {value: 'RSI Divergence', text: 'RSI Divergence'},
-      {value: 'Swing Trading', text: 'Swing Trading'}
-    ];
-    const ASSET_TYPE_OPTIONS = [
-      {value: 'forex', text: 'Forex'},
-      {value: 'crypto', text: 'Crypto'}
-    ];
-    const DIRECTION_OPTIONS = [
-      {value: 'LONG', text: 'Long'},
-      {value: 'SHORT', text: 'Short'}
-    ];
-    
-    // Field configurations
-    function getFieldConfig(field) {
-      const configs = {
-        assetType: {type: 'select', options: ASSET_TYPE_OPTIONS},
-        session: {type: 'select', options: SESSION_OPTIONS},
-        strategy: {type: 'select', options: STRATEGY_OPTIONS},
-        direction: {type: 'select', options: DIRECTION_OPTIONS},
-        size: {type: 'number', step: '0.0001', min: 0},
-        leverage: {type: 'number', step: '0.1', min: 1, max: 100},
-        riskPct: {type: 'number', step: '0.01', min: 0, max: 100},
-        riskAmt: {type: 'number', step: '0.01', min: 0},
-        rewardAmt: {type: 'number', step: '0.01', min: 0},
-        rr: {type: 'number', step: '0.01', min: 0},
-        date: {type: 'datetime-local'},
-        asset: {type: 'text'},
-        notes: {type: 'textarea'},
-        entryExit: {type: 'text'},
-        slTp: {type: 'text'}
+    } catch (err) {
+      console.error('Error fetching limits:', err);
+      // FIXED: Same fallback as above
+      const fallbacks = {
+        'starter': { monthly: 3, batch: 5, tp: 1 },
+        'pro': { monthly: 29, batch: 10, tp: 0 },
+        'elite': { monthly: 1000, batch: 10, tp: 0 }
       };
-      return configs[field] || {type: 'text'};
+      const fb = fallbacks[currentPlan] || fallbacks.starter;
+      monthlyLimit = fb.monthly;
+      batchLimit = fb.batch;
+      tpCostUpload = fb.tp;
     }
-    
-    // Data keys
-    function getDataKey(field) {
-      const keys = {
-        asset: 'symbol',
-        assetType: 'asset_type',
-        direction: 'direction',
-        date: 'trade_date',
-        session: 'session',
-        size: 'position_size',
-        leverage: 'leverage',
-        strategy: 'strategy',
-        riskPct: 'risk_percentage',
-        riskAmt: 'risk_amount',
-        rewardAmt: 'reward_amount',
-        rr: 'r_r_ratio',
-        notes: 'notes'
-      };
-      return keys[field];
-    }
-    
-    // Display values
-    function getDisplayValue(field, data) {
-      switch (field) {
-        case 'asset':
-          return data.symbol || 'N/A';
-        case 'assetType':
-          return data.asset_type ? data.asset_type.charAt(0).toUpperCase() + data.asset_type.slice(1) : 'N/A';
-        case 'direction':
-          return data.direction || 'N/A';
-        case 'date':
-          return data.trade_date ? new Date(data.trade_date).toLocaleString() : 'N/A';
-        case 'session':
-          return data.session || 'N/A';
-        case 'size':
-          return data.position_size ? `${data.position_size.toFixed(4)} ${data.asset_type === 'forex' ? 'lots' : 'units'}` : 'N/A';
-        case 'leverage':
-          return data.leverage ? `${data.leverage.toFixed(1)}x` : 'N/A';
-        case 'entryExit':
-          return formatEntryExit(data.entry_price, data.exit_price, data.pnl);
-        case 'slTp':
-          return formatSLTP(data.sl_price, data.tp_price, data.entry_price, data.direction);
-        case 'strategy':
-          const label = data._is_partial ? '(Partial - Edit)' : (data._user_overridden ? '(User-selected)' : '(AI-detected)');
-          return (data.strategy || 'Manual') + ` ${label}`;
-        case 'riskPct':
-          return data.risk_percentage ? `${data.risk_percentage.toFixed(2)}%` : 'N/A';
-        case 'riskAmt':
-          return data.risk_amount ? `$${data.risk_amount.toFixed(2)}` : 'N/A';
-        case 'rewardAmt':
-          return data.reward_amount ? `$${data.reward_amount.toFixed(2)}` : 'N/A';
-        case 'rr':
-          return data.r_r_ratio ? `${data.r_r_ratio.toFixed(2)}:1` : 'N/A';
-        case 'notes':
-          return data.notes || 'N/A';
-        default:
-          return 'N/A';
+  }
+  
+  async function fetchTPBalance() {
+    try {
+      const res = await fetch('/upload/points/balance', { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        return data.trade_points || 0;
       }
+    } catch (err) {
+      console.error('Failed to fetch TP balance:', err);
     }
-    
-    function needsReRender(field) {
-      return ['asset', 'direction', 'size', 'leverage', 'assetType', 'entryExit', 'slTp', 'strategy', 'session'].includes(field);
+    return 0;
+  }
+  
+  let monthlyUploads = 0;
+  
+  const fileInput = document.getElementById('fileInput');
+  const dropZone = document.getElementById('dropZone');
+  const thumbnailsContainer = document.getElementById('thumbnails');
+  const analyzeBtn = document.getElementById('analyzeBtn');
+  const uploadProgress = document.getElementById('uploadProgress');
+  const processingOverlay = document.getElementById('processingOverlay');
+  const funFactEl = processingOverlay.querySelector('.fun-fact');
+  const invalidImageModal = document.getElementById('invalidImageModal');
+  const invalidImagePreview = document.getElementById('invalidImagePreview');
+  const reviewModalEl = document.getElementById('reviewModal');
+  const upgradeModalEl = document.getElementById('upgradeModal');
+  const sessionSelect = document.getElementById('sessionSelect');
+  const strategySelect = document.getElementById('strategySelect');
+  const uploadCountBadge = document.getElementById('uploadCountBadge');
+  const uploadLimitInfo = document.getElementById('uploadLimitInfo');
+  const uploadInfo = document.getElementById('uploadInfo');
+  let upgradeModalInstance = null;
+  const funFacts = [
+    'Analyzing chart patterns...',
+    'Detecting entry/exit points...',
+    'Inferring strategy from visuals...',
+    'Cross-checking with your profile...',
+    'Calculating risk/reward ratios...'
+  ];
+  let files = [];
+  let factIndex = 0;
+  let extractedData = [];
+  
+  // Dropdown options
+  const SESSION_OPTIONS = [
+    {value: '', text: 'Select session'},
+    {value: 'London', text: 'London'},
+    {value: 'New York', text: 'New York'},
+    {value: 'Tokyo', text: 'Tokyo'},
+    {value: 'Sydney', text: 'Sydney'},
+    {value: 'UTC', text: 'UTC'}
+  ];
+  const STRATEGY_OPTIONS = [
+    {value: '', text: 'Unknown'},
+    {value: 'Breakout', text: 'Breakout'},
+    {value: 'Scalp', text: 'Scalp'},
+    {value: 'Reversal', text: 'Reversal'},
+    {value: 'RSI Divergence', text: 'RSI Divergence'},
+    {value: 'Swing Trading', text: 'Swing Trading'}
+  ];
+  const ASSET_TYPE_OPTIONS = [
+    {value: 'forex', text: 'Forex'},
+    {value: 'crypto', text: 'Crypto'}
+  ];
+  const DIRECTION_OPTIONS = [
+    {value: 'LONG', text: 'Long'},
+    {value: 'SHORT', text: 'Short'}
+  ];
+  
+  // Field configurations
+  function getFieldConfig(field) {
+    const configs = {
+      assetType: {type: 'select', options: ASSET_TYPE_OPTIONS},
+      session: {type: 'select', options: SESSION_OPTIONS},
+      strategy: {type: 'select', options: STRATEGY_OPTIONS},
+      direction: {type: 'select', options: DIRECTION_OPTIONS},
+      size: {type: 'number', step: '0.0001', min: 0},
+      leverage: {type: 'number', step: '0.1', min: 1, max: 100},
+      riskPct: {type: 'number', step: '0.01', min: 0, max: 100},
+      riskAmt: {type: 'number', step: '0.01', min: 0},
+      rewardAmt: {type: 'number', step: '0.01', min: 0},
+      rr: {type: 'number', step: '0.01', min: 0},
+      date: {type: 'datetime-local'},
+      asset: {type: 'text'},
+      notes: {type: 'textarea'},
+      entryExit: {type: 'text'},
+      slTp: {type: 'text'}
+    };
+    return configs[field] || {type: 'text'};
+  }
+  
+  // Data keys
+  function getDataKey(field) {
+    const keys = {
+      asset: 'symbol',
+      assetType: 'asset_type',
+      direction: 'direction',
+      date: 'trade_date',
+      session: 'session',
+      size: 'position_size',
+      leverage: 'leverage',
+      strategy: 'strategy',
+      riskPct: 'risk_percentage',
+      riskAmt: 'risk_amount',
+      rewardAmt: 'reward_amount',
+      rr: 'r_r_ratio',
+      notes: 'notes'
+    };
+    return keys[field];
+  }
+  
+  // Display values
+  function getDisplayValue(field, data) {
+    switch (field) {
+      case 'asset':
+        return data.symbol || 'N/A';
+      case 'assetType':
+        return data.asset_type ? data.asset_type.charAt(0).toUpperCase() + data.asset_type.slice(1) : 'N/A';
+      case 'direction':
+        return data.direction || 'N/A';
+      case 'date':
+        return data.trade_date ? new Date(data.trade_date).toLocaleString() : 'N/A';
+      case 'session':
+        return data.session || 'N/A';
+      case 'size':
+        return data.position_size ? `${data.position_size.toFixed(4)} ${data.asset_type === 'forex' ? 'lots' : 'units'}` : 'N/A';
+      case 'leverage':
+        return data.leverage ? `${data.leverage.toFixed(1)}x` : 'N/A';
+      case 'entryExit':
+        return formatEntryExit(data.entry_price, data.exit_price, data.pnl);
+      case 'slTp':
+        return formatSLTP(data.sl_price, data.tp_price, data.entry_price, data.direction);
+      case 'strategy':
+        const label = data._is_partial ? '(Partial - Edit)' : (data._user_overridden ? '(User-selected)' : '(AI-detected)');
+        return (data.strategy || 'Manual') + ` ${label}`;
+      case 'riskPct':
+        return data.risk_percentage ? `${data.risk_percentage.toFixed(2)}%` : 'N/A';
+      case 'riskAmt':
+        return data.risk_amount ? `$${data.risk_amount.toFixed(2)}` : 'N/A';
+      case 'rewardAmt':
+        return data.reward_amount ? `$${data.reward_amount.toFixed(2)}` : 'N/A';
+      case 'rr':
+        return data.r_r_ratio ? `${data.r_r_ratio.toFixed(2)}:1` : 'N/A';
+      case 'notes':
+        return data.notes || 'N/A';
+      default:
+        return 'N/A';
     }
-    
-    // Fetch monthly uploads on load
-    async function fetchMonthlyUploads() {
-      try {
-        const res = await fetch('/upload/monthly_uploads', { credentials: 'include' });
-        if (res.ok) {
-          const data = await res.json();
-          monthlyUploads = data.count || 0;
-          updateUploadBadge();
-        } else {
-          monthlyUploads = 0;
-          updateUploadBadge();
-        }
-      } catch (err) {
-        console.error('Failed to fetch uploads:', err);
+  }
+  
+  function needsReRender(field) {
+    return ['asset', 'direction', 'size', 'leverage', 'assetType', 'entryExit', 'slTp', 'strategy', 'session'].includes(field);
+  }
+  
+  // Fetch monthly uploads on load
+  async function fetchMonthlyUploads() {
+    try {
+      const res = await fetch('/upload/monthly_uploads', { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        monthlyUploads = data.count || 0;
+        updateUploadBadge();
+      } else {
         monthlyUploads = 0;
         updateUploadBadge();
       }
+    } catch (err) {
+      console.error('Failed to fetch uploads:', err);
+      monthlyUploads = 0;
+      updateUploadBadge();
     }
-    
-    async function getProfileStrategy() {
-      try {
-        const res = await fetch('/api/profile', { credentials: 'include' });
-        if (res.ok) {
-          const data = await res.json();
-          return data.strategy || 'Manual';
-        }
-      } catch (err) {
-        console.error('Failed to fetch profile strategy:', err);
+  }
+  
+  async function getProfileStrategy() {
+    try {
+      const res = await fetch('/api/profile', { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        return data.strategy || 'Manual';
       }
-      return 'Manual';
+    } catch (err) {
+      console.error('Failed to fetch profile strategy:', err);
     }
-    
-    function updateUploadBadge() {
-      const remaining = monthlyLimit - monthlyUploads;
-      let badgeText;
-      if (monthlyLimit >= 1000) {
-        badgeText = `${monthlyUploads}+ / Unlimited`;
-      } else {
-        badgeText = `${monthlyUploads}/${monthlyLimit}`;
-      }
-      uploadCountBadge.textContent = badgeText;
-      uploadCountBadge.className = remaining <= 1 ? 'badge bg-warning' : 'badge bg-info';
-      checkUploadLimit();
+    return 'Manual';
+  }
+  
+  function updateUploadBadge() {
+    const remaining = monthlyLimit - monthlyUploads;
+    let badgeText;
+    if (monthlyLimit >= 1000) {
+      badgeText = `${monthlyUploads}+ / Unlimited`;
+    } else {
+      badgeText = `${monthlyUploads}/${monthlyLimit}`;
     }
-    
-    function checkUploadLimit() {
-      const remaining = monthlyLimit - monthlyUploads;
-      if (remaining <= 0) {
-        analyzeBtn.disabled = true;
-        analyzeBtn.title = 'Upload limit reached. Upgrade to continue.';
-        uploadLimitInfo.innerHTML = `
-          <i class="bi bi-exclamation-triangle"></i> 
-          <strong>Monthly limit reached</strong> (${monthlyLimit} uploads). 
-          <a href="/plans" class="text-warning">Upgrade to Pro</a> for more uploads.
-        `;
-        uploadLimitInfo.classList.remove('d-none');
-        document.getElementById('upgradeMessage').innerHTML = `You've reached your monthly upload limit on the ${currentPlan.charAt(0).toUpperCase() + currentPlan.slice(1)} plan (${monthlyLimit} uploads). Upgrade to Pro for more uploads and AI insights!`;
-        const upgradeModal = new bootstrap.Modal(document.getElementById('upgradeModal'));
-        upgradeModal.show();
-      } else {
-        analyzeBtn.disabled = files.length === 0;
-        uploadLimitInfo.classList.add('d-none');
-      }
-    }
-    
-    // Drag and drop
-    dropZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      dropZone.classList.add('dragover');
-    });
-    dropZone.addEventListener('dragleave', () => {
-      dropZone.classList.remove('dragover');
-    });
-    dropZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('dragover');
-      handleFiles(e.dataTransfer.files);
-    });
-    
-    // File input
-    document.getElementById('chooseBtn').addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
-    
-    function handleFiles(newFiles) {
-      if (newFiles.length === 0) return;
-    
-      const remainingMonthly = monthlyLimit - monthlyUploads;
-      const effectiveLimit = Math.min(batchLimit, remainingMonthly);
-      if (files.length >= effectiveLimit) {
-        showErrorToast(`You have reached the maximum of ${effectiveLimit} images for this upload.`);
-        return;
-      }
-    
-      const availableSlots = effectiveLimit - files.length;
-      const toAdd = Array.from(newFiles).slice(0, availableSlots);
-    
-      files = [...files, ...toAdd];
-    
-      if (toAdd.length < newFiles.length) {
-        showErrorToast(`Only ${toAdd.length} images added. Maximum ${effectiveLimit} for this upload.`);
-      }
-    
-      renderThumbnails();
-      checkUploadLimit();
-    }
-    
-    function renderThumbnails() {
-      thumbnailsContainer.innerHTML = '';
-      files.forEach((file, index) => {
-        const thumb = document.createElement('div');
-        thumb.className = 'thumbnail';
-        const img = document.createElement('img');
-        img.src = URL.createObjectURL(file);
-        thumb.appendChild(img);
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'delete-thumb';
-        deleteBtn.innerHTML = '&times;';
-        deleteBtn.onclick = () => {
-          files.splice(index, 1);
-          renderThumbnails();
-          checkUploadLimit();
-        };
-        thumb.appendChild(deleteBtn);
-        thumbnailsContainer.appendChild(thumb);
-      });
-    }
-    
-    // Analyze: Call backend /extract_batch (only if under limit)
-    analyzeBtn.addEventListener('click', async () => {
-      if (files.length === 0) return;
-      if (monthlyUploads >= monthlyLimit) {
-        const upgradeModal = new bootstrap.Modal(document.getElementById('upgradeModal'));
-        upgradeModal.show();
-        return;
-      }
-      if (monthlyUploads + files.length > monthlyLimit) {
-        showErrorToast(`This upload would exceed your monthly limit. You can upload up to ${monthlyLimit - monthlyUploads} more.`);
-        return;
-      }
-      const formData = new FormData();
-      files.forEach(file => formData.append('files', file));
-    
-      processingOverlay.style.display = 'flex';
-      uploadProgress.style.display = 'block';
-      uploadProgress.querySelector('.progress-bar').style.width = '0%';
-      let progress = 0;
-      const interval = setInterval(() => {
-        progress += 10;
-        uploadProgress.querySelector('.progress-bar').style.width = `${progress}%`;
-        if (progress >= 100) clearInterval(interval);
-      }, 200);
-      factIndex = 0;
-      const factInterval = setInterval(() => {
-        funFactEl.textContent = funFacts[factIndex % funFacts.length];
-        factIndex++;
-      }, 2000);
-    
-      try {
-        const res = await fetch('/upload/extract_batch', {
-          method: 'POST',
-          body: formData,
-          credentials: 'include'
-        });
-        clearInterval(factInterval);
-        processingOverlay.style.display = 'none';
-        uploadProgress.style.display = 'none';
-    
-        if (!res.ok) {
-          if (res.status === 422) {
-            if (files.length > 0) {
-              invalidImagePreview.src = URL.createObjectURL(files[0]);
-            }
-            const invalidModal = new bootstrap.Modal(invalidImageModal);
-            invalidModal.show();
-            return;
-          }
-          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-        }
-    
-        extractedData = await res.json();
-        
-        // Override with pre-selected session and strategy
-        const selectedSession = sessionSelect.value;
-        const selectedStrategy = strategySelect.value;
-        let profileStrategy = 'Manual';
-        if (selectedStrategy === 'Strategy: From profile') {
-          profileStrategy = await getProfileStrategy();
-        }
-        extractedData.forEach(trade => {
-          trade._user_overridden = false;
-          if (selectedSession !== 'Session: Auto-detect') {
-            trade.session = selectedSession.replace('Session: ', '');
-            trade._user_overridden = true;
-          }
-          if (selectedStrategy === 'Strategy: From profile') {
-            trade.strategy = profileStrategy;
-            trade._user_overridden = true;
-          } else if (selectedStrategy !== 'Strategy: From profile') {
-            trade.strategy = selectedStrategy.replace('Strategy: ', '');
-            trade._user_overridden = true;
-          }
-        });
-        
-        // Check if all are partial (no full extractions)
-        const allPartial = extractedData.every(d => d._is_partial);
-        if (extractedData.length === 0 || allPartial) {
-          // For partials, still show review but with manual banner; don't show invalid
-          if (files.length > 0 && allPartial) {
-            // Proceed to review with warning
-          } else {
-            if (files.length > 0) {
-              invalidImagePreview.src = URL.createObjectURL(files[0]);
-            }
-            const invalidModal = new bootstrap.Modal(invalidImageModal);
-            invalidModal.show();
-            return;
-          }
-        }
-    
-        // Populate modal with multiple trades
-        const container = document.getElementById('tradesContainer');
-        container.innerHTML = '';
-        
-        // Add manual banner if all partial
-        if (allPartial) {
-          const banner = document.createElement('div');
-          banner.className = 'alert alert-warning mb-3';
-          banner.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Partial AI extraction—please review and edit details manually.';
-          container.appendChild(banner);
-        }
-        
-        extractedData.forEach((data, index) => {
-          const section = createTradeSection(data, index);
-          container.appendChild(section);
-        });
-    
-        if (extractedData.length > 0) {
-          sessionSelect.value = extractedData[0].session || 'Session: Auto-detect';
-          const firstStrat = extractedData[0].strategy || 'From profile';
-          strategySelect.value = `Strategy: ${firstStrat}`;
-        }
-    
-        attachEditListeners();
-    
-        const modal = new bootstrap.Modal(reviewModalEl);
-        modal.show();
-      } catch (err) {
-        clearInterval(factInterval);
-        processingOverlay.style.display = 'none';
-        uploadProgress.style.display = 'none';
-        showErrorToast(err.message || 'Extraction failed');
-      }
-    });
-    
-    function createTradeSection(data, index) {
-      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-      const tableClass = `table table-borderless${isDark ? ' table-dark' : ''}`;
-      const entryExit = getDisplayValue('entryExit', data);
-      const slTp = getDisplayValue('slTp', data);
-      const dateValue = getDisplayValue('date', data);
-      const sizeValue = getDisplayValue('size', data);
-      const directionValue = getDisplayValue('direction', data);
-      const strategyValue = getDisplayValue('strategy', data);
-      const riskPctValue = getDisplayValue('riskPct', data);
-      const riskAmtValue = getDisplayValue('riskAmt', data);
-      const rewardAmtValue = getDisplayValue('rewardAmt', data);
-      const rrValue = getDisplayValue('rr', data);
-      const leverageValue = getDisplayValue('leverage', data);
-      const notesValue = getDisplayValue('notes', data);
-      const sessionValue = getDisplayValue('session', data);
-      const assetValue = getDisplayValue('asset', data);
-      const assetTypeValue = getDisplayValue('assetType', data);
-    
-      const div = document.createElement('div');
-      div.innerHTML = `
-        <div class="border rounded p-3 mb-3 ${data._is_partial ? 'border-warning' : ''}">
-          <h6 class="fw-bold mb-3">Trade ${index + 1} ${data._is_partial ? '<span class="badge bg-warning">Partial</span>' : ''}</h6>
-          ${data.chart_url ? `<img src="${data.chart_url}" alt="Chart" style="max-width:100%; border-radius:8px; margin-bottom:10px;">` : ''}
-          <table class="${tableClass}">
-            <tbody>
-              <tr>
-                <td class="fw-semibold">Asset</td>
-                <td class="editable-cell position-relative" id="assetCell_${index}">
-                  <span class="value-span pe-2" data-field="asset">${assetValue}</span>
-                  <i class="bi bi-pencil edit-icon position-absolute end-0 top-50 translate-middle-y" data-field="asset" data-trade-index="${index}" style="cursor:pointer; color:var(--muted); font-size:0.875rem;"></i>
-                </td>
-              </tr>
-              <tr>
-                <td class="fw-semibold">Asset Type</td>
-                <td class="editable-cell position-relative" id="assetTypeCell_${index}">
-                  <span class="value-span pe-2" data-field="assetType">${assetTypeValue}</span>
-                  <i class="bi bi-pencil edit-icon position-absolute end-0 top-50 translate-middle-y" data-field="assetType" data-trade-index="${index}" style="cursor:pointer; color:var(--muted); font-size:0.875rem;"></i>
-                </td>
-              </tr>
-              <tr>
-                <td class="fw-semibold">Direction</td>
-                <td class="editable-cell position-relative" id="directionCell_${index}">
-                  <span class="value-span pe-2" data-field="direction">${directionValue}</span>
-                  <i class="bi bi-pencil edit-icon position-absolute end-0 top-50 translate-middle-y" data-field="direction" data-trade-index="${index}" style="cursor:pointer; color:var(--muted); font-size:0.875rem;"></i>
-                </td>
-              </tr>
-              <tr>
-                <td class="fw-semibold">Date</td>
-                <td class="editable-cell position-relative" id="dateCell_${index}">
-                  <span class="value-span pe-2" data-field="date">${dateValue}</span>
-                  <i class="bi bi-pencil edit-icon position-absolute end-0 top-50 translate-middle-y" data-field="date" data-trade-index="${index}" style="cursor:pointer; color:var(--muted); font-size:0.875rem;"></i>
-                </td>
-              </tr>
-              <tr>
-                <td class="fw-semibold">Session</td>
-                <td class="editable-cell position-relative" id="sessionCell_${index}">
-                  <span class="value-span pe-2" data-field="session">${sessionValue}</span>
-                  <i class="bi bi-pencil edit-icon position-absolute end-0 top-50 translate-middle-y" data-field="session" data-trade-index="${index}" style="cursor:pointer; color:var(--muted); font-size:0.875rem;"></i>
-                </td>
-              </tr>
-              <tr>
-                <td class="fw-semibold">Position Size</td>
-                <td class="editable-cell position-relative" id="sizeCell_${index}">
-                  <span class="value-span pe-2" data-field="size">${sizeValue}</span>
-                  <i class="bi bi-pencil edit-icon position-absolute end-0 top-50 translate-middle-y" data-field="size" data-trade-index="${index}" style="cursor:pointer; color:var(--muted); font-size:0.875rem;"></i>
-                </td>
-              </tr>
-              <tr>
-                <td class="fw-semibold">Leverage</td>
-                <td class="editable-cell position-relative" id="leverageCell_${index}">
-                  <span class="value-span pe-2" data-field="leverage">${leverageValue}</span>
-                  <i class="bi bi-pencil edit-icon position-absolute end-0 top-50 translate-middle-y" data-field="leverage" data-trade-index="${index}" style="cursor:pointer; color:var(--muted); font-size:0.875rem;"></i>
-                </td>
-              </tr>
-              <tr>
-                <td class="fw-semibold">Entry/Exit</td>
-                <td class="editable-cell position-relative" id="entryExitCell_${index}">
-                  <span class="value-span pe-2" data-field="entryExit">${entryExit}</span>
-                  <i class="bi bi-pencil edit-icon position-absolute end-0 top-50 translate-middle-y" data-field="entryExit" data-trade-index="${index}" style="cursor:pointer; color:var(--muted); font-size:0.875rem;"></i>
-                </td>
-              </tr>
-              <tr>
-                <td class="fw-semibold">SL / TP</td>
-                <td class="editable-cell position-relative" id="slTpCell_${index}">
-                  <span class="value-span pe-2" data-field="slTp">${slTp}</span>
-                  <i class="bi bi-pencil edit-icon position-absolute end-0 top-50 translate-middle-y" data-field="slTp" data-trade-index="${index}" style="cursor:pointer; color:var(--muted); font-size:0.875rem;"></i>
-                </td>
-              </tr>
-              <tr>
-                <td class="fw-semibold">Strategy</td>
-                <td class="editable-cell position-relative" id="strategyCell_${index}">
-                  <span class="value-span pe-2" data-field="strategy">${strategyValue}</span>
-                  <i class="bi bi-pencil edit-icon position-absolute end-0 top-50 translate-middle-y" data-field="strategy" data-trade-index="${index}" style="cursor:pointer; color:var(--muted); font-size:0.875rem;"></i>
-                </td>
-              </tr>
-              <tr>
-                <td class="fw-semibold">Risk %</td>
-                <td class="editable-cell position-relative" id="riskPctCell_${index}">
-                  <span class="value-span pe-2" data-field="riskPct">${riskPctValue}</span>
-                  <i class="bi bi-pencil edit-icon position-absolute end-0 top-50 translate-middle-y" data-field="riskPct" data-trade-index="${index}" style="cursor:pointer; color:var(--muted); font-size:0.875rem;"></i>
-                </td>
-              </tr>
-              <tr>
-                <td class="fw-semibold">Risk Amount</td>
-                <td class="editable-cell position-relative" id="riskAmtCell_${index}">
-                  <span class="value-span pe-2" data-field="riskAmt">${riskAmtValue}</span>
-                  <i class="bi bi-pencil edit-icon position-absolute end-0 top-50 translate-middle-y" data-field="riskAmt" data-trade-index="${index}" style="cursor:pointer; color:var(--muted); font-size:0.875rem;"></i>
-                </td>
-              </tr>
-              <tr>
-                <td class="fw-semibold">Reward Amount</td>
-                <td class="editable-cell position-relative" id="rewardAmtCell_${index}">
-                  <span class="value-span pe-2" data-field="rewardAmt">${rewardAmtValue}</span>
-                  <i class="bi bi-pencil edit-icon position-absolute end-0 top-50 translate-middle-y" data-field="rewardAmt" data-trade-index="${index}" style="cursor:pointer; color:var(--muted); font-size:0.875rem;"></i>
-                </td>
-              </tr>
-              <tr>
-                <td class="fw-semibold">R:R Ratio</td>
-                <td class="editable-cell position-relative" id="rrCell_${index}">
-                  <span class="value-span pe-2" data-field="rr">${rrValue}</span>
-                  <i class="bi bi-pencil edit-icon position-absolute end-0 top-50 translate-middle-y" data-field="rr" data-trade-index="${index}" style="cursor:pointer; color:var(--muted); font-size:0.875rem;"></i>
-                </td>
-              </tr>
-              <tr>
-                <td class="fw-semibold">Notes</td>
-                <td class="editable-cell position-relative" style="min-width:250px;" id="notesCell_${index}">
-                  <span class="value-span pe-2" data-field="notes">${notesValue}</span>
-                  <i class="bi bi-pencil edit-icon position-absolute end-0 top-50 translate-middle-y" data-field="notes" data-trade-index="${index}" style="cursor:pointer; color:var(--muted); font-size:0.875rem;"></i>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <div class="ai-suggestion" id="aiSuggestion_${index}">
-            <i class="bi bi-lightbulb text-primary"></i> AI Tip: ${data.suggestion || 'No suggestion available.'}
-          </div>
-        </div>
+    uploadCountBadge.textContent = badgeText;
+    uploadCountBadge.className = remaining <= 1 ? 'badge bg-warning' : 'badge bg-info';
+    checkUploadLimit();
+  }
+  
+  function updateUploadInfo() {
+    const remaining = monthlyLimit - monthlyUploads;
+    const limitDisplay = monthlyLimit >= 1000 ? 'Unlimited' : monthlyLimit;
+    const batchCost = tpCostUpload * files.length;
+    const enoughTP = tpBalance >= batchCost;
+    const tpClass = enoughTP ? 'text-success' : 'text-danger';
+    const limitStatus = remaining >= files.length ? 'OK' : `Exceeds limit! (${remaining} left)`;
+
+    if (files.length === 0) {
+      uploadInfo.innerHTML = `
+        <i class="bi bi-info-circle"></i> 
+        Remaining uploads this month: <strong>${remaining}</strong> / ${limitDisplay}
+        ${tpCostUpload > 0 ? `
+Each upload costs <strong>${tpCostUpload} TP</strong> (Balance: <strong>${tpBalance}</strong>)` : ''}
       `;
-      return div.firstElementChild;
+      uploadInfo.className = 'alert alert-info';
+    } else {
+      uploadInfo.innerHTML = `
+        <i class="bi bi-info-circle"></i> 
+        This batch (${files.length} files): <strong>${limitStatus}</strong>
+
+        Cost: <span class="${tpClass}"><strong>${batchCost} TP</strong></span> (Balance: <strong>${tpBalance}</strong>)
+      `;
+      uploadInfo.className = remaining < files.length || !enoughTP ? 'alert alert-warning' : 'alert alert-info';
     }
-    
-    // Inline editing functions
-    function handleEditClick(e) {
-      e.stopPropagation();
-      const field = e.target.dataset.field;
-      const tradeIndex = parseInt(e.target.dataset.tradeIndex);
-      const cell = e.target.parentNode;
-      const dataKey = getDataKey(field);
-      let currentValue;
-      if (dataKey && !['entryExit', 'slTp'].includes(field)) {
-        currentValue = extractedData[tradeIndex][dataKey];
-      } else {
-        currentValue = getDisplayValue(field, extractedData[tradeIndex]);
+  }
+  
+  function checkUploadLimit() {
+    const remaining = monthlyLimit - monthlyUploads;
+    if (remaining <= 0) {
+      analyzeBtn.disabled = true;
+      analyzeBtn.title = 'Upload limit reached. Upgrade to continue.';
+      uploadLimitInfo.innerHTML = `
+        <i class="bi bi-exclamation-triangle"></i> 
+        <strong>Monthly limit reached</strong> (${monthlyLimit} uploads). 
+        <a href="/plans" class="text-warning">Upgrade to Pro</a> for more uploads.
+      `;
+      uploadLimitInfo.classList.remove('d-none');
+      document.getElementById('upgradeMessage').innerHTML = `You've reached your monthly upload limit on the ${currentPlan.charAt(0).toUpperCase() + currentPlan.slice(1)} plan (${monthlyLimit} uploads). Upgrade to Pro for more uploads and AI insights!`;
+      if (!upgradeModalInstance) {
+        upgradeModalInstance = new bootstrap.Modal(upgradeModalEl);
       }
-      showInlineEditor(field, tradeIndex, cell, currentValue);
+      upgradeModalInstance.show();
+    } else {
+      analyzeBtn.disabled = files.length === 0;
+      uploadLimitInfo.classList.add('d-none');
     }
-    
-    function showInlineEditor(field, index, cell, currentValue) {
-      const config = getFieldConfig(field);
-      const originalHTML = cell.innerHTML;
-      cell.dataset.originalHTML = originalHTML;
-    
-      let input;
-      if (config.type === 'select') {
-        input = document.createElement('select');
-        input.className = 'form-select form-select-sm d-inline-block w-auto';
-        config.options.forEach(opt => {
-          const option = document.createElement('option');
-          option.value = opt.value;
-          option.textContent = opt.text || opt.value;
-          if (opt.value === currentValue) option.selected = true;
-          input.appendChild(option);
-        });
-      } else if (config.type === 'number') {
-        input = document.createElement('input');
-        input.type = 'number';
-        input.className = 'form-control form-control-sm d-inline-block w-auto';
-        input.value = currentValue || '';
-        if (config.min) input.min = config.min;
-        if (config.max) input.max = config.max;
-        if (config.step) input.step = config.step;
-      } else if (config.type === 'datetime-local') {
-        input = document.createElement('input');
-        input.type = 'datetime-local';
-        input.className = 'form-control form-control-sm d-inline-block w-auto';
-        input.value = currentValue ? new Date(currentValue + 'Z').toISOString().slice(0, 16) : '';
-      } else if (config.type === 'textarea') {
-        input = document.createElement('textarea');
-        input.className = 'form-control form-control-sm';
-        input.rows = 2;
-        input.style.width = '100%';
-        input.value = currentValue || '';
-      } else {
-        input = document.createElement('input');
-        input.type = 'text';
-        input.className = 'form-control form-control-sm d-inline-block w-auto';
-        input.value = currentValue || '';
+    updateUploadInfo();
+  }
+  
+  // Drag and drop
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+  });
+  dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('dragover');
+  });
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    handleFiles(e.dataTransfer.files);
+  });
+  
+  // File input
+  document.getElementById('chooseBtn').addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+  
+  function handleFiles(newFiles) {
+    if (newFiles.length === 0) return;
+
+    const remainingMonthly = monthlyLimit - monthlyUploads;
+    const effectiveLimit = Math.min(batchLimit, remainingMonthly);
+    if (files.length >= effectiveLimit) {
+      showErrorToast(`You have reached the maximum of ${effectiveLimit} images for this upload.`);
+      return;
+    }
+
+    const availableSlots = effectiveLimit - files.length;
+    const toAdd = Array.from(newFiles).slice(0, availableSlots);
+
+    files = [...files, ...toAdd];
+
+    if (toAdd.length < newFiles.length) {
+      showErrorToast(`Only ${toAdd.length} images added. Maximum ${effectiveLimit} for this upload.`);
+    }
+
+    renderThumbnails();
+    checkUploadLimit();
+  }
+  
+  function renderThumbnails() {
+    thumbnailsContainer.innerHTML = '';
+    files.forEach((file, index) => {
+      const thumb = document.createElement('div');
+      thumb.className = 'thumbnail';
+      const img = document.createElement('img');
+      img.src = URL.createObjectURL(file);
+      thumb.appendChild(img);
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'delete-thumb';
+      deleteBtn.innerHTML = '&times;';
+      deleteBtn.onclick = () => {
+        files.splice(index, 1);
+        renderThumbnails();
+        checkUploadLimit();
+      };
+      thumb.appendChild(deleteBtn);
+      thumbnailsContainer.appendChild(thumb);
+    });
+  }
+  
+  // Analyze: Call backend /extract_batch (only if under limit)
+  analyzeBtn.addEventListener('click', async () => {
+    if (files.length === 0) return;
+    if (monthlyUploads >= monthlyLimit) {
+      if (!upgradeModalInstance) {
+        upgradeModalInstance = new bootstrap.Modal(upgradeModalEl);
       }
-    
-      const saveBtn = document.createElement('button');
-      saveBtn.className = 'btn btn-sm btn-success ms-1';
-      saveBtn.innerHTML = '<i class="bi bi-check"></i>';
-      saveBtn.onclick = () => saveInlineEdit(field, index, input.value, cell);
-    
-      const cancelBtn = document.createElement('button');
-      cancelBtn.className = 'btn btn-sm btn-secondary ms-1';
-      cancelBtn.innerHTML = '<i class="bi bi-x"></i>';
-      cancelBtn.onclick = () => cancelInlineEdit(cell);
-    
-      input.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          saveInlineEdit(field, index, input.value, cell);
-        }
+      upgradeModalInstance.show();
+      return;
+    }
+    if (monthlyUploads + files.length > monthlyLimit) {
+      showErrorToast(`This upload would exceed your monthly limit. You can upload up to ${monthlyLimit - monthlyUploads} more.`);
+      return;
+    }
+    const batchCost = tpCostUpload * files.length;
+    if (tpCostUpload > 0 && tpBalance < batchCost) {
+      showErrorToast(`Insufficient TP. This batch costs ${batchCost} TP, but you have only ${tpBalance}.`);
+      return;
+    }
+    const formData = new FormData();
+    files.forEach(file => formData.append('files', file));
+
+    processingOverlay.style.display = 'flex';
+    uploadProgress.style.display = 'block';
+    uploadProgress.querySelector('.progress-bar').style.width = '0%';
+    let progress = 0;
+    const interval = setInterval(() => {
+      progress += 10;
+      uploadProgress.querySelector('.progress-bar').style.width = `${progress}%`;
+      if (progress >= 100) clearInterval(interval);
+    }, 200);
+    factIndex = 0;
+    const factInterval = setInterval(() => {
+      funFactEl.textContent = funFacts[factIndex % funFacts.length];
+      factIndex++;
+    }, 2000);
+
+    try {
+      const res = await fetch('/upload/extract_batch', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
       });
-    
-      cell.innerHTML = '';
-      if (config.type === 'textarea') {
-        cell.appendChild(input);
-      } else {
-        cell.appendChild(input);
-        cell.appendChild(saveBtn);
-        cell.appendChild(cancelBtn);
-      }
-      input.focus();
-    }
-    
-    function saveInlineEdit(field, index, rawNewVal, cell) {
-      let success = true;
-      let displayVal = 'N/A';
-    
-      switch (field) {
-        case 'asset':
-          const assetVal = rawNewVal.trim();
-          if (!assetVal) success = false;
-          else {
-            extractedData[index].symbol = assetVal;
-            displayVal = assetVal;
-            const inferred = inferAssetType(assetVal);
-            if (inferred) extractedData[index].asset_type = inferred;
+      clearInterval(factInterval);
+      processingOverlay.style.display = 'none';
+      uploadProgress.style.display = 'none';
+
+      if (!res.ok) {
+        if (res.status === 422) {
+          if (files.length > 0) {
+            invalidImagePreview.src = URL.createObjectURL(files[0]);
           }
-          break;
-        case 'assetType':
-          const type = rawNewVal.toLowerCase();
-          if (!['forex', 'crypto'].includes(type)) success = false;
-          else {
-            extractedData[index].asset_type = type;
-            displayVal = type.charAt(0).toUpperCase() + type.slice(1);
-          }
-          break;
-        case 'direction':
-          const dir = rawNewVal.toUpperCase();
-          if (!['LONG', 'SHORT'].includes(dir)) success = false;
-          else {
-            extractedData[index].direction = dir;
-            displayVal = dir;
-          }
-          break;
-        case 'date':
-          const dateStr = rawNewVal;
-          if (!dateStr) {
-            extractedData[index].trade_date = null;
-            displayVal = 'N/A';
-          } else {
-            const date = new Date(dateStr + ':00');
-            if (isNaN(date.getTime())) success = false;
-            else {
-              extractedData[index].trade_date = date.toISOString();
-              displayVal = new Date(extractedData[index].trade_date).toLocaleString();
-            }
-          }
-          break;
-        case 'session':
-          extractedData[index].session = rawNewVal || '';
-          extractedData[index]._user_overridden = true;
-          displayVal = extractedData[index].session || 'N/A';
-          break;
-        case 'size':
-          const sizeNum = parseFloat(rawNewVal);
-          if (isNaN(sizeNum) || sizeNum <= 0) success = false;
-          else {
-            extractedData[index].position_size = sizeNum;
-            displayVal = getDisplayValue('size', extractedData[index]);
-          }
-          break;
-        case 'leverage':
-          const levNum = parseFloat(rawNewVal);
-          if (isNaN(levNum) || levNum < 1 || levNum > 100) success = false;
-          else {
-            extractedData[index].leverage = levNum;
-            displayVal = getDisplayValue('leverage', extractedData[index]);
-          }
-          break;
-        case 'entryExit':
-          success = updateEntryExit(rawNewVal, index);
-          if (success) displayVal = getDisplayValue('entryExit', extractedData[index]);
-          break;
-        case 'slTp':
-          success = updateSLTP(rawNewVal, index);
-          if (success) displayVal = getDisplayValue('slTp', extractedData[index]);
-          break;
-        case 'strategy':
-          extractedData[index].strategy = rawNewVal;
-          extractedData[index]._user_overridden = true;
-          displayVal = getDisplayValue('strategy', extractedData[index]);
-          break;
-        case 'riskPct':
-          const riskPctNum = parseFloat(rawNewVal);
-          if (isNaN(riskPctNum) || riskPctNum < 0 || riskPctNum > 100) success = false;
-          else {
-            extractedData[index].risk_percentage = riskPctNum;
-            displayVal = getDisplayValue('riskPct', extractedData[index]);
-          }
-          break;
-        case 'riskAmt':
-          const riskAmtNum = parseFloat(rawNewVal);
-          if (isNaN(riskAmtNum) || riskAmtNum < 0) success = false;
-          else {
-            extractedData[index].risk_amount = riskAmtNum;
-            displayVal = getDisplayValue('riskAmt', extractedData[index]);
-          }
-          break;
-        case 'rewardAmt':
-          const rewardAmtNum = parseFloat(rawNewVal);
-          if (isNaN(rewardAmtNum) || rewardAmtNum < 0) success = false;
-          else {
-            extractedData[index].reward_amount = rewardAmtNum;
-            displayVal = getDisplayValue('rewardAmt', extractedData[index]);
-          }
-          break;
-        case 'rr':
-          const rrNum = parseFloat(rawNewVal);
-          if (isNaN(rrNum) || rrNum <= 0) success = false;
-          else {
-            extractedData[index].r_r_ratio = rrNum;
-            displayVal = getDisplayValue('rr', extractedData[index]);
-          }
-          break;
-        case 'notes':
-          const notesVal = rawNewVal.trim();
-          extractedData[index].notes = notesVal;
-          displayVal = getDisplayValue('notes', extractedData[index]);
-          break;
-      }
-    
-      if (success) {
-        cell.innerHTML = `<span class="value-span pe-2">${displayVal}</span><i class="bi bi-pencil edit-icon position-absolute end-0 top-50 translate-middle-y" data-field="${field}" data-trade-index="${index}" style="cursor:pointer; color:var(--muted); font-size:0.875rem;"></i>`;
-        cell.querySelector('.edit-icon').addEventListener('click', handleEditClick);
-        if (needsReRender(field)) {
-          reRenderSection(index);
-        }
-      } else {
-        cancelInlineEdit(cell);
-        showErrorToast(`Invalid value for ${field.replace(/([A-Z])/g, ' $1').trim()}.`);
-      }
-    }
-    
-    function cancelInlineEdit(cell) {
-      cell.innerHTML = cell.dataset.originalHTML;
-      cell.querySelector('.edit-icon').addEventListener('click', handleEditClick);
-    }
-    
-    function reRenderSection(index) {
-      const container = document.getElementById('tradesContainer');
-      const offset = extractedData.every(d => d._is_partial) ? 1 : 0;
-      const oldSection = container.children[index + offset];
-      const newSection = createTradeSection(extractedData[index], index);
-      container.replaceChild(newSection, oldSection);
-      attachEditListeners();
-    }
-    
-    function attachEditListeners() {
-      document.querySelectorAll('#reviewModal .edit-icon').forEach(icon => {
-        icon.addEventListener('click', handleEditClick);
-      });
-    }
-    
-    function inferAssetType(symbol) {
-      if (!symbol) return null;
-      const symbolUpper = symbol.toUpperCase();
-      const forexPairs = ['EUR', 'USD', 'GBP', 'JPY', 'AUD', 'CAD', 'CHF', 'NZD'];
-      if (forexPairs.some(pair => symbolUpper.includes(pair)) && symbolUpper.includes('/')) {
-        return 'forex';
-      }
-      if (['BTC', 'ETH', 'USDT', 'USDC'].some(crypto => symbolUpper.includes(crypto))) {
-        return 'crypto';
-      }
-      return null;
-    }
-    
-    function updateEntryExit(newValue, tradeIndex) {
-      const match = newValue.match(/\$?([\d.,]+)(k|m)?\s*\/\s*\$?([\d.,]+)(k|m)?\s*\((\+?-?\d+(?:\.\d+)?)%\)/i);
-      if (!match) {
-        showErrorToast('Invalid Entry/Exit format. Please use: 1.0850 / 1.0900 (+2%)');
-        return false;
-      }
-      let entry = parseFloat(match[1].replace(/,/g, ''));
-      const entryUnit = match[2] ? match[2].toLowerCase() : '';
-      if (entryUnit === 'k') entry *= 1000;
-      else if (entryUnit === 'm') entry *= 1000000;
-    
-      let exit_p = parseFloat(match[3].replace(/,/g, ''));
-      const exitUnit = match[4] ? match[4].toLowerCase() : '';
-      if (exitUnit === 'k') exit_p *= 1000;
-      else if (exitUnit === 'm') exit_p *= 1000000;
-    
-      const pnl = parseFloat(match[5]);
-    
-      extractedData[tradeIndex].entry_price = entry;
-      extractedData[tradeIndex].exit_price = exit_p;
-      extractedData[tradeIndex].pnl = pnl;
-      return true;
-    }
-    
-    function updateSLTP(newValue, tradeIndex) {
-      const match = newValue.match(/\$?([\d.,]+)(k|m)?\s*\/\s*\$?([\d.,]+)(k|m)?/i);
-      if (!match) {
-        showErrorToast('Invalid SL/TP format. Please use: 1.0900 / 1.0750');
-        return false;
-      }
-      let sl = parseFloat(match[1].replace(/,/g, ''));
-      const slUnit = match[2] ? match[2].toLowerCase() : '';
-      if (slUnit === 'k') sl *= 1000;
-      else if (slUnit === 'm') sl *= 1000000;
-    
-      let tp = parseFloat(match[3].replace(/,/g, ''));
-      const tpUnit = match[4] ? match[4].toLowerCase() : '';
-      if (tpUnit === 'k') tp *= 1000;
-      else if (tpUnit === 'm') tp *= 1000000;
-    
-      extractedData[tradeIndex].sl_price = sl;
-      extractedData[tradeIndex].tp_price = tp;
-      // Recalc R:R, amounts if possible
-      const entry = extractedData[tradeIndex].entry_price;
-      const posSize = extractedData[tradeIndex].position_size || 1;
-      const dir = extractedData[tradeIndex].direction?.toLowerCase() || 'long';
-      const assetType = extractedData[tradeIndex].asset_type || 'forex';
-      if (entry) {
-        let riskDist, rewardDist;
-        if (dir === 'long') {
-          riskDist = entry - sl;
-          rewardDist = tp - entry;
-        } else {
-          riskDist = sl - entry;
-          rewardDist = entry - tp;
-        }
-        if (riskDist > 0) {
-          const rr = rewardDist / riskDist;
-          extractedData[tradeIndex].r_r_ratio = rr;
-          const pipValue = assetType === 'forex' ? 10.0 : 1.0; // $10/lot for forex, $1/unit for crypto
-          extractedData[tradeIndex].risk_amount = posSize * Math.abs(riskDist) * pipValue;
-          extractedData[tradeIndex].reward_amount = posSize * rewardDist * pipValue;
-        }
-      }
-      return true;
-    }
-    
-    function formatEntryExit(entry, exit_p, pnl) {
-      if (!entry || exit_p === null || pnl === null) return 'N/A';
-      return `${entry.toFixed(4)} / ${exit_p ? exit_p.toFixed(4) : 'N/A'} (${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}%)`;
-    }
-    
-    function formatSLTP(sl, tp, entry, direction) {
-      if (!sl || !tp || !entry || !direction) return 'N/A';
-      const slDist = direction.toLowerCase() === 'short' ? `+${((sl - entry)/entry*100).toFixed(2)}%` : `-${((entry - sl)/entry*100).toFixed(2)}%`;
-      const tpDist = direction.toLowerCase() === 'short' ? `-${((entry - tp)/entry*100).toFixed(2)}%` : `+${((tp - entry)/entry*100).toFixed(2)}%`;
-      return `${sl.toFixed(4)} ${slDist} / ${tp.toFixed(4)} ${tpDist}`;
-    }
-    
-    // Save: Call backend /save_batch
-    document.getElementById('saveTradeBtn').addEventListener('click', async () => {
-      if (!extractedData || extractedData.length === 0) return;
-    
-      const allData = extractedData.map(trade => ({ ...trade }));
-      allData.forEach(trade => {
-        // Ensure asset_type is lowercase for backend
-        if (trade.asset_type) {
-          trade.asset_type = trade.asset_type.toLowerCase();
-        }
-        // Ensure leverage is a number or null
-        if (trade.leverage !== undefined && (isNaN(trade.leverage) || trade.leverage < 1 || trade.leverage > 100)) {
-          trade.leverage = null;
-        }
-      });
-    
-      try {
-        const res = await fetch('/upload/save_batch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(allData),
-          credentials: 'include'
-        });
-        if (!res.ok) {
-          const errorData = await res.json();
-          if (res.status === 422) {
-            let errorMsg = errorData.detail?.message || 'Validation error';
-            if (errorData.detail?.errors && errorData.detail.errors.length > 0) {
-              errorMsg += ': ' + errorData.detail.errors.map(e => {
-                let tradeError = Array.isArray(e.error) ? e.error.map(err => {
-                  const loc = Array.isArray(err.loc) ? err.loc.join('.') : err.loc;
-                  return `${loc}: ${err.msg}`;
-                }).join('; ') : e.error;
-                return `Trade ${e.index + 1}: ${tradeError}`;
-              }).join('; ');
-            }
-            showErrorToast(errorMsg);
-          } else {
-            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-          }
+          const invalidModal = new bootstrap.Modal(invalidImageModal);
+          invalidModal.show();
           return;
         }
-        bootstrap.Modal.getInstance(reviewModalEl).hide();
-        const toastBody = document.getElementById('saveToast').querySelector('.toast-body');
-        toastBody.innerHTML = `<i class="bi bi-check-circle-fill"></i> ${allData.length} trades logged successfully!`;
-        const saveToast = new bootstrap.Toast(document.getElementById('saveToast'), { delay: 2000 });
-        saveToast.show();
-        // Refresh upload count after save
-        setTimeout(() => {
-          fetchMonthlyUploads();
-          window.location.href = '/journal';
-        }, 1000);
-      } catch (err) {
-        showErrorToast(err.message || 'Save failed');
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
+
+      extractedData = await res.json();
+      
+      // Override with pre-selected session and strategy
+      const selectedSession = sessionSelect.value;
+      const selectedStrategy = strategySelect.value;
+      let profileStrategy = 'Manual';
+      if (selectedStrategy === 'Strategy: From profile') {
+        profileStrategy = await getProfileStrategy();
+      }
+      extractedData.forEach(trade => {
+        trade._user_overridden = false;
+        if (selectedSession !== 'Session: Auto-detect') {
+          trade.session = selectedSession.replace('Session: ', '');
+          trade._user_overridden = true;
+        }
+        if (selectedStrategy === 'Strategy: From profile') {
+          trade.strategy = profileStrategy;
+          trade._user_overridden = true;
+        } else if (selectedStrategy !== 'Strategy: From profile') {
+          trade.strategy = selectedStrategy.replace('Strategy: ', '');
+          trade._user_overridden = true;
+        }
+      });
+      
+      // Check if all are partial (no full extractions)
+      const allPartial = extractedData.every(d => d._is_partial);
+      if (extractedData.length === 0 || allPartial) {
+        // For partials, still show review but with manual banner; don't show invalid
+        if (files.length > 0 && allPartial) {
+          // Proceed to review with warning
+        } else {
+          if (files.length > 0) {
+            invalidImagePreview.src = URL.createObjectURL(files[0]);
+          }
+          const invalidModal = new bootstrap.Modal(invalidImageModal);
+          invalidModal.show();
+          return;
+        }
+      }
+
+      // Populate modal with multiple trades
+      const container = document.getElementById('tradesContainer');
+      container.innerHTML = '';
+      
+      // Add manual banner if all partial
+      if (allPartial) {
+        const banner = document.createElement('div');
+        banner.className = 'alert alert-warning mb-3';
+        banner.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Partial AI extraction—please review and edit details manually.';
+        container.appendChild(banner);
+      }
+      
+      extractedData.forEach((data, index) => {
+        const section = createTradeSection(data, index);
+        container.appendChild(section);
+      });
+
+      if (extractedData.length > 0) {
+        sessionSelect.value = extractedData[0].session || 'Session: Auto-detect';
+        const firstStrat = extractedData[0].strategy || 'From profile';
+        strategySelect.value = `Strategy: ${firstStrat}`;
+      }
+
+      attachEditListeners();
+
+      const modal = new bootstrap.Modal(reviewModalEl);
+      modal.show();
+    } catch (err) {
+      clearInterval(factInterval);
+      processingOverlay.style.display = 'none';
+      uploadProgress.style.display = 'none';
+      showErrorToast(err.message || 'Extraction failed');
+    }
+  });
+  
+  function createTradeSection(data, index) {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const tableClass = `table table-borderless${isDark ? ' table-dark' : ''}`;
+    const entryExit = getDisplayValue('entryExit', data);
+    const slTp = getDisplayValue('slTp', data);
+    const dateValue = getDisplayValue('date', data);
+    const sizeValue = getDisplayValue('size', data);
+    const directionValue = getDisplayValue('direction', data);
+    const strategyValue = getDisplayValue('strategy', data);
+    const riskPctValue = getDisplayValue('riskPct', data);
+    const riskAmtValue = getDisplayValue('riskAmt', data);
+    const rewardAmtValue = getDisplayValue('rewardAmt', data);
+    const rrValue = getDisplayValue('rr', data);
+    const leverageValue = getDisplayValue('leverage', data);
+    const notesValue = getDisplayValue('notes', data);
+    const sessionValue = getDisplayValue('session', data);
+    const assetValue = getDisplayValue('asset', data);
+    const assetTypeValue = getDisplayValue('assetType', data);
+
+    const div = document.createElement('div');
+    div.innerHTML = `
+      <div class="border rounded p-3 mb-3 ${data._is_partial ? 'border-warning' : ''}">
+        <h6 class="fw-bold mb-3">Trade ${index + 1} ${data._is_partial ? '<span class="badge bg-warning">Partial</span>' : ''}</h6>
+        ${data.chart_url ? `<img src="${data.chart_url}" alt="Chart" style="max-width:100%; border-radius:8px; margin-bottom:10px;">` : ''}
+        <table class="${tableClass}">
+          <tbody>
+            <tr>
+              <td class="fw-semibold">Asset</td>
+              <td class="editable-cell position-relative" id="assetCell_${index}">
+                <span class="value-span pe-2" data-field="asset">${assetValue}</span>
+                <i class="bi bi-pencil edit-icon position-absolute end-0 top-50 translate-middle-y" data-field="asset" data-trade-index="${index}" style="cursor:pointer; color:var(--muted); font-size:0.875rem;"></i>
+              </td>
+            </tr>
+            <tr>
+              <td class="fw-semibold">Asset Type</td>
+              <td class="editable-cell position-relative" id="assetTypeCell_${index}">
+                <span class="value-span pe-2" data-field="assetType">${assetTypeValue}</span>
+                <i class="bi bi-pencil edit-icon position-absolute end-0 top-50 translate-middle-y" data-field="assetType" data-trade-index="${index}" style="cursor:pointer; color:var(--muted); font-size:0.875rem;"></i>
+              </td>
+            </tr>
+            <tr>
+              <td class="fw-semibold">Direction</td>
+              <td class="editable-cell position-relative" id="directionCell_${index}">
+                <span class="value-span pe-2" data-field="direction">${directionValue}</span>
+                <i class="bi bi-pencil edit-icon position-absolute end-0 top-50 translate-middle-y" data-field="direction" data-trade-index="${index}" style="cursor:pointer; color:var(--muted); font-size:0.875rem;"></i>
+              </td>
+            </tr>
+            <tr>
+              <td class="fw-semibold">Date</td>
+              <td class="editable-cell position-relative" id="dateCell_${index}">
+                <span class="value-span pe-2" data-field="date">${dateValue}</span>
+                <i class="bi bi-pencil edit-icon position-absolute end-0 top-50 translate-middle-y" data-field="date" data-trade-index="${index}" style="cursor:pointer; color:var(--muted); font-size:0.875rem;"></i>
+              </td>
+            </tr>
+            <tr>
+              <td class="fw-semibold">Session</td>
+              <td class="editable-cell position-relative" id="sessionCell_${index}">
+                <span class="value-span pe-2" data-field="session">${sessionValue}</span>
+                <i class="bi bi-pencil edit-icon position-absolute end-0 top-50 translate-middle-y" data-field="session" data-trade-index="${index}" style="cursor:pointer; color:var(--muted); font-size:0.875rem;"></i>
+              </td>
+            </tr>
+            <tr>
+              <td class="fw-semibold">Position Size</td>
+              <td class="editable-cell position-relative" id="sizeCell_${index}">
+                <span class="value-span pe-2" data-field="size">${sizeValue}</span>
+                <i class="bi bi-pencil edit-icon position-absolute end-0 top-50 translate-middle-y" data-field="size" data-trade-index="${index}" style="cursor:pointer; color:var(--muted); font-size:0.875rem;"></i>
+              </td>
+            </tr>
+            <tr>
+              <td class="fw-semibold">Leverage</td>
+              <td class="editable-cell position-relative" id="leverageCell_${index}">
+                <span class="value-span pe-2" data-field="leverage">${leverageValue}</span>
+                <i class="bi bi-pencil edit-icon position-absolute end-0 top-50 translate-middle-y" data-field="leverage" data-trade-index="${index}" style="cursor:pointer; color:var(--muted); font-size:0.875rem;"></i>
+              </td>
+            </tr>
+            <tr>
+              <td class="fw-semibold">Entry/Exit</td>
+              <td class="editable-cell position-relative" id="entryExitCell_${index}">
+                <span class="value-span pe-2" data-field="entryExit">${entryExit}</span>
+                <i class="bi bi-pencil edit-icon position-absolute end-0 top-50 translate-middle-y" data-field="entryExit" data-trade-index="${index}" style="cursor:pointer; color:var(--muted); font-size:0.875rem;"></i>
+              </td>
+            </tr>
+            <tr>
+              <td class="fw-semibold">SL / TP</td>
+              <td class="editable-cell position-relative" id="slTpCell_${index}">
+                <span class="value-span pe-2" data-field="slTp">${slTp}</span>
+                <i class="bi bi-pencil edit-icon position-absolute end-0 top-50 translate-middle-y" data-field="slTp" data-trade-index="${index}" style="cursor:pointer; color:var(--muted); font-size:0.875rem;"></i>
+              </td>
+            </tr>
+            <tr>
+              <td class="fw-semibold">Strategy</td>
+              <td class="editable-cell position-relative" id="strategyCell_${index}">
+                <span class="value-span pe-2" data-field="strategy">${strategyValue}</span>
+                <i class="bi bi-pencil edit-icon position-absolute end-0 top-50 translate-middle-y" data-field="strategy" data-trade-index="${index}" style="cursor:pointer; color:var(--muted); font-size:0.875rem;"></i>
+              </td>
+            </tr>
+            <tr>
+              <td class="fw-semibold">Risk %</td>
+              <td class="editable-cell position-relative" id="riskPctCell_${index}">
+                <span class="value-span pe-2" data-field="riskPct">${riskPctValue}</span>
+                <i class="bi bi-pencil edit-icon position-absolute end-0 top-50 translate-middle-y" data-field="riskPct" data-trade-index="${index}" style="cursor:pointer; color:var(--muted); font-size:0.875rem;"></i>
+              </td>
+            </tr>
+            <tr>
+              <td class="fw-semibold">Risk Amount</td>
+              <td class="editable-cell position-relative" id="riskAmtCell_${index}">
+                <span class="value-span pe-2" data-field="riskAmt">${riskAmtValue}</span>
+                <i class="bi bi-pencil edit-icon position-absolute end-0 top-50 translate-middle-y" data-field="riskAmt" data-trade-index="${index}" style="cursor:pointer; color:var(--muted); font-size:0.875rem;"></i>
+              </td>
+            </tr>
+            <tr>
+              <td class="fw-semibold">Reward Amount</td>
+              <td class="editable-cell position-relative" id="rewardAmtCell_${index}">
+                <span class="value-span pe-2" data-field="rewardAmt">${rewardAmtValue}</span>
+                <i class="bi bi-pencil edit-icon position-absolute end-0 top-50 translate-middle-y" data-field="rewardAmt" data-trade-index="${index}" style="cursor:pointer; color:var(--muted); font-size:0.875rem;"></i>
+              </td>
+            </tr>
+            <tr>
+              <td class="fw-semibold">R:R Ratio</td>
+              <td class="editable-cell position-relative" id="rrCell_${index}">
+                <span class="value-span pe-2" data-field="rr">${rrValue}</span>
+                <i class="bi bi-pencil edit-icon position-absolute end-0 top-50 translate-middle-y" data-field="rr" data-trade-index="${index}" style="cursor:pointer; color:var(--muted); font-size:0.875rem;"></i>
+              </td>
+            </tr>
+            <tr>
+              <td class="fw-semibold">Notes</td>
+              <td class="editable-cell position-relative" style="min-width:250px;" id="notesCell_${index}">
+                <span class="value-span pe-2" data-field="notes">${notesValue}</span>
+                <i class="bi bi-pencil edit-icon position-absolute end-0 top-50 translate-middle-y" data-field="notes" data-trade-index="${index}" style="cursor:pointer; color:var(--muted); font-size:0.875rem;"></i>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="ai-suggestion" id="aiSuggestion_${index}">
+          <i class="bi bi-lightbulb text-primary"></i> AI Tip: ${data.suggestion || 'No suggestion available.'}
+        </div>
+      </div>
+    `;
+    return div.firstElementChild;
+  }
+  
+  // Inline editing functions
+  function handleEditClick(e) {
+    e.stopPropagation();
+    const field = e.target.dataset.field;
+    const tradeIndex = parseInt(e.target.dataset.tradeIndex);
+    const cell = e.target.parentNode;
+    const dataKey = getDataKey(field);
+    let currentValue;
+    if (dataKey && !['entryExit', 'slTp'].includes(field)) {
+      currentValue = extractedData[tradeIndex][dataKey];
+    } else {
+      currentValue = getDisplayValue(field, extractedData[tradeIndex]);
+    }
+    showInlineEditor(field, tradeIndex, cell, currentValue);
+  }
+  
+  function showInlineEditor(field, index, cell, currentValue) {
+    const config = getFieldConfig(field);
+    const originalHTML = cell.innerHTML;
+    cell.dataset.originalHTML = originalHTML;
+
+    let input;
+    if (config.type === 'select') {
+      input = document.createElement('select');
+      input.className = 'form-select form-select-sm d-inline-block w-auto';
+      config.options.forEach(opt => {
+        const option = document.createElement('option');
+        option.value = opt.value;
+        option.textContent = opt.text || opt.value;
+        if (opt.value === currentValue) option.selected = true;
+        input.appendChild(option);
+      });
+    } else if (config.type === 'number') {
+      input = document.createElement('input');
+      input.type = 'number';
+      input.className = 'form-control form-control-sm d-inline-block w-auto';
+      input.value = currentValue || '';
+      if (config.min) input.min = config.min;
+      if (config.max) input.max = config.max;
+      if (config.step) input.step = config.step;
+    } else if (config.type === 'datetime-local') {
+      input = document.createElement('input');
+      input.type = 'datetime-local';
+      input.className = 'form-control form-control-sm d-inline-block w-auto';
+      input.value = currentValue ? new Date(currentValue + 'Z').toISOString().slice(0, 16) : '';
+    } else if (config.type === 'textarea') {
+      input = document.createElement('textarea');
+      input.className = 'form-control form-control-sm';
+      input.rows = 2;
+      input.style.width = '100%';
+      input.value = currentValue || '';
+    } else {
+      input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'form-control form-control-sm d-inline-block w-auto';
+      input.value = currentValue || '';
+    }
+
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'btn btn-sm btn-success ms-1';
+    saveBtn.innerHTML = '<i class="bi bi-check"></i>';
+    saveBtn.onclick = () => saveInlineEdit(field, index, input.value, cell);
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'btn btn-sm btn-secondary ms-1';
+    cancelBtn.innerHTML = '<i class="bi bi-x"></i>';
+    cancelBtn.onclick = () => cancelInlineEdit(cell);
+
+    input.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        saveInlineEdit(field, index, input.value, cell);
       }
     });
-    
-    function showErrorToast(message) {
-      const errorToast = new bootstrap.Toast(document.getElementById('errorToast'));
-      document.getElementById('errorToast').querySelector('.toast-body').innerHTML = `<i class="bi bi-x-circle-fill me-2"></i>${message}`;
-      errorToast.show();
+
+    cell.innerHTML = '';
+    if (config.type === 'textarea') {
+      cell.appendChild(input);
+    } else {
+      cell.appendChild(input);
+      cell.appendChild(saveBtn);
+      cell.appendChild(cancelBtn);
     }
-    
-    // Reset on modal hide
-    reviewModalEl.addEventListener('hidden.bs.modal', () => {
-      files = [];
-      extractedData = [];
-      document.getElementById('tradesContainer').innerHTML = '';
-      renderThumbnails();
-      checkUploadLimit();
-      sessionSelect.value = 'Session: Auto-detect';
-      strategySelect.value = 'Strategy: From profile';
+    input.focus();
+  }
+  
+  function saveInlineEdit(field, index, rawNewVal, cell) {
+    let success = true;
+    let displayVal = 'N/A';
+
+    switch (field) {
+      case 'asset':
+        const assetVal = rawNewVal.trim();
+        if (!assetVal) success = false;
+        else {
+          extractedData[index].symbol = assetVal;
+          displayVal = assetVal;
+          const inferred = inferAssetType(assetVal);
+          if (inferred) extractedData[index].asset_type = inferred;
+        }
+        break;
+      case 'assetType':
+        const type = rawNewVal.toLowerCase();
+        if (!['forex', 'crypto'].includes(type)) success = false;
+        else {
+          extractedData[index].asset_type = type;
+          displayVal = type.charAt(0).toUpperCase() + type.slice(1);
+        }
+        break;
+      case 'direction':
+        const dir = rawNewVal.toUpperCase();
+        if (!['LONG', 'SHORT'].includes(dir)) success = false;
+        else {
+          extractedData[index].direction = dir;
+          displayVal = dir;
+        }
+        break;
+      case 'date':
+        const dateStr = rawNewVal;
+        if (!dateStr) {
+          extractedData[index].trade_date = null;
+          displayVal = 'N/A';
+        } else {
+          const date = new Date(dateStr + ':00');
+          if (isNaN(date.getTime())) success = false;
+          else {
+            extractedData[index].trade_date = date.toISOString();
+            displayVal = new Date(extractedData[index].trade_date).toLocaleString();
+          }
+        }
+        break;
+      case 'session':
+        extractedData[index].session = rawNewVal || '';
+        extractedData[index]._user_overridden = true;
+        displayVal = extractedData[index].session || 'N/A';
+        break;
+      case 'size':
+        const sizeNum = parseFloat(rawNewVal);
+        if (isNaN(sizeNum) || sizeNum <= 0) success = false;
+        else {
+          extractedData[index].position_size = sizeNum;
+          displayVal = getDisplayValue('size', extractedData[index]);
+        }
+        break;
+      case 'leverage':
+        const levNum = parseFloat(rawNewVal);
+        if (isNaN(levNum) || levNum < 1 || levNum > 100) success = false;
+        else {
+          extractedData[index].leverage = levNum;
+          displayVal = getDisplayValue('leverage', extractedData[index]);
+        }
+        break;
+      case 'entryExit':
+        success = updateEntryExit(rawNewVal, index);
+        if (success) displayVal = getDisplayValue('entryExit', extractedData[index]);
+        break;
+      case 'slTp':
+        success = updateSLTP(rawNewVal, index);
+        if (success) displayVal = getDisplayValue('slTp', extractedData[index]);
+        break;
+      case 'strategy':
+        extractedData[index].strategy = rawNewVal;
+        extractedData[index]._user_overridden = true;
+        displayVal = getDisplayValue('strategy', extractedData[index]);
+        break;
+      case 'riskPct':
+        const riskPctNum = parseFloat(rawNewVal);
+        if (isNaN(riskPctNum) || riskPctNum < 0 || riskPctNum > 100) success = false;
+        else {
+          extractedData[index].risk_percentage = riskPctNum;
+          displayVal = getDisplayValue('riskPct', extractedData[index]);
+        }
+        break;
+      case 'riskAmt':
+        const riskAmtNum = parseFloat(rawNewVal);
+        if (isNaN(riskAmtNum) || riskAmtNum < 0) success = false;
+        else {
+          extractedData[index].risk_amount = riskAmtNum;
+          displayVal = getDisplayValue('riskAmt', extractedData[index]);
+        }
+        break;
+      case 'rewardAmt':
+        const rewardAmtNum = parseFloat(rawNewVal);
+        if (isNaN(rewardAmtNum) || rewardAmtNum < 0) success = false;
+        else {
+          extractedData[index].reward_amount = rewardAmtNum;
+          displayVal = getDisplayValue('rewardAmt', extractedData[index]);
+        }
+        break;
+      case 'rr':
+        const rrNum = parseFloat(rawNewVal);
+        if (isNaN(rrNum) || rrNum <= 0) success = false;
+        else {
+          extractedData[index].r_r_ratio = rrNum;
+          displayVal = getDisplayValue('rr', extractedData[index]);
+        }
+        break;
+      case 'notes':
+        const notesVal = rawNewVal.trim();
+        extractedData[index].notes = notesVal;
+        displayVal = getDisplayValue('notes', extractedData[index]);
+        break;
+    }
+
+    if (success) {
+      cell.innerHTML = `<span class="value-span pe-2">${displayVal}</span><i class="bi bi-pencil edit-icon position-absolute end-0 top-50 translate-middle-y" data-field="${field}" data-trade-index="${index}" style="cursor:pointer; color:var(--muted); font-size:0.875rem;"></i>`;
+      cell.querySelector('.edit-icon').addEventListener('click', handleEditClick);
+      if (needsReRender(field)) {
+        reRenderSection(index);
+      }
+    } else {
+      cancelInlineEdit(cell);
+      showErrorToast(`Invalid value for ${field.replace(/([A-Z])/g, ' $1').trim()}.`);
+    }
+  }
+  
+  function cancelInlineEdit(cell) {
+    cell.innerHTML = cell.dataset.originalHTML;
+    cell.querySelector('.edit-icon').addEventListener('click', handleEditClick);
+  }
+  
+  function reRenderSection(index) {
+    const container = document.getElementById('tradesContainer');
+    const offset = extractedData.every(d => d._is_partial) ? 1 : 0;
+    const oldSection = container.children[index + offset];
+    const newSection = createTradeSection(extractedData[index], index);
+    container.replaceChild(newSection, oldSection);
+    attachEditListeners();
+  }
+  
+  function attachEditListeners() {
+    document.querySelectorAll('#reviewModal .edit-icon').forEach(icon => {
+      icon.addEventListener('click', handleEditClick);
     });
-    
-    // Initial load
-    document.addEventListener('DOMContentLoaded', () => {
-      fetchUploadLimits();  // Load limits first
-      fetchMonthlyUploads();  // Then uploads (to compute remaining)
+  }
+  
+  function inferAssetType(symbol) {
+    if (!symbol) return null;
+    const symbolUpper = symbol.toUpperCase();
+    const forexPairs = ['EUR', 'USD', 'GBP', 'JPY', 'AUD', 'CAD', 'CHF', 'NZD'];
+    if (forexPairs.some(pair => symbolUpper.includes(pair)) && symbolUpper.includes('/')) {
+      return 'forex';
+    }
+    if (['BTC', 'ETH', 'USDT', 'USDC'].some(crypto => symbolUpper.includes(crypto))) {
+      return 'crypto';
+    }
+    return null;
+  }
+  
+  function updateEntryExit(newValue, tradeIndex) {
+    const match = newValue.match(/\$?([\d.,]+)(k|m)?\s*\/\s*\$?([\d.,]+)(k|m)?\s*\((\+?-?\d+(?:\.\d+)?)%\)/i);
+    if (!match) {
+      showErrorToast('Invalid Entry/Exit format. Please use: 1.0850 / 1.0900 (+2%)');
+      return false;
+    }
+    let entry = parseFloat(match[1].replace(/,/g, ''));
+    const entryUnit = match[2] ? match[2].toLowerCase() : '';
+    if (entryUnit === 'k') entry *= 1000;
+    else if (entryUnit === 'm') entry *= 1000000;
+
+    let exit_p = parseFloat(match[3].replace(/,/g, ''));
+    const exitUnit = match[4] ? match[4].toLowerCase() : '';
+    if (exitUnit === 'k') exit_p *= 1000;
+    else if (exitUnit === 'm') exit_p *= 1000000;
+
+    const pnl = parseFloat(match[5]);
+
+    extractedData[tradeIndex].entry_price = entry;
+    extractedData[tradeIndex].exit_price = exit_p;
+    extractedData[tradeIndex].pnl = pnl;
+    return true;
+  }
+  
+  function updateSLTP(newValue, tradeIndex) {
+    const match = newValue.match(/\$?([\d.,]+)(k|m)?\s*\/\s*\$?([\d.,]+)(k|m)?/i);
+    if (!match) {
+      showErrorToast('Invalid SL/TP format. Please use: 1.0900 / 1.0750');
+      return false;
+    }
+    let sl = parseFloat(match[1].replace(/,/g, ''));
+    const slUnit = match[2] ? match[2].toLowerCase() : '';
+    if (slUnit === 'k') sl *= 1000;
+    else if (slUnit === 'm') sl *= 1000000;
+
+    let tp = parseFloat(match[3].replace(/,/g, ''));
+    const tpUnit = match[4] ? match[4].toLowerCase() : '';
+    if (tpUnit === 'k') tp *= 1000;
+    else if (tpUnit === 'm') tp *= 1000000;
+
+    extractedData[tradeIndex].sl_price = sl;
+    extractedData[tradeIndex].tp_price = tp;
+    // Recalc R:R, amounts if possible
+    const entry = extractedData[tradeIndex].entry_price;
+    const posSize = extractedData[tradeIndex].position_size || 1;
+    const dir = extractedData[tradeIndex].direction?.toLowerCase() || 'long';
+    const assetType = extractedData[tradeIndex].asset_type || 'forex';
+    if (entry) {
+      let riskDist, rewardDist;
+      if (dir === 'long') {
+        riskDist = entry - sl;
+        rewardDist = tp - entry;
+      } else {
+        riskDist = sl - entry;
+        rewardDist = entry - tp;
+      }
+      if (riskDist > 0) {
+        const rr = rewardDist / riskDist;
+        extractedData[tradeIndex].r_r_ratio = rr;
+        const pipValue = assetType === 'forex' ? 10.0 : 1.0; // $10/lot for forex, $1/unit for crypto
+        extractedData[tradeIndex].risk_amount = posSize * Math.abs(riskDist) * pipValue;
+        extractedData[tradeIndex].reward_amount = posSize * rewardDist * pipValue;
+      }
+    }
+    return true;
+  }
+  
+  function formatEntryExit(entry, exit_p, pnl) {
+    if (!entry || exit_p === null || pnl === null) return 'N/A';
+    return `${entry.toFixed(4)} / ${exit_p ? exit_p.toFixed(4) : 'N/A'} (${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}%)`;
+  }
+  
+  function formatSLTP(sl, tp, entry, direction) {
+    if (!sl || !tp || !entry || !direction) return 'N/A';
+    const slDist = direction.toLowerCase() === 'short' ? `+${((sl - entry)/entry*100).toFixed(2)}%` : `-${((entry - sl)/entry*100).toFixed(2)}%`;
+    const tpDist = direction.toLowerCase() === 'short' ? `-${((entry - tp)/entry*100).toFixed(2)}%` : `+${((tp - entry)/entry*100).toFixed(2)}%`;
+    return `${sl.toFixed(4)} ${slDist} / ${tp.toFixed(4)} ${tpDist}`;
+  }
+  
+  // Save: Call backend /save_batch
+  document.getElementById('saveTradeBtn').addEventListener('click', async () => {
+    if (!extractedData || extractedData.length === 0) return;
+
+    const allData = extractedData.map(trade => ({ ...trade }));
+    allData.forEach(trade => {
+      // Ensure asset_type is lowercase for backend
+      if (trade.asset_type) {
+        trade.asset_type = trade.asset_type.toLowerCase();
+      }
+      // Ensure leverage is a number or null
+      if (trade.leverage !== undefined && (isNaN(trade.leverage) || trade.leverage < 1 || trade.leverage > 100)) {
+        trade.leverage = null;
+      }
     });
-    </script>
-    {% endblock %}
+
+    try {
+      const res = await fetch('/upload/save_batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(allData),
+        credentials: 'include'
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        if (res.status === 422) {
+          let errorMsg = errorData.detail?.message || 'Validation error';
+          if (errorData.detail?.errors && errorData.detail.errors.length > 0) {
+            errorMsg += ': ' + errorData.detail.errors.map(e => {
+              let tradeError = Array.isArray(e.error) ? e.error.map(err => {
+                const loc = Array.isArray(err.loc) ? err.loc.join('.') : err.loc;
+                return `${loc}: ${err.msg}`;
+              }).join('; ') : e.error;
+              return `Trade ${e.index + 1}: ${tradeError}`;
+            }).join('; ');
+          }
+          showErrorToast(errorMsg);
+        } else {
+          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
+        return;
+      }
+      bootstrap.Modal.getInstance(reviewModalEl).hide();
+      const toastBody = document.getElementById('saveToast').querySelector('.toast-body');
+      toastBody.innerHTML = `<i class="bi bi-check-circle-fill"></i> ${allData.length} trades logged successfully!`;
+      const saveToast = new bootstrap.Toast(document.getElementById('saveToast'), { delay: 2000 });
+      saveToast.show();
+      // Refresh upload count after save
+      setTimeout(() => {
+        fetchMonthlyUploads();
+        window.location.href = '/journal';
+      }, 1000);
+    } catch (err) {
+      showErrorToast(err.message || 'Save failed');
+    }
+  });
+  
+  function showErrorToast(message) {
+    const errorToast = new bootstrap.Toast(document.getElementById('errorToast'));
+    document.getElementById('errorToast').querySelector('.toast-body').innerHTML = `<i class="bi bi-x-circle-fill me-2"></i>${message}`;
+    errorToast.show();
+  }
+  
+  // Reset on modal hide
+  reviewModalEl.addEventListener('hidden.bs.modal', () => {
+    files = [];
+    extractedData = [];
+    document.getElementById('tradesContainer').innerHTML = '';
+    renderThumbnails();
+    checkUploadLimit();
+    sessionSelect.value = 'Session: Auto-detect';
+    strategySelect.value = 'Strategy: From profile';
+  });
+  
+  // Initial load
+  async function init() {
+    await fetchUploadLimits();
+    await fetchMonthlyUploads();
+    tpBalance = await fetchTPBalance();
+    updateUploadInfo();
+    updateUploadBadge();
+  }
+  document.addEventListener('DOMContentLoaded', init);
+</script>
+{% endblock %}

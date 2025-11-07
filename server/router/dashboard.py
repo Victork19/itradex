@@ -1,8 +1,9 @@
+# Updated router/dashboard.py
 import logging
 from fastapi import APIRouter, Request, Depends, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, case
+from sqlalchemy import select, func, case, desc
 from sqlalchemy.orm import aliased
 from typing import Optional
 from collections import defaultdict
@@ -11,7 +12,7 @@ from datetime import datetime, timedelta, date  # ← ADD: date for expiry compa
 from auth import get_current_user_optional
 from database import get_session
 from models.models import (
-    User, Trade, Subscription, EligibilityConfig
+    User, Trade, Subscription, EligibilityConfig, Referral, BetaInvite, BetaConfig  # ← ADD: BetaConfig
 )
 from templates_config import templates
 
@@ -32,6 +33,9 @@ async def dashboard(
     if not current_user:
         return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
 
+    # FIXED: Ensure fresh user data by refreshing from DB (resolves stale TP balance after uploads)
+    await db.refresh(current_user)
+
     needs_onboarding = not current_user.trading_style
     if needs_onboarding:
         return RedirectResponse(url="/onboard", status_code=status.HTTP_303_SEE_OTHER)
@@ -50,6 +54,12 @@ async def dashboard(
     now = datetime.utcnow()
     now_date = now.date()  # ← ADD: For expiry date comparison
 
+    # FIXED: Use FIXED capital for % calcs (avoids distortion from running balance)
+    # If initial_deposit is None, fallback to 10000
+    fixed_capital = current_user.initial_deposit or 10000.0
+    # Keep running balance for display elsewhere if needed
+    assumed_capital = current_user.account_balance or fixed_capital  # For any absolute displays
+
     # --- Fetch User's Trades ---
     result = await db.execute(
         select(Trade)
@@ -61,33 +71,31 @@ async def dashboard(
     first_name = current_user.full_name.split()[0] if current_user.full_name else 'Trader'
     greeting = f"Hey {first_name},"
 
-    assumed_capital = 10000
-
-    # --- PNL Calculations ---
+    # --- PNL Calculations (FIXED: pnl is $; sum $ for value, compute % from $/capital) ---
     day_ago = now - timedelta(days=1)
     daily_trades = [t for t in trades if t.created_at >= day_ago]
-    daily_pnl = sum(t.pnl or 0 for t in daily_trades)
-    daily_percent = round((daily_pnl / assumed_capital * 100), 1) if assumed_capital else 0
+    daily_pnl_dollars = sum(t.pnl or 0 for t in daily_trades)  # Sum $
+    daily_percent = round((daily_pnl_dollars / fixed_capital * 100), 1) if fixed_capital else 0
     todays_edge = daily_percent
 
     week_ago = now - timedelta(weeks=1)
     weekly_trades = [t for t in trades if t.created_at >= week_ago]
-    weekly_pnl = sum(t.pnl or 0 for t in weekly_trades)
-    weekly_percent = round((weekly_pnl / assumed_capital * 100), 1) if assumed_capital else 0
+    weekly_pnl_dollars = sum(t.pnl or 0 for t in weekly_trades)
+    weekly_percent = round((weekly_pnl_dollars / fixed_capital * 100), 1) if fixed_capital else 0
 
     month_ago = now - timedelta(days=30)
     monthly_trades = [t for t in trades if t.created_at >= month_ago]
-    monthly_pnl = sum(t.pnl or 0 for t in monthly_trades)
-    monthly_percent = round((monthly_pnl / assumed_capital * 100), 1) if assumed_capital else 0
+    monthly_pnl_dollars = sum(t.pnl or 0 for t in monthly_trades)
+    monthly_percent = round((monthly_pnl_dollars / fixed_capital * 100), 1) if fixed_capital else 0
 
-    # --- PNL Summary ---
+    # --- PNL Summary (value: $; percent: %) ---
     pnl_summary = {
-        'daily': {'value': daily_pnl, 'percent': daily_percent},
-        'weekly': {'value': weekly_pnl, 'percent': weekly_percent},
-        'monthly': {'value': monthly_pnl, 'percent': monthly_percent},
+        'daily': {'value': round(daily_pnl_dollars, 0), 'percent': daily_percent},
+        'weekly': {'value': round(weekly_pnl_dollars, 0), 'percent': weekly_percent},
+        'monthly': {'value': round(monthly_pnl_dollars, 0), 'percent': monthly_percent},
     }
 
-    # --- PNL History (Last 5 periods) ---
+    # --- PNL History (Last 5 periods: $ values for sparkline) ---
     def get_history(period):
         if period == 'daily':
             deltas = [timedelta(days=i) for i in range(5)]
@@ -103,7 +111,8 @@ async def dashboard(
             start = now - delta - period_delta
             end = now - delta
             period_trades = [t for t in trades if start <= t.created_at < end]
-            history.append(sum(t.pnl or 0 for t in period_trades))
+            period_pnl_dollars = sum(t.pnl or 0 for t in period_trades)  # FIXED: Sum $
+            history.append(round(period_pnl_dollars, 0))
         return history
 
     pnl_history = {
@@ -112,7 +121,7 @@ async def dashboard(
         'monthly': get_history('monthly')
     }
 
-    # --- Session Analysis ---
+    # --- Session Analysis (FIXED: avg_pnl as $ string, not %; trend cumulative $) ---
     session_config = {
         'sydney': {'display': 'Sydney', 'icon': 'bi-sun'},
         'tokyo': {'display': 'Tokyo', 'icon': 'bi-moon'},
@@ -140,28 +149,28 @@ async def dashboard(
         'ny': 'Power hour: momentum rules.',
         'other': 'Keep grinding!'
     }
-    assumed_position = 1000
     for key, data in sessions_dict.items():
         trades_list = data['trades']
         if not trades_list:
             continue
-        total_pnl = data['pnl']
+        total_pnl_dollars = data['pnl']  # FIXED: sum $ (was misnamed 'percent')
         wins = sum(1 for t in trades_list if t.pnl and t.pnl > 0)
         win_rate = round((wins / len(trades_list) * 100))
-        avg_pnl = total_pnl / len(trades_list)
-        avg_pnl_str = f"${avg_pnl:+.2f}"
+        avg_pnl_dollars = total_pnl_dollars / len(trades_list)  # FIXED: avg $
+        avg_pnl_str = f"${avg_pnl_dollars:+.2f}"  # FIXED: Display as $
 
+        # FIXED: Trend cumulative $ (matches spark scale)
         recent_trades = sorted(trades_list, key=lambda t: t.created_at)[-5:]
         trend = [0] * (5 - len(recent_trades))
         current = 0
         for t in recent_trades:
-            change = ((t.pnl or 0) / assumed_position * 100)
+            change = t.pnl or 0  # $
             current += change
             trend.append(round(current))
 
         last_trade = max(trades_list, key=lambda t: t.created_at)
-        pnl_str = f"{last_trade.pnl:+.2f}" if last_trade.pnl is not None else "N/A"
-        last_trade_str = f"{last_trade.symbol or 'N/A'} ${pnl_str}"
+        pnl_str = f"{last_trade.pnl:+.2f}" if last_trade.pnl is not None else "N/A"  # FIXED: $ not %
+        last_trade_str = f"{last_trade.symbol or 'N/A'} {pnl_str}"
         tip = tips.get(key, 'Keep it up!')
 
         sessions.append({
@@ -169,7 +178,7 @@ async def dashboard(
             'icon': session_config[key]['icon'],
             'trades': len(trades_list),
             'winRate': win_rate,
-            'avgPnL': avg_pnl_str,
+            'avgPnL': avg_pnl_str,  # Now "$+10.00"
             'trend': trend,
             'lastTrade': last_trade_str,
             'tip': tip
@@ -177,11 +186,35 @@ async def dashboard(
 
     sample_session = sessions[0] if sessions else {'name': 'your sessions', 'winRate': 0}
 
-    # --- Referrals ---
+    # --- Referrals - UPDATED: Focus on TP Only (No Commissions) ---
     referrals_count = (await db.execute(
         select(func.count()).select_from(User).where(User.referred_by == current_user.id)
     )).scalar() or 0
-    earned_analyses = referrals_count
+
+    # Query Referral table for TP earned
+    referrals_result = await db.execute(
+        select(Referral).where(Referral.referrer_id == current_user.id)
+    )
+    referrals = referrals_result.scalars().all()
+    total_tp_earned = sum(r.points_earned for r in referrals)
+    referral_tier = current_user.referral_tier
+
+    earned_analyses = referrals_count  # Legacy; can repurpose for TP if needed
+
+    # --- NEW: Beta Invites ---
+    invites_query = select(BetaInvite).where(BetaInvite.owner_id == current_user.id).order_by(desc(BetaInvite.created_at))
+    invites_result = await db.execute(invites_query)
+    beta_invites = invites_result.scalars().all()
+    available_beta_codes = [i.code for i in beta_invites if i.used_by_id is None]
+    used_beta_count = len(beta_invites) - len(available_beta_codes)
+    total_beta_invites = len(beta_invites)
+
+    # --- NEW: Fetch Beta Config ---
+    beta_config_result = await db.execute(select(BetaConfig).where(BetaConfig.id == 1))
+    beta_config = beta_config_result.scalar_one_or_none()
+    beta_active = beta_config.is_active if beta_config else False
+
+    logger.info(f"[DASHBOARD DEBUG] Beta active: {beta_active}")
 
     # --- Active Subscriptions (Platform + Marketplace) ---
     active_subs_result = await db.execute(
@@ -237,11 +270,11 @@ async def dashboard(
             Subscription.trader_id.is_not(None)
         )
     )
-    pending_marketplace_subs = pending_subs_result.scalars().all()
+    pending_subs = pending_subs_result.scalars().all()
 
     # --- Trader Status Dict (active + pending) ---
     trader_status = {}
-    for sub in all_active_subs + pending_marketplace_subs:
+    for sub in all_active_subs + pending_subs:
         if sub.trader_id:
             trader_status[sub.trader_id] = sub.status
 
@@ -284,10 +317,10 @@ async def dashboard(
     eligible_traders_result = await db.execute(eligible_traders_query)
     trader_rows = eligible_traders_result.all()
 
-    # --- Build Trader Cards ---
+    # --- Build Trader Cards (FIXED: total_pnl as sum $, trend as cumulative $) ---
     traders = []
     for row in trader_rows:
-        trader_id, full_name, strategy, computed_win_rate, total_trades, total_pnl, losses, marketplace_price = row
+        trader_id, full_name, strategy, computed_win_rate, total_trades, total_pnl_dollars, losses, marketplace_price = row
         if not full_name:
             continue
 
@@ -295,7 +328,7 @@ async def dashboard(
         trader_initials = (names[0][0].upper() +
                            (names[-1][0].upper() if len(names) > 1 else names[0][0].upper()))
 
-        # --- Trend: Last 5 PnL % ---
+        # --- Trend: Last 5 PnL $ (FIXED: Cumulative $ return) ---
         trend_result = await db.execute(
             select(func.coalesce(Trade.pnl, 0))
             .where(Trade.owner_id == trader_id)
@@ -306,7 +339,7 @@ async def dashboard(
         trend = [0] * (5 - len(recent_pnls))
         current = 0
         for pnl in reversed(recent_pnls):
-            current += (pnl / assumed_capital * 100)
+            current += pnl  # Already $
             trend.append(round(current))
 
         # --- Journal Tease ---
@@ -319,7 +352,7 @@ async def dashboard(
         last_note = note_result.scalar_one_or_none()
         journal_tease = (last_note[:100] + '...' if last_note else 'No journal yet.')
 
-        status = trader_status.get(trader_id)
+        sub_status = trader_status.get(trader_id)  # RENAMED: Avoid shadowing imported 'status'
 
         traders.append({
             'id': trader_id,
@@ -329,11 +362,11 @@ async def dashboard(
             'win_rate': round(computed_win_rate or 0, 1),
             'trades': total_trades or 0,
             'losses': losses or 0,
-            'pnl': total_pnl or 0,
+            'pnl': round(total_pnl_dollars, 0),  # Pass as total $; round to whole $ for display
             'trend': trend,
             'journal_tease': journal_tease,
             'monthly_price': marketplace_price or 19.99,
-            'status': status  # NEW: 'active', 'pending', or None
+            'status': sub_status  # Use renamed variable
         })
 
     recommendations = traders[:3]
@@ -352,7 +385,10 @@ async def dashboard(
     platform_discount = platform_config['percentage'] if is_active_discount(platform_config, now_date) else 0
     marketplace_discount = marketplace_config['percentage'] if is_active_discount(marketplace_config, now_date) else 0
 
-    logger.info(f"[DASHBOARD DEBUG] Discounts - Platform: {platform_discount}%, Marketplace: {marketplace_discount}%")  # ← ADD: For debugging
+    logger.info(f"[DASHBOARD DEBUG] Discounts - Platform: {platform_discount}%, Marketplace: {marketplace_discount}%" )  # ← ADD: For debugging
+
+    # --- FIXED: Coerce TP Balance to 0 if None (handles legacy NULLs) ---
+    points_balance = current_user.trade_points if current_user.trade_points is not None else 0
 
     # --- Render Template ---
     return templates.TemplateResponse(
@@ -371,10 +407,21 @@ async def dashboard(
             "referrals_count": referrals_count,
             "earned_analyses": earned_analyses,
             "active_subs": active_subs,
+            "pending_subs": pending_subs,
             "recommendations": recommendations,
             "traders": traders,
             "now": datetime.utcnow(),
             "platform_discount": platform_discount,
             "marketplace_discount": marketplace_discount,
+            # UPDATED: TP Data Only (No Commissions/Payouts in Referral Context)
+            "points_balance": points_balance,  # FIXED: Now coerced to 0
+            "referral_tier": referral_tier,
+            "total_tp_earned": total_tp_earned,
+            # NEW: Beta Invites Data
+            "available_beta_codes": available_beta_codes,
+            "used_beta_count": used_beta_count,
+            "total_beta_invites": total_beta_invites,
+            # UPDATED: Beta Active Flag from Config
+            "beta_active": beta_active,
         }
     )

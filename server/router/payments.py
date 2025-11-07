@@ -17,7 +17,7 @@ from sqlalchemy import select, update
 from config import settings
 from auth import get_current_user
 from database import get_session
-from models.models import User, Subscription, Payment, Pricing, Discount
+from models.models import User, Subscription, Payment, Pricing, Discount, PointTransaction, UpgradeTpConfig, BetaInvite
 import models  # For models.User in marketplace
 
 logger = logging.getLogger(__name__)
@@ -129,6 +129,27 @@ async def get_plan_amount(plan: str, interval: str, db: AsyncSession) -> float:
         raise HTTPException(status_code=500, detail=f"Price not configured for {plan} {interval}")
     return amount
 
+async def get_upgrade_tp_amount(base_plan: str, db: AsyncSession) -> int:
+    """Fetch upgrade TP amount for the plan from database."""
+    config_id = 1 if base_plan == 'pro' else 2
+    result = await db.execute(
+        select(UpgradeTpConfig.amount).where(
+            UpgradeTpConfig.plan == base_plan,
+            UpgradeTpConfig.id == config_id
+        )
+    )
+    amount = result.scalar()
+    return amount if amount is not None else 0
+
+async def has_used_beta_code(user_id: int, db: AsyncSession) -> bool:
+    """Check if the user signed up using a beta invite code."""
+    result = await db.execute(
+        select(BetaInvite.id).where(
+            BetaInvite.used_by_id == user_id
+        )
+    )
+    return result.scalar() is not None
+
 async def create_direct_invoice(amount: float, order_id: str, order_description: str, token: str, success_params: str = "") -> str:
     """Create a direct invoice for immediate payment (crypto-only)."""
     headers = get_invoice_headers(token)
@@ -214,14 +235,18 @@ async def create_subscription(
 
     amount = await get_plan_amount(plan, interval, db)
 
-    # Fetch discount
-    result_discount = await db.execute(
-        select(Discount).where(Discount.id == 1)
-    )
-    db_discount = result_discount.scalar_one_or_none()
+    # UPDATED: Fetch discount if user signed up with referral OR beta code
     perc = 0.0
-    if db_discount and db_discount.enabled and (not db_discount.expiry or db_discount.expiry > date.today()):
-        perc = db_discount.percentage
+    eligible_for_discount = current_user.referred_by is not None or await has_used_beta_code(current_user.id, db)
+    if eligible_for_discount:
+        result_discount = await db.execute(
+            select(Discount).where(Discount.id == 1)
+        )
+        db_discount = result_discount.scalar_one_or_none()
+        if db_discount and db_discount.enabled and (not db_discount.expiry or db_discount.expiry > date.today()):
+            perc = db_discount.percentage
+            discount_reason = "referral" if current_user.referred_by is not None else "beta_code"
+            logger.info(f"Applied {discount_reason} discount: {perc}% for user {current_user.id}")
 
     # Get monthly for calculation
     monthly_amount = await get_plan_amount(plan, 'monthly', db)
@@ -401,15 +426,18 @@ async def create_marketplace_subscription(
     if not trader or not trader.is_trader:
         raise HTTPException(status_code=404, detail="Trader not found or not available")
 
-    # FIXED: Fetch dynamic marketplace discount (id=2)
-    result_marketplace_discount = await db.execute(
-        select(Discount).where(Discount.id == 2)
-    )
-    db_marketplace_discount = result_marketplace_discount.scalar_one_or_none()
+    # UPDATED: Fetch marketplace discount if user signed up with referral OR beta code
     perc = 0.0
-    if db_marketplace_discount and db_marketplace_discount.enabled and (not db_marketplace_discount.expiry or db_marketplace_discount.expiry > date.today()):
-        perc = db_marketplace_discount.percentage
-    logger.info(f"[PAYMENTS DEBUG] Marketplace discount applied: {perc}% for trader {trader_id}, incoming amount: ${amount:.2f}")
+    eligible_for_discount = current_user.referred_by is not None or await has_used_beta_code(current_user.id, db)
+    if eligible_for_discount:
+        result_marketplace_discount = await db.execute(
+            select(Discount).where(Discount.id == 2)
+        )
+        db_marketplace_discount = result_marketplace_discount.scalar_one_or_none()
+        if db_marketplace_discount and db_marketplace_discount.enabled and (not db_marketplace_discount.expiry or db_marketplace_discount.expiry > date.today()):
+            perc = db_marketplace_discount.percentage
+            discount_reason = "referral" if current_user.referred_by is not None else "beta_code"
+            logger.info(f"[PAYMENTS DEBUG] Applied {discount_reason} marketplace discount: {perc}% for user {current_user.id}, trader {trader_id}, incoming amount: ${amount:.2f}")
 
     # FIXED: If amount matches original price, apply discount; else assume pre-discounted (from frontend)
     original_price = trader.marketplace_price or 19.99
@@ -753,6 +781,25 @@ async def nowpayments_webhook(request: Request, db: AsyncSession = Depends(get_s
             logger.info(f"[SUB UPDATE] Paused sub {db_sub.id} due to {payment_status}")
 
         db_sub.updated_at = datetime.utcnow()
+
+        # NEW: Grant TP on plan upgrade (only for platform plans, initial activation, not renewals/marketplace)
+        if payment_status == "finished" and not is_marketplace and "_renew" not in order_id:
+            base_plan = plan_type.split('_')[0]  # e.g., 'pro' or 'elite'
+            if base_plan in ['pro', 'elite']:
+                tp_amount = await get_upgrade_tp_amount(base_plan, db)
+                if tp_amount > 0:
+                    user = await db.get(User, user_id)
+                    if user:
+                        user.trade_points += tp_amount
+                        upgrade_tx = PointTransaction(
+                            user_id=user_id,
+                            type='plan_upgrade',
+                            amount=tp_amount,
+                            description=f"{base_plan.title()} plan upgrade bonus"
+                        )
+                        db.add(upgrade_tx)
+                        logger.info(f"Granted {tp_amount} TP for {base_plan} upgrade to user {user_id}")
+                        await db.commit()
 
         # Now update user if exists
         user = await db.get(User, user_id)

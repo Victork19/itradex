@@ -95,7 +95,11 @@
     .feature .desc {color:var(--muted); font-size:.925rem;}
     @keyframes slideUp{to{opacity:1; transform:translateY(0);}}
 
-    .google-btn {display:flex; align-items:center; justify-content:center; gap:10px; height:46px; border-radius:10px; border:1px solid var(--border); background:var(--surface); cursor:pointer; transition:.2s; font-weight:500;}
+    .google-btn {
+      display:flex; align-items:center; justify-content:center; gap:10px;
+      height:46px; border-radius:10px; border:1px solid var(--border);
+      background:var(--surface); cursor:pointer; transition:.2s; font-weight:500;
+    }
     .google-btn img {height:18px;}
     .google-btn:hover {transform:translateY(-2px); box-shadow:0 6px 20px rgba(47,107,255,0.2);}
 
@@ -108,188 +112,6 @@
       border:1px solid var(--border);
       box-shadow:var(--shadow);
       text-align:center;
-    }
-
-    /* Onboarding Wizard Styles */
-    .onboarding-modal {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0,0,0,0.5);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 1050;
-    }
-    .onboarding-content {
-      background: var(--surface);
-      border-radius: var(--radius);
-      max-width: 500px;
-      width: 90%;
-      max-height: 90vh;
-      overflow-y: auto;
-      box-shadow: var(--shadow);
-      position: relative;
-    }
-    .onboarding-header {
-      text-align: center;
-      padding: 32px 24px 0;
-    }
-    .onboarding-header h2 {
-      font-weight: 700;
-      margin-bottom: 8px;
-    }
-    .onboarding-header p {
-      color: var(--muted);
-      margin-bottom: 24px;
-    }
-    .progress-bar {
-      height: 4px;
-      background: var(--border);
-      border-radius: 2px;
-      margin-bottom: 24px;
-      overflow: hidden;
-    }
-    .progress-fill {
-      height: 100%;
-      background: var(--brand-500);
-      transition: width 0.3s ease;
-    }
-    .step-content {
-      padding: 0 24px 32px;
-      display: none;
-    }
-    .step-content.active {
-      display: block;
-    }
-    .psychology-card {
-      display: flex;
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-    .psych-zone-option {
-      flex: 1;
-      padding: 16px;
-      border: 2px solid var(--border);
-      border-radius: 12px;
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.2s;
-      background: transparent;
-    }
-    .psych-zone-option:hover,
-    .psych-zone-option.selected {
-      border-color: var(--brand-500);
-      background: rgba(47,107,255,0.08);
-    }
-    .psych-zone-option i {
-      font-size: 2rem;
-      display: block;
-      margin-bottom: 8px;
-    }
-    .psych-zone-option .title {
-      font-weight: 600;
-      margin-bottom: 4px;
-    }
-    .psych-zone-option .desc {
-      font-size: 0.875rem;
-      color: var(--muted);
-    }
-    .strategy-inputs {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-    .strategy-dropdown {
-      position: relative;
-    }
-    .strategy-options {
-      position: absolute;
-      top: 100%;
-      left: 0;
-      right: 0;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 0 0 12px 12px;
-      max-height: 200px;
-      overflow-y: auto;
-      z-index: 10;
-      display: none;
-    }
-    .strategy-option {
-      padding: 12px;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    .strategy-option:hover {
-      background: rgba(47,107,255,0.08);
-    }
-    .risk-sliders {
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
-    .risk-item {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .risk-item label {
-      font-weight: 600;
-      font-size: 0.95rem;
-    }
-    .slider-container {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .form-range {
-      flex: 1;
-      height: 6px;
-      border-radius: 3px;
-      background: var(--border);
-      accent-color: var(--brand-500);
-    }
-    .slider-value {
-      min-width: 50px;
-      text-align: right;
-      font-weight: 600;
-    }
-    .checkbox-group {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-    .form-check {
-      display: flex;
-      align-items: flex-start;
-      gap: 8px;
-    }
-    .onboarding-actions {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 24px;
-      padding-top: 24px;
-      border-top: 1px solid var(--border);
-    }
-    .btn-secondary-sm {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--muted);
-      padding: 8px 16px;
-      border-radius: 8px;
-      font-size: 0.875rem;
-    }
-    .trading-bg {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      opacity: 0.05;
-      pointer-events: none;
     }
 
     @media(max-width:900px){.card-wrap{grid-template-columns:1fr;}}
@@ -345,7 +167,7 @@
             <div class="fade-slide">
               <div class="onboarding-modal" id="onboardingModal">
                 <div class="onboarding-content">
-                  <div class="trading-bg" style="background-image: url('data:image/svg+xml;base64,...'); background-size: cover;"></div> <!-- Placeholder for subtle trading visual -->
+                  <div class="trading-bg" style="background-image: url('data:image/svg+xml;base64,...'); background-size: cover;"></div>
                   <div class="onboarding-header">
                     <h2>Quick Setup</h2>
                     <p>Tune your AI co-pilot. This takes 2 minutes.</p>
@@ -485,7 +307,6 @@
                 document.querySelector(`[data-step="${step}"]`).classList.add('active');
                 currentStep = step;
                 updateProgress();
-                // Enable/disable next btn based on validation
                 if (step === 2) checkStrategySelected();
               }
 
@@ -494,16 +315,13 @@
               }
 
               function completeOnboarding() {
-                // Collect data
                 const psychZone = document.querySelector('.psych-zone-option.selected')?.dataset.zone || '';
                 const strategy = document.getElementById('strategyInput').value;
                 const riskPerTrade = document.getElementById('riskPerTrade').value;
-                // ... collect other fields
-                // POST to /profile/onboard
                 fetch('/profile/onboard', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ psychZone, strategy, riskPerTrade /* etc */ })
+                  body: JSON.stringify({ psychZone, strategy, riskPerTrade })
                 }).then(res => res.json()).then(data => {
                   if (data.success) {
                     window.location.href = '/dashboard';
@@ -511,7 +329,6 @@
                 });
               }
 
-              // Psych zone selection
               document.querySelectorAll('.psych-zone-option').forEach(opt => {
                 opt.addEventListener('click', () => {
                   document.querySelectorAll('.psych-zone-option').forEach(o => o.classList.remove('selected'));
@@ -520,7 +337,6 @@
                 });
               });
 
-              // Strategy dropdown
               const strategyInput = document.getElementById('strategyInput');
               const strategyOptions = document.getElementById('strategyOptions');
               strategyInput.addEventListener('click', () => strategyOptions.style.display = 'block');
@@ -542,7 +358,6 @@
                 document.getElementById('nextBtn2').disabled = !strategyInput.value;
               }
 
-              // Risk sliders
               ['riskPerTrade', 'dailyLoss'].forEach(id => {
                 const slider = document.getElementById(id);
                 const valSpan = document.getElementById(id + 'Val');
@@ -584,9 +399,27 @@
               {% endif %}
 
               <div class="card-radius mb-3">
-                <div class="small-muted mb-1">Referral rewards</div>
-                <div style="font-weight:700; font-size:16px">Invite friends, unlock free AI analysis</div>
-                <div class="small-muted mt-1">Each successful referral grants both you and your friend 1 free AI analysis.</div>
+                <div class="small-muted mb-1">
+                  {% if beta_config.is_active and beta_config.required_for_signup %}
+                    Beta Access
+                  {% else %}
+                    Referral rewards
+                  {% endif %}
+                </div>
+                <div style="font-weight:700; font-size:16px">
+                  {% if beta_config.is_active and beta_config.required_for_signup %}
+                    Enter your invite code to get started
+                  {% else %}
+                    Invite friends, earn limited access to premium features
+                  {% endif %}
+                </div>
+                <div class="small-muted mt-1">
+                  {% if beta_config.is_active and beta_config.required_for_signup %}
+                    Limited beta spots available. Codes grant immediate access.
+                  {% else %}
+                    Each successful referral grants both you and your friend 1 free AI analysis.
+                  {% endif %}
+                </div>
               </div>
 
               <div class="auth-card">
@@ -602,21 +435,36 @@
                     <input name="username" type="text" class="form-control mb-2" placeholder="Username" required />
                     <input name="password" type="password" class="form-control mb-2" placeholder="Password" required minlength="8" />
                     <input name="password_confirm" type="password" class="form-control mb-2" placeholder="Confirm Password" required minlength="8" />
+                    
                     {% if ref_code %}
-                    <div class="mb-2">
-                      <label class="form-label small-muted">Referral code (from invite)</label>
-                      <input name="referral_code" type="text" class="form-control" value="{{ ref_code }}" readonly />
-                      <div class="small-muted mt-1">This code was auto-filled from your referral link.</div>
-                    </div>
+                      <div class="mb-2">
+                        <label class="form-label small-muted">
+                          {% if beta_config.is_active and beta_config.required_for_signup %}
+                            Beta invite code
+                          {% else %}
+                            Referral code
+                          {% endif %}
+                          (from invite)
+                        </label>
+                        <input name="referral_code" type="text" class="form-control" value="{{ ref_code }}" readonly />
+                        <div class="small-muted mt-1">This code was auto-filled from your link.</div>
+                      </div>
                     {% else %}
-                    <input name="referral_code" type="text" class="form-control mb-2" placeholder="Referral code (optional)" />
+                      <input 
+                        name="referral_code" 
+                        type="text" 
+                        class="form-control mb-2" 
+                        placeholder="{% if beta_config.is_active and beta_config.required_for_signup %}Beta invite code (required){% else %}Referral code (optional){% endif %}"
+                        {% if beta_config.is_active and beta_config.required_for_signup %}required{% endif %}
+                      />
                     {% endif %}
+                    
                     <button type="submit" id="btnCreate" class="btn btn-primary w-100 mb-2">Create account</button>
                     <div class="google-btn" id="btnGoogleSignup" role="button">
                       <img src="https://www.svgrepo.com/show/355037/google.svg" alt="Google"> Sign up with Google
                     </div>
                     <div style="text-align:center; margin-top:16px;">
-                      <a href="/plans.html" class="small-muted" style="text-decoration:underline;">See Plans & Pricing →</a>
+                      <a href="/plans.html" class="small-muted" style="text-decoration:underline;">See Plans & Pricing</a>
                     </div>
                   </form>
 
@@ -632,7 +480,7 @@
                       <img src="https://www.svgrepo.com/show/355037/google.svg" alt="Google"> Log in with Google
                     </div>
                     <div style="text-align:center; margin-top:16px;">
-                      <a href="/plans.html" class="small-muted" style="text-decoration:underline;">See Plans & Pricing →</a>
+                      <a href="/plans.html" class="small-muted" style="text-decoration:underline;">See Plans & Pricing</a>
                     </div>
                   </form>
                 </div>
@@ -653,10 +501,11 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    const tabSignup = document.getElementById('tabSignup'),
-          tabLogin = document.getElementById('tabLogin'),
-          signupForm = document.getElementById('signupForm'),
-          loginForm = document.getElementById('loginForm');
+    // Tab switching
+    const tabSignup = document.getElementById('tabSignup');
+    const tabLogin = document.getElementById('tabLogin');
+    const signupForm = document.getElementById('signupForm');
+    const loginForm = document.getElementById('loginForm');
 
     if (tabSignup && tabLogin && signupForm && loginForm) {
       tabSignup.addEventListener('click', () => {
@@ -674,25 +523,23 @@
       });
     }
 
+    // Google Sign Up → Prompt (beta or direct)
     const btnGoogleSignup = document.getElementById('btnGoogleSignup');
-    const btnGoogleLogin = document.getElementById('btnGoogleLogin');
     if (btnGoogleSignup) {
       btnGoogleSignup.addEventListener('click', () => {
-        const refInput = signupForm.querySelector('input[name="referral_code"]');
-        let url = '/users/google/login';
-        if (refInput && refInput.value.trim()) {
-          url += `?referral_code=${encodeURIComponent(refInput.value.trim())}`;
-        }
-        window.location.href = url;
+        window.location.href = '/users/google/prompt';
       });
     }
+
+    // Google Login → Direct
+    const btnGoogleLogin = document.getElementById('btnGoogleLogin');
     if (btnGoogleLogin) {
       btnGoogleLogin.addEventListener('click', () => {
         window.location.href = '/users/google/login';
       });
     }
 
-    // Password confirmation validation (frontend)
+    // Password match validation
     if (signupForm) {
       const passwordInput = signupForm.querySelector('input[name="password"]');
       const confirmInput = signupForm.querySelector('input[name="password_confirm"]');
@@ -706,9 +553,9 @@
         if (confirm && password !== confirm) {
           if (!passwordErrorDiv) {
             passwordErrorDiv = document.createElement('div');
-            passwordErrorDiv.className = 'alert alert-danger small';
+            passwordErrorDiv.className = 'alert alert-danger small mt-2';
             passwordErrorDiv.textContent = 'Passwords do not match.';
-            confirmInput.parentNode.insertBefore(passwordErrorDiv, confirmInput.nextSibling);
+            confirmInput.parentNode.appendChild(passwordErrorDiv);
           }
           submitBtn.disabled = true;
         } else {
@@ -724,21 +571,6 @@
 
       passwordInput.addEventListener('input', validatePasswords);
       confirmInput.addEventListener('input', validatePasswords);
-
-      signupForm.addEventListener('submit', (e) => {
-        const password = passwordInput.value;
-        const confirm = confirmInput.value;
-        if (password !== confirm) {
-          e.preventDefault();
-          if (!passwordErrorDiv) {
-            passwordErrorDiv = document.createElement('div');
-            passwordErrorDiv.className = 'alert alert-danger small';
-            passwordErrorDiv.textContent = 'Passwords do not match.';
-            confirmInput.parentNode.insertBefore(passwordErrorDiv, confirmInput.nextSibling);
-          }
-          return false;
-        }
-      });
     }
   </script>
 </body>

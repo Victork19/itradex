@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Beta Access Required</title>
+  <style>
+    body { font-family: system-ui; text-align: center; padding: 40px; background: #f8f9fa; }
+    .container { max-width: 400px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    input { width: 100%; padding: 12px; margin: 12px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; }
+    button { background: #4285f4; color: white; border: none; padding: 14px; border-radius: 8px; font-size: 16px; cursor: pointer; width: 100%; }
+    button:hover { background: #3367d6; }
+    .logo { width: 48px; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <img src="https://www.google.com/favicon.ico" class="logo" alt="Google">
+    <h2>Beta Access Required</h2>
+    <p>Please enter your invite code to continue with Google.</p>
+    <form action="/users/google/prompt-submit" method="post">
+      <input type="text" name="beta_code" placeholder="Enter invite code" required maxlength="12" />
+      <button type="submit">Continue with Google</button>
+    </form>
+  </div>
+</body>
+</html>

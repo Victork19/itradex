@@ -1,4 +1,4 @@
-<!-- subscriptions.html (updated with pagination, server-side filtering via query params, merged loop with conditionals) -->
+<!-- subscriptions.html (updated with payment cancellation for pending states and improved Need Help button) -->
 {% extends "base.html" %}
 {% block title %}My Subscriptions - iTrade Journal{% endblock %}
 {% block content %}
@@ -200,28 +200,37 @@
                       </div>
 
                     {% elif sub.status in ['pending', 'pending_renewal'] %}
-                      <div id="pay-action-{{ sub.id }}">
-                        {% if sub.pay_url %}
-                          <a href="{{ sub.pay_url }}" class="btn btn-success action-btn w-100" target="_blank">
-                            <i class="bi bi-credit-card me-1"></i> Pay Now
-                          </a>
-                        {% else %}
-                          <form hx-post="/subscriptions/{{ sub.id }}/renew"
-                                hx-target="#pay-action-{{ sub.id }}"
-                                hx-swap="innerHTML"
-                                hx-indicator="#pay-action-{{ sub.id }} .htmx-indicator"
-                                class="d-inline">
-                            <button class="btn btn-warning action-btn w-100" title="Generate a new invoice">
-                              <i class="bi bi-arrow-repeat me-1"></i> Regenerate Invoice
-                            </button>
-                            <div class="htmx-indicator d-flex align-items-center justify-content-center gap-2 text-muted small" style="display: none;">
-                              <div class="spinner-border spinner-border-sm text-warning" role="status">
-                                <span class="visually-hidden">Generating...</span>
+                      <div class="d-flex gap-2 w-100">
+                        <div id="pay-action-{{ sub.id }}" class="flex-grow-1">
+                          {% if sub.pay_url %}
+                            <a href="{{ sub.pay_url }}" class="btn btn-success action-btn w-100" target="_blank">
+                              <i class="bi bi-credit-card me-1"></i> Pay Now
+                            </a>
+                          {% else %}
+                            <form hx-post="/subscriptions/{{ sub.id }}/renew"
+                                  hx-target="#pay-action-{{ sub.id }}"
+                                  hx-swap="innerHTML"
+                                  hx-indicator="#pay-action-{{ sub.id }} .htmx-indicator"
+                                  class="d-inline w-100">
+                              <button class="btn btn-warning action-btn w-100" title="Generate a new invoice">
+                                <i class="bi bi-arrow-repeat me-1"></i> Regenerate Invoice
+                              </button>
+                              <div class="htmx-indicator d-flex align-items-center justify-content-center gap-2 text-muted small" style="display: none;">
+                                <div class="spinner-border spinner-border-sm text-warning" role="status">
+                                  <span class="visually-hidden">Generating...</span>
+                                </div>
+                                Generating new invoice...
                               </div>
-                              Generating new invoice...
-                            </div>
-                          </form>
-                        {% endif %}
+                            </form>
+                          {% endif %}
+                        </div>
+                        <button class="btn btn-outline-danger action-btn"
+                                hx-post="/subscriptions/{{ sub.id }}/cancel_payment"
+                                hx-confirm="{% if sub.status == 'pending' %}Cancel subscription and payment?{% else %}Cancel renewal and payment?{% endif %}"
+                                hx-target="closest .subscription-card"
+                                hx-swap="innerHTML">
+                          <i class="bi bi-x-circle me-1"></i> {% if sub.status == 'pending_renewal' %}Cancel Renewal{% else %}Cancel Payment{% endif %}
+                        </button>
                       </div>
 
                     {% elif sub.status == 'cancelled' %}
@@ -322,9 +331,11 @@
                 <button class="btn btn-success" onclick="alert('Export coming soon!')"><i class="bi bi-download me-2"></i> Export CSV</button>
               </div>
               <hr class="my-4">
-              <a href="mailto:support@itradex.xyz" class="btn btn-link text-muted d-block text-center">
+              <button class="btn btn-link text-muted d-block text-center w-100"
+                      onclick="handleNeedHelp();"
+                      style="text-align: inherit; padding: 0.5rem 0;">
                 <i class="bi bi-headset me-2"></i> Need Help?
-              </a>
+              </button>
             </div>
           </div>
         </div>
@@ -332,4 +343,34 @@
     {% endif %}
   </div></div>
 </main>
+
+<script>
+function handleNeedHelp() {
+  const email = 'support@itradex.xyz';
+  const subject = 'iTrade Journal Support Request';
+  const body = 'Hi, I need help with: \n\n(Describe your issue here)\n\nMy username: [your username]\nMy email: [your email]';
+  
+  // Try to open mailto first
+  const mailtoLink = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  window.location.href = mailtoLink;
+  
+  // Fallback: Copy email to clipboard and show webmail options
+  navigator.clipboard.writeText(email).then(() => {
+    // Show a brief success toast (customize as needed)
+    const toast = document.createElement('div');
+    toast.innerHTML = `
+      <div class="alert alert-info position-fixed" style="top: 20px; right: 20px; z-index: 9999; min-width: 250px;">
+        Email copied: ${email}<br>
+        <small><a href="https://mail.google.com/mail/?view=compose&to=${email}" target="_blank">Open in Gmail</a> | 
+        <a href="https://outlook.live.com/mail/0/deeplink/compose?to=${email}" target="_blank">Open in Outlook</a></small>
+      </div>
+    `;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 5000);
+  }).catch(err => {
+    // If clipboard fails (e.g., non-HTTPS), just prompt
+    alert(`Support email copied to clipboard: ${email}\n\nPaste into your email client.\n\nOr try: https://mail.google.com/mail/?view=compose&to=${email}`);
+  });
+}
+</script>
 {% endblock %}

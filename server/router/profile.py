@@ -1,4 +1,4 @@
-# /home/ukov/itrade/server/router/profile.py
+# Updated profile.py (full file with additions: has_password flag and computed_daily_limit)
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete, desc
@@ -136,9 +136,22 @@ async def get_profile(
     try:
         stats = await _compute_profile_stats(db, current_user.id)
         
+        # FIXED: Serialize created_at to ISO string for JSON compatibility
+        created_at_str = current_user.created_at.isoformat() if current_user.created_at else None
+        
+        # NEW: Compute derived fields
+        account_balance = getattr(current_user, "account_balance", 10000.0)
+        daily_loss_percent = getattr(current_user, "daily_loss_percent", 5.0)
+        computed_daily_limit = account_balance * (daily_loss_percent / 100)
+        
+        # NEW: Flag for password presence
+        has_password = current_user.password_hash is not None
+
         # Handle JSON fields if stored as strings
         def safe_json_getattr(obj, attr, default):
             val = getattr(obj, attr, default)
+            if val is None:  # FIXED: Explicitly default None to empty list
+                return default
             if isinstance(val, str):
                 try:
                     return json.loads(val) if val else default
@@ -146,14 +159,12 @@ async def get_profile(
                     return default
             return val
         
-        # FIXED: Serialize created_at to ISO string for JSON compatibility
-        created_at_str = current_user.created_at.isoformat() if current_user.created_at else None
-        
         return {
             "id": current_user.id,
             "username": current_user.username,
             "full_name": current_user.full_name,
             "email": current_user.email,
+            "has_password": has_password,  # NEW
             "bio": getattr(current_user, "bio", ""),
             "trading_style": getattr(current_user, "trading_style", ""),
             "goals": getattr(current_user, "goals", ""),
@@ -161,11 +172,12 @@ async def get_profile(
             "strategy": getattr(current_user, "strategy", ""),
             "strategy_desc": getattr(current_user, "strategy_desc", ""),
             "preferred_strategies": getattr(current_user, "preferred_strategies", "Momentum, Breakouts"),
-            "account_balance": getattr(current_user, "account_balance", 10000.0),
+            "account_balance": account_balance,
             "initial_deposit": getattr(current_user, "initial_deposit", 10000.0),
             "risk_per_trade": getattr(current_user, "risk_per_trade", 1.0),
-            "daily_loss_percent": getattr(current_user, "daily_loss_percent", 5.0),
+            "daily_loss_percent": daily_loss_percent,
             "daily_loss_limit": getattr(current_user, "daily_loss_limit", 500.0),
+            "computed_daily_limit": computed_daily_limit,  # NEW
             "stop_loss": getattr(current_user, "stop_loss", True),
             "no_revenge": getattr(current_user, "no_revenge", False),
             "notes": getattr(current_user, "notes", ""),
@@ -193,7 +205,7 @@ async def update_profile(
         field_map = {
             "psych_zone": ("psych_zone", lambda x: x),
             "preferred_strategies": ("preferred_strategies", lambda x: x),
-            "preferred_timeframes": ("preferred_timeframes", lambda x: json.dumps(x) if x else None),  # JSON serialize list
+            "preferred_timeframes": ("preferred_timeframes", lambda x: json.dumps(x or [])),  # FIXED: Ensures valid JSON, defaults to []
             "bio": ("bio", lambda x: x),
             "strategy": ("strategy", lambda x: x),
             "strategy_desc": ("strategy_desc", lambda x: x),
@@ -244,6 +256,8 @@ async def update_profile(
         # Handle JSON fields if stored as strings
         def safe_json_getattr(obj, attr, default):
             val = getattr(obj, attr, default)
+            if val is None:  # FIXED: Explicitly default None to empty list
+                return default
             if isinstance(val, str):
                 try:
                     return json.loads(val) if val else default
@@ -254,11 +268,20 @@ async def update_profile(
         # FIXED: Serialize created_at to ISO string for JSON compatibility
         created_at_str = current_user.created_at.isoformat() if current_user.created_at else None
         
+        # NEW: Compute derived fields after update
+        account_balance = getattr(current_user, "account_balance", 10000.0)
+        daily_loss_percent = getattr(current_user, "daily_loss_percent", 5.0)
+        computed_daily_limit = account_balance * (daily_loss_percent / 100)
+        
+        # NEW: Flag for password presence
+        has_password = current_user.password_hash is not None
+        
         response_data = {
             "id": current_user.id,
             "username": current_user.username,
             "full_name": current_user.full_name,
             "email": current_user.email,
+            "has_password": has_password,  # NEW
             "bio": getattr(current_user, "bio", ""),
             "trading_style": getattr(current_user, "trading_style", ""),
             "goals": getattr(current_user, "goals", ""),
@@ -266,11 +289,12 @@ async def update_profile(
             "strategy": getattr(current_user, "strategy", ""),
             "strategy_desc": getattr(current_user, "strategy_desc", ""),
             "preferred_strategies": getattr(current_user, "preferred_strategies", "Momentum, Breakouts"),
-            "account_balance": getattr(current_user, "account_balance", 10000.0),
+            "account_balance": account_balance,
             "initial_deposit": getattr(current_user, "initial_deposit", 10000.0),
             "risk_per_trade": getattr(current_user, "risk_per_trade", 1.0),
-            "daily_loss_percent": getattr(current_user, "daily_loss_percent", 5.0),
+            "daily_loss_percent": daily_loss_percent,
             "daily_loss_limit": getattr(current_user, "daily_loss_limit", 500.0),
+            "computed_daily_limit": computed_daily_limit,  # NEW
             "stop_loss": getattr(current_user, "stop_loss", True),
             "no_revenge": getattr(current_user, "no_revenge", False),
             "notes": getattr(current_user, "notes", ""),
@@ -325,7 +349,7 @@ async def onboard_profile(
                 stop_loss=onboard_data.stopLoss,
                 no_revenge=onboard_data.noRevenge,
                 notes=onboard_data.notes,
-                preferred_timeframes=onboard_data.timeframes or [],  # Pass list directly for JSON column
+                preferred_timeframes=json.dumps(onboard_data.timeframes or []),  # FIXED: Explicit JSON serialization
                 risk_tolerance=risk_tolerance,
                 preferred_strategies="Momentum, Breakouts",
                 recommendations={},  # Pass dict for JSON column

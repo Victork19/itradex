@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Admin{% endblock %}
-{% block extra_styles %}
-<style>
+{% block extra_styles %}<style>
   :root {
     --brand-500: #2F6BFF;
     --brand-600: #1F55E0;
     --success: #22C55E;
     --danger: #EF4444;
+    --warning: #F59E0B;
     --bg: #F8FAFC;
     --surface: #FFFFFF;
     --text: #1E293B;
@@ -197,6 +197,37 @@
   /* NEW: Beta Referral TP Form Styles */
   .beta-referral-tp-form-group { margin-bottom: 1rem; }
   .beta-referral-tp-input { width: 100px; display: inline-block; }
+
+  /* NEW: Waitlist Styles (integrated) */
+  .waitlist-section { margin-top: 2rem; border-top: 1px solid var(--border); padding-top: 2rem; }
+  .waitlist-card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--card-shadow); border: 1px solid var(--border); padding: 20px; margin-bottom: 1rem; }
+  .waitlist-toggle { cursor: pointer; font-weight: 600; color: var(--brand-500); }
+  .waitlist-content { display: none; }
+  .waitlist-content.show { display: block; }
+  .filters-row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: end; margin-bottom: 1rem; }
+  .filters-row .form-control, .filters-row .form-select { flex: 1; min-width: 150px; }
+  .bulk-actions { margin-bottom: 1rem; }
+  .bulk-actions .btn { margin-right: 0.5rem; }
+  .waitlist-actions { white-space: nowrap; }
+  .waitlist-actions .btn { margin-left: 0.25rem; }
+  .access-granted { color: var(--success); font-weight: 500; }
+  .access-code { background: var(--success); color: white; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 0.8rem; }
+  .position-badge { background: var(--brand-500); color: white; padding: 2px 8px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+  .progress-bar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--warning), var(--success)); transition: width 0.3s ease; }
+  .top-referrer { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .top-referrer:last-child { border-bottom: none; }
+  .top-referrer-name { color: var(--text); font-weight: 500; }
+  .top-referrer-count { color: var(--brand-500); font-weight: 600; }
+  .pagination { justify-content: center; }
+  .pagination .page-link { color: var(--brand-500); }
+  .pagination .page-item.active .page-link { background-color: var(--brand-500); border-color: var(--brand-500); }
+  .pagination .page-item.disabled .page-link { color: var(--muted); }
+  .ellipsis { display: inline-block; padding: 0 0.5rem; }
+  @media (max-width: 768px) { 
+    .filters-row { flex-direction: column; align-items: stretch; }
+    .filters-row .form-control, .filters-row .form-select { min-width: auto; }
+  }
 </style>
 {% endblock %}
 {% block content %}<main class="container-main">
@@ -207,7 +238,7 @@
     </div>
   </div>
 
-<!-- UPDATED STATS GRID (added Beta Invites) -->
+<!-- UPDATED STATS GRID (added Waitlist stats card) -->
 <section class="admin-grid mb-4 fade-up">
   <div class="admin-card">
     <h5><i class="bi bi-people-fill text-primary me-2"></i>Total Users</h5>
@@ -256,6 +287,26 @@
       <span class="stat-value">{{ used_beta_invites }}</span>
     </div>
     <button class="btn btn-outline-primary btn-sm mt-2" onclick="window.location.href='/admin/beta-invites'">View All</button>
+  </div>
+  <!-- NEW: Waitlist Stats Card -->
+  <div class="admin-card">
+    <h5><i class="bi bi-list-nested text-warning me-2"></i>Waitlist</h5>
+    <div class="stat-item">
+      <span class="stat-label">Total Entries</span>
+      <span class="stat-value">{{ total_waitlist }}</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">Verified</span>
+      <span class="stat-value">{{ verified_count }} ({{ verified_pct }}%)</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">Grants Issued</span>
+      <span class="stat-value">{{ access_grants_issued }}</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">Avg Referrals</span>
+      <span class="stat-value">{{ avg_referrals }}</span>
+    </div>
   </div>
   <div class="admin-card">
     <h5><i class="bi bi-credit-card text-info me-2"></i>Plan Distribution</h5>
@@ -900,24 +951,26 @@
     </button>
   </td>
 
-      <td>{{ user.referrals_count }}</td>
-      <td>${{ user.total_earnings }}</td>
-      <td>{{ user.points_balance }}</td>
-      <td>{{ user.total_invites }}</td>
-      <td>{{ user.available_invites }}</td>
-
-  <td>
+  <td>{{ user.referrals_count }}</td>
+  <td>${{ user.total_earnings }}</td>
+  <td>{{ user.points_balance }}</td>
+  <td>{{ user.total_invites }}</td>
+  <td>{{ user.available_invites }}</td>  <td>
     <select id="plan-{{ user.id }}" class="form-select form-select-sm d-inline-block w-auto" style="width:auto;">
       <option value="starter" {% if user.plan.lower().split()[0] == 'starter' %}selected{% endif %}>Starter</option>
       <option value="pro" {% if user.plan.lower().split()[0] == 'pro' %}selected{% endif %}>Pro</option>
       <option value="elite" {% if user.plan.lower().split()[0] == 'elite' %}selected{% endif %}>Elite</option>
     </select>
+    {% set is_paid_plan = user.plan.lower().split()[0] in ['pro', 'elite'] %}
+    <select id="interval-{{ user.id }}" class="form-select form-select-sm d-inline-block w-auto ms-1" style="width:auto; display: {{ 'inline-block' if is_paid_plan else 'none' }};">
+      <option value="monthly" selected>Monthly</option>
+      <option value="yearly">Yearly</option>
+    </select>
     <button onclick="updatePlan({{ user.id }})" class="btn btn-sm btn-primary btn-admin-sm ms-1">Update</button>
     
-    <button onclick="viewUserDetails({{ user.id }})" class="btn btn-sm btn-info btn-admin-sm w-100" data-bs-toggle="modal" data-bs-target="#userDetailsModal">
-      <i class="bi bi-eye"></i> Details
-    </button>
-  </td>
+<button onclick="viewUserDetails({{ user.id }})" class="btn btn-sm btn-info btn-admin-sm w-100" data-bs-toggle="modal" data-bs-target="#userDetailsModal">
+  <i class="bi bi-eye"></i> Details
+</button>  </td>
 </tr>
 {% endfor %}
 {% if not recent_users %}
@@ -966,9 +1019,7 @@
       </tbody>
     </table>
   </div></div>
-{% endif %}
-
-<!-- UPDATED: PENDING TRADER APPLICATIONS (added referrals and earnings from refs) -->
+{% endif %}<!-- UPDATED: PENDING TRADER APPLICATIONS (added referrals and earnings from refs) -->
 <div class="admin-card fade-up mb-4">
   <h5><i class="bi bi-clock-history text-warning me-2"></i>Pending Trader Applications</h5>
   <div class="table-responsive">
@@ -1084,6 +1135,144 @@
     </table>
   </div>
   <button class="btn btn-outline-primary btn-sm" onclick="window.location.href='/admin/points'">View All Points Transactions</button>
+</div>
+
+<!-- NEW: INTEGRATED WAITLIST MANAGEMENT SECTION -->
+<div class="waitlist-section fade-up">
+  <div class="waitlist-card">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5><i class="bi bi-list-nested text-primary me-2"></i>Waitlist Management ({{ total_entries }} total)</h5>
+      <button class="btn btn-outline-primary btn-sm waitlist-toggle" onclick="toggleWaitlist()">Expand/Collapse</button>
+    </div>
+    <div id="waitlistContent" class="waitlist-content show">
+      <!-- Filters -->
+      <form method="GET" action="/admin/waitlist" class="filters-row">
+        <input type="hidden" name="page" value="1">
+        <input type="text" name="search" class="form-control" placeholder="Search by Twitter or email..." value="{{ search or '' }}">
+        <select name="verified" class="form-select">
+          <option value="">All Verification Status</option>
+          <option value="true" {% if verified == true %}selected{% endif %}>Verified</option>
+          <option value="false" {% if verified == false %}selected{% endif %}>Unverified</option>
+        </select>
+        <select name="access_granted" class="form-select">
+          <option value="">All Access Status</option>
+          <option value="true" {% if access_granted == true %}selected{% endif %}>Access Granted</option>
+          <option value="false" {% if access_granted == false %}selected{% endif %}>Pending</option>
+        </select>
+        <button type="submit" class="btn btn-primary">Filter</button>
+        <a href="/admin/waitlist" class="btn btn-outline-secondary">Clear</a>
+      </form>
+      <div class="bulk-actions">
+        <button class="btn btn-success btn-sm" id="bulkGrantBtn" disabled><i class="bi bi-unlock me-1"></i>Bulk Grant Selected</button>
+      </div>
+      <!-- Table -->
+      <div class="table-responsive">
+        <table class="table table-admin table-hover">
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="selectAll"></th>
+              <th>Position</th>
+              <th>Twitter</th>
+              <th>Email</th>
+              <th>Referrals</th>
+              <th>Access Progress</th>
+              <th>Access Granted</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for entry in entries %}
+            <tr>
+              <td><input type="checkbox" class="entry-select" value="{{ entry.id }}" data-twitter="{{ entry.twitter }}"></td>
+              <td><span class="position-badge">#{{ entry.position }}</span></td>
+              <td><strong>@{{ entry.twitter or 'Anon' }}</strong></td>
+              <td>{{ entry.email or 'N/A' }}</td>
+              <td><span class="badge bg-info">{{ entry.referrals_count }}</span></td>
+              <td>
+                {% if entry.access_granted_at %}
+                  <span class="badge bg-success">100%</span>
+                {% else %}
+                  <div class="progress-bar" style="width: 100px;">
+                    <div class="progress-fill" style="width: {{ entry.access_progress }}%"></div>
+                  </div>
+                  <small class="text-muted">{{ entry.access_progress }}%</small>
+                {% endif %}
+              </td>
+              <td>
+                {% if entry.access_granted_at %}
+                  <span class="access-granted">Granted on {{ entry.access_granted_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                  {% if entry.access_code %}
+                    
+<span class="access-code">{{ entry.access_code }}</span>
+                  {% endif %}
+                {% else %}
+                  <span class="text-muted">Pending</span>
+                {% endif %}
+              </td>
+              <td class="waitlist-actions">
+                {% if entry.access_granted_at %}
+                  <button class="btn btn-outline-danger btn-sm btn-admin-sm" onclick="revokeAccess({{ entry.id }}, '@{{ entry.twitter or entry.email }}')">
+                    <i class="bi bi-lock"></i> Revoke
+                  </button>
+                {% else %}
+                  <button class="btn btn-success btn-sm btn-admin-sm" onclick="grantAccess({{ entry.id }}, '@{{ entry.twitter or entry.email }}')">
+                    <i class="bi bi-unlock"></i> Grant
+                  </button>
+                {% endif %}
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="text-center text-muted">No entries found{% if search %} for "{{ search }}"{% endif %}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <!-- Pagination -->
+      {% if pagination.pages > 1 %}
+      <nav aria-label="Waitlist pagination">
+        <ul class="pagination">
+          {% if pagination.has_prev %}
+          <li class="page-item">
+            <a class="page-link" href="?page={{ pagination.prev_num }}{% if search %}&search={{ search }}{% endif %}{% if verified %}&verified={{ verified }}{% endif %}{% if access_granted %}&access_granted={{ access_granted }}{% endif %}">Previous</a>
+          </li>
+          {% endif %}
+          {% for p in pagination.iter_pages() %}
+            {% if p %}
+              {% if p == pagination.page %}
+              <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+              {% else %}
+              <li class="page-item"><a class="page-link" href="?page={{ p }}{% if search %}&search={{ search }}{% endif %}{% if verified %}&verified={{ verified }}{% endif %}{% if access_granted %}&access_granted={{ access_granted }}{% endif %}">{{ p }}</a></li>
+              {% endif %}
+            {% else %}
+              <li class="page-item disabled"><span class="page-link ellipsis">...</span></li>
+            {% endif %}
+          {% endfor %}
+          {% if pagination.has_next %}
+          <li class="page-item">
+            <a class="page-link" href="?page={{ pagination.next_num }}{% if search %}&search={{ search }}{% endif %}{% if verified %}&verified={{ verified }}{% endif %}{% if access_granted %}&access_granted={{ access_granted }}{% endif %}">Next</a>
+          </li>
+          {% endif %}
+        </ul>
+      </nav>
+      {% endif %}
+    </div>
+  </div>
+  <!-- Top Referrers Sidebar (embedded) -->
+  <div class="row">
+    <div class="col-md-3">
+      <div class="waitlist-card">
+        <h5><i class="bi bi-trophy text-warning me-2"></i>Top Referrers (Top 10)</h5>
+        {% for referrer in top_referrers %}
+        <div class="top-referrer">
+          <span class="top-referrer-name">@{{ referrer.twitter }}</span>
+          <span class="top-referrer-count">{{ referrer.ref_count }} refs</span>
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-3">No referrers yet</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- TEST SUB MODAL (unchanged) -->
@@ -1275,19 +1464,31 @@
   document.getElementById('chatFab').style.display = 'none';
   document.getElementById('chatOffcanvas').style.display = 'none';
 
-  // Add Admin Nav Link
+  // Add Admin Nav Link (updated to include Waitlist sub-link)
   const desktopNav = document.querySelector('.navbar-nav.d-none.d-lg-flex');
   if (desktopNav) {
     const adminLi = document.createElement('li');
-    adminLi.className = 'nav-item';
-    adminLi.innerHTML = '<a class="nav-link active" href="/admin">Admin</a>';
+    adminLi.className = 'nav-item dropdown';
+    adminLi.innerHTML = `
+      <a class="nav-link active dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">Admin</a>
+      <ul class="dropdown-menu">
+        <li><a class="dropdown-item" href="/admin">Dashboard</a></li>
+        <li><a class="dropdown-item" href="/admin/waitlist">Waitlist</a></li>
+      </ul>
+    `;
     desktopNav.appendChild(adminLi);
   }
   const mobileNav = document.querySelector('.offcanvas-body .navbar-nav');
   if (mobileNav) {
     const mobileAdminLi = document.createElement('li');
-    mobileAdminLi.className = 'nav-item';
-    mobileAdminLi.innerHTML = '<a class="nav-link active" href="/admin">Admin</a>';
+    mobileAdminLi.className = 'nav-item dropdown';
+    mobileAdminLi.innerHTML = `
+      <a class="nav-link active dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">Admin</a>
+      <ul class="dropdown-menu">
+        <li><a class="dropdown-item" href="/admin">Dashboard</a></li>
+        <li><a class="dropdown-item" href="/admin/waitlist">Waitlist</a></li>
+      </ul>
+    `;
     mobileNav.appendChild(mobileAdminLi);
   }
 
@@ -1302,6 +1503,86 @@
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 3000);
   }
+
+  // NEW: Toggle Waitlist Section
+  function toggleWaitlist() {
+    const content = document.getElementById('waitlistContent');
+    const toggleBtn = document.querySelector('.waitlist-toggle');
+    content.classList.toggle('show');
+    toggleBtn.innerHTML = content.classList.contains('show') ? '<i class="bi bi-chevron-up me-1"></i>Collapse' : '<i class="bi bi-chevron-down me-1"></i>Expand';
+  }
+
+  // NEW: Waitlist Select All Checkbox
+  document.getElementById('selectAll').addEventListener('change', function() {
+    document.querySelectorAll('.entry-select').forEach(cb => cb.checked = this.checked);
+    updateBulkButton();
+  });
+
+  // NEW: Individual Waitlist Checkboxes
+  document.querySelectorAll('.entry-select').forEach(cb => {
+    cb.addEventListener('change', updateBulkButton);
+  });
+
+  function updateBulkButton() {
+    const checked = document.querySelectorAll('.entry-select:checked').length;
+    const btn = document.getElementById('bulkGrantBtn');
+    btn.disabled = checked === 0;
+    btn.innerHTML = checked > 0 ? `<i class="bi bi-unlock me-1"></i>Bulk Grant ${checked} Selected` : '<i class="bi bi-unlock me-1"></i>Bulk Grant Selected';
+  }
+
+  // NEW: Grant Single Access
+  function grantAccess(entryId, twitterHandle) {
+    if (!confirm(`Grant access to ${twitterHandle}?`)) return;
+    fetch(`/admin/waitlist/grant-access/${entryId}`, { method: 'POST' })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          showToast(data.message);
+          setTimeout(() => location.reload(), 1000);
+        } else {
+          showToast(data.message || 'Failed to grant access', 'error');
+        }
+      })
+      .catch(() => showToast('Network error', 'error'));
+  }
+
+  // NEW: Revoke Single Access
+  function revokeAccess(entryId, twitterHandle) {
+    if (!confirm(`Revoke access from ${twitterHandle}?`)) return;
+    fetch(`/admin/waitlist/revoke-access/${entryId}`, { method: 'POST' })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          showToast(data.message);
+          setTimeout(() => location.reload(), 1000);
+        } else {
+          showToast(data.message || 'Failed to revoke access', 'error');
+        }
+      })
+      .catch(() => showToast('Network error', 'error'));
+  }
+
+  // NEW: Bulk Grant
+  document.getElementById('bulkGrantBtn').addEventListener('click', function() {
+    const selected = Array.from(document.querySelectorAll('.entry-select:checked')).map(cb => cb.value);
+    if (selected.length === 0) return;
+    if (!confirm(`Grant access to ${selected.length} selected entries?`)) return;
+    fetch('/admin/waitlist/bulk-grant', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ waitlist_ids: selected })
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          showToast(data.message);
+          setTimeout(() => location.reload(), 1000);
+        } else {
+          showToast(data.message || 'Failed to bulk grant', 'error');
+        }
+      })
+      .catch(() => showToast('Network error', 'error'));
+  });
 
   // UPDATED: View User Details Function - Updated to include beta invites
   async function viewUserDetails(userId) {
@@ -1493,19 +1774,28 @@
     }
   }
 
-  // Update Plan (unchanged)
+  // UPDATED: Update Plan Function (with interval support)
   function updatePlan(userId) {
-    const select = document.getElementById(`plan-${userId}`);
-    const plan = select.value;
+    const planSelect = document.getElementById(`plan-${userId}`);
+    const intervalSelect = document.getElementById(`interval-${userId}`);
+    const plan = planSelect.value;
+    const interval = (plan === 'pro' || plan === 'elite') ? intervalSelect.value : null;
+
+    const body = new URLSearchParams();
+    body.append('plan', plan);
+    if (interval) {
+      body.append('interval', interval);
+    }
+
     fetch(`/admin/update_plan/${userId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `plan=${plan}`
+      body: body.toString()
     })
     .then(r => r.json())
     .then(data => {
       if (data.success) {
-        showToast('Plan updated successfully!');
+        showToast(data.message);
         setTimeout(() => location.reload(), 1000);
       } else {
         showToast(data.message || 'Failed to update plan', 'error');
@@ -1513,6 +1803,19 @@
     })
     .catch(() => showToast('Network error', 'error'));
   }
+
+  // NEW: Plan Select Change Handlers (show/hide interval)
+  document.querySelectorAll('[id^="plan-"]').forEach(planSelect => {
+    const userId = planSelect.id.split('-')[1];
+    const intervalSelect = document.getElementById(`interval-${userId}`);
+    planSelect.addEventListener('change', () => {
+      const showInterval = (planSelect.value === 'pro' || planSelect.value === 'elite');
+      intervalSelect.style.display = showInterval ? 'inline-block' : 'none';
+      if (!showInterval) {
+        intervalSelect.value = 'monthly'; // Reset default
+      }
+    });
+  });
 
   // Pricing Form (updated with reload on success)
   document.getElementById('pricingForm').addEventListener('submit', e => {
@@ -1968,3 +2271,4 @@
   });
 </script>
 {% endblock %}
+

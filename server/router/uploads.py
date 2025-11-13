@@ -1,696 +1,68 @@
-# router/uploads.py
-import io
-import os
-import re
-import json
-import base64
+# server/router/uploads.py
 import logging
 import asyncio
-from typing import Optional, Tuple, Dict, Any, List
-from enum import Enum
+import json
 from collections import defaultdict
-from datetime import datetime
-from pathlib import Path
 import uuid
+from datetime import datetime
+from typing import List, Optional, Dict, Any, Union
 
-import httpx
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status, Body
-from pydantic import BaseModel, Field, ValidationError, field_validator, ConfigDict, FieldValidationInfo
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy import select, func, update
-from PIL import Image
-from tenacity import retry, stop_after_attempt, wait_exponential_jitter, retry_if_exception_type
+from sqlalchemy import select
 
-# Local imports (adjust paths as needed)
-from models import models, schemas
-import auth
 from database import get_session
-from config import settings
+import auth
+from models import models, schemas
+from app_utils.uploads_utils import *
 
-# Optional dependencies with fallbacks
-try:
-    from jsonschema import validate as jsonschema_validate, ValidationError as JsonSchemaValidationError
-    HAS_JSONSCHEMA = True
-except ImportError:
-    jsonschema_validate = None
-    JsonSchemaValidationError = Exception
-    HAS_JSONSCHEMA = False
+# NEW: Import the spend function from app_utils
+from app_utils.points import spend_trade_points
 
-# OpenAI client
-try:
-    import openai
-    HAS_OPENAI_LIB = True
-    openai_client = openai.AsyncOpenAI(
-        api_key=getattr(settings, "OPENAI_API_KEY", None),
-        timeout=getattr(settings, "OPENAI_TIMEOUT", 60),
-        max_retries=getattr(settings, "OPENAI_MAX_RETRIES", 10),
-    )
-    if not openai_client.api_key:
-        raise ValueError("OPENAI_API_KEY missing")
-except ImportError:
-    openai_client = None
-    HAS_OPENAI_LIB = False
-    logger = logging.getLogger(__name__)
-    logger.warning("openai lib not available; install 'openai' for AI extraction")
+from redis_client import redis_dependency, get_cache
+from redis.asyncio import Redis
 
-# Logging setup
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/upload", tags=["Uploads"])
 
-# Static directory for trade images
-TRADES_DIR = Path("static/trades")
-TRADES_DIR.mkdir(parents=True, exist_ok=True)
-
-# Enums for clarity and type safety
-class ExtractionSource(Enum):
-    VISION = "openai_vision"
-    FAILED = "extraction_failed"
-
-class TradeDirection(Enum):
-    LONG = "LONG"
-    SHORT = "SHORT"
-
-class AssetType(Enum):
-    FOREX = "FOREX"
-    CRYPTO = "CRYPTO"
-
-# Pydantic schema for trade data - Enhanced validation
-class TradeSchema(BaseModel):
-    model_config = ConfigDict(
-        extra="ignore",  # FIXED: Changed from "forbid" to "ignore" to allow extra fields like _is_partial from frontend/AI
-        json_schema_extra={
-            "example": {
-                "symbol": "EUR/USD",
-                "trade_date": "2025-10-22T17:02:00",
-                "entry_price": 1.0850,
-                "exit_price": None,
-                "sl_price": 1.0900,
-                "tp_price": 1.0750,
-                "direction": "SHORT",
-                "position_size": 0.2,
-                "leverage": 20.0,
-                "pnl": None,
-                "notes": "Short on resistance; 50 pips SL; margin: $108.50",
-                "session": "London",
-                "strategy": "Breakout",
-                "risk_percentage": 0.2,
-                "risk_amount": 10.0,
-                "reward_amount": 20.0,
-                "r_r_ratio": 2.0,
-                "suggestion": "Solid $10 risk at 1:2 R:R; trail SL after 1:1.",
-                "chart_url": "/static/trades/example.jpg",
-                "is_trade_confirmation": True,
-                "asset_type": "FOREX"
-            }
-        }
-    )
-    
-    symbol: Optional[str] = None
-    trade_date: Optional[str] = None
-    entry_price: Optional[float] = None
-    exit_price: Optional[float] = None
-    sl_price: Optional[float] = None
-    tp_price: Optional[float] = None
-    direction: Optional[str] = None
-    position_size: Optional[float] = None
-    leverage: Optional[float] = None
-    pnl: Optional[float] = None
-    notes: Optional[str] = None
-    session: Optional[str] = None
-    strategy: Optional[str] = None
-    risk_percentage: Optional[float] = None
-    risk_amount: Optional[float] = None
-    reward_amount: Optional[float] = None
-    r_r_ratio: Optional[float] = None
-    suggestion: Optional[str] = None
-    chart_url: Optional[str] = None
-    is_trade_confirmation: bool = False
-    asset_type: Optional[str] = None
-
-    @field_validator("trade_date", mode="before")
-    @classmethod
-    def validate_date(cls, v):
-        if v is None:
-            return None
-        if not isinstance(v, str):
-            raise ValueError(f"trade_date must be a string, got {type(v)}: {v}")
-        if not re.match(r"\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2})?", v):
-            raise ValueError(f"Invalid ISO date format: {v}")
-        return v
-
-    @field_validator("direction")
-    @classmethod
-    def validate_direction(cls, v):
-        if v is not None:
-            v_upper = v.upper()
-            if v_upper not in [member.value for member in TradeDirection]:
-                raise ValueError(f"Invalid direction: {v}. Must be 'LONG' or 'SHORT'.")
-            return v_upper
-        return v
-
-    @field_validator("asset_type")
-    @classmethod
-    def validate_asset_type(cls, v):
-        if v is not None:
-            v_upper = v.upper()
-            if v_upper not in [member.value for member in AssetType]:
-                raise ValueError(f"Invalid asset_type: {v}. Must be 'FOREX' or 'CRYPTO'.")
-            return v_upper
-        return v
-
-    @field_validator("leverage", mode="before")
-    @classmethod
-    def validate_leverage(cls, v):
-        if v is None:
-            return None
-        try:
-            v_float = float(v)
-            if v_float < 1 or v_float > 100:
-                logger.warning("Invalid leverage %s; setting to null", v)
-                return None
-            return v_float
-        except (ValueError, TypeError):
-            logger.warning("Invalid leverage type %s: %s; setting to null", type(v), v)
-            return None
-
-    @field_validator("entry_price", "exit_price", "sl_price", "tp_price", "position_size", "pnl", "risk_percentage", "risk_amount", "reward_amount", "r_r_ratio", mode="before")
-    @classmethod
-    def validate_numeric(cls, v, info: FieldValidationInfo):
-        if v is None:
-            return None
-        try:
-            return float(v)
-        except (ValueError, TypeError):
-            raise ValueError(f"Invalid {info.field_name}: must be a number, got {type(v)}: {v}")
-
-# Configuration
-OPENAI_MODEL = getattr(settings, "OPENAI_MODEL", "gpt-4o")
-MAX_FILE_SIZE_BYTES = getattr(settings, "MAX_UPLOAD_SIZE_BYTES", 10 * 1024 * 1024)
-ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/jpg"}
-ENABLE_FUZZY_CACHE = getattr(settings, "ENABLE_FUZZY_CACHE", False)
-
-if not HAS_OPENAI_LIB:
-    raise RuntimeError("openai lib required for AI extraction")
-
-# JSON schema for OpenAI structured output
-TRADE_JSON_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "symbol": {"type": ["string", "null"]},
-        "trade_date": {"type": ["string", "null"], "format": "date-time"},
-        "entry_price": {"type": ["number", "null"]},
-        "exit_price": {"type": ["number", "null"]},
-        "sl_price": {"type": ["number", "null"]},
-        "tp_price": {"type": ["number", "null"]},
-        "direction": {"type": ["string", "null"], "enum": ["LONG", "SHORT"]},
-        "position_size": {"type": ["number", "null"]},
-        "leverage": {"type": ["number", "null"]},
-        "pnl": {"type": ["number", "null"]},
-        "notes": {"type": ["string", "null"]},
-        "session": {"type": ["string", "null"]},
-        "strategy": {"type": ["string", "null"]},
-        "risk_percentage": {"type": ["number", "null"]},
-        "risk_amount": {"type": ["number", "null"]},
-        "reward_amount": {"type": ["number", "null"]},
-        "r_r_ratio": {"type": ["number", "null"]},
-        "suggestion": {"type": ["string", "null"]},
-        "is_trade_confirmation": {"type": "boolean"},
-        "asset_type": {"type": ["string", "null"], "enum": ["FOREX", "CRYPTO"]}
-    },
-    "required": ["symbol", "trade_date", "entry_price", "exit_price", "sl_price", "tp_price", "direction", "position_size", "leverage", "pnl", "notes", "session", "strategy", "risk_percentage", "risk_amount", "reward_amount", "r_r_ratio", "suggestion", "is_trade_confirmation", "asset_type"],
-    "additionalProperties": False,
-}
-
-# Enhanced Pro trader system prompt
-SYSTEM_PROMPT = (
-    "You are a 20-year veteran Wall Street forex trader and crypto perps specialist. Extract every detail dynamically from screenshots—no fixed values. "
-    "Audit like a compliance officer: Focus on personal trades or annotated charts only (look for entry/exit arrows, SL/TP horizontal lines, P&L labels, risk markers). "
-    "Set is_trade_confirmation=true only for verifiable trades with clear prices/dates; false for ambiguous charts. "
-    "Be precise and extract exact numbers from visual labels, axes, and annotations: "
-    "- Symbol: From chart title/header (e.g., EUR/USD=forex, BTC/USDT=crypto—set asset_type accordingly; infer from 'lots/pips' for forex, 'perp/qty' for crypto). "
-    "- Trade_date: ISO format from timestamp axis or order ticket (e.g., 2025-10-22T17:02:00; use current date if unclear). "
-    "- Prices: Raw decimals from y-axis/labels (entry: green/up arrow; exit: close label; SL: red/below line; TP: green/above line—preserve 4-5 decimal places). "
-    "- Direction: 'LONG' for buy/green/upward moves (entry < TP); 'SHORT' for sell/red/downward (entry > TP). Infer from candle colors/arrows if unlabeled. "
-    "- Position_size: Lots (forex, e.g., 0.01 from ticket) or qty/units (crypto, e.g., 0.1 BTC); null if missing. "
-    "- Leverage: 'x' value from margin labels (e.g., 20x); null if absent. "
-    "- SL/TP: Exact prices from dashed/solid lines or labels; append pip distances to notes for forex (e.g., 'SL: 1.0900 (50 pips below entry)'). "
-    "- Risk: risk_amount as $ loss to SL (e.g., from 'Risk: $10' or calc if position/SL shown); risk_percentage if % account labeled. Leave position_size null if risk shown but size missing (compute later). "
-    "- Reward_amount: $ target to TP from labels. "
-    "- R:R: From labels or price distances (reward/risk); null if <1:1, flag poor setups. "
-    "- Session: Infer from x-axis time (UTC-based: London 8-17, NY 13-22, Tokyo 0-9, Sydney 22-7 UTC); use 'UTC' if unclear or 24/7 crypto. "
-    "- Strategy: From annotations (e.g., 'Pinbar reversal at S/R', 'Breakout above EMA'); infer from patterns (e.g., head&shoulders=Reversal). "
-    "- Notes: All visible text/details (P&L, margin, pips, timeframe, indicators like RSI/MACD values); include extraction confidence (e.g., 'High conf on prices, low on strategy'). "
-    "- Suggestion: Pro risk management insight (e.g., 'Solid 1:2 R:R on $10 risk; trail SL to BE after 1:1; avoid >50x lev on crypto'). Target R:R >=1:2, safe lev (<=20x forex, <=10x crypto). "
-    "Handle common platforms: TradingView (clean labels), MT4/5 (ticket panels), Thinkorswim (colored zones). "
-    "Null for absent/unclear (e.g., no exit=unrealized trade); prioritize: symbol > direction/entry/SL/TP > date/session. "
-    "If chart quality low or no clear trade, set is_trade_confirmation=false and explain in notes. "
-    "Always output complete JSON with nulls for missing; be accurate—double-check numbers from visuals."
-)
-
-# In-memory symbol cache
-_symbol_cache: Optional[Dict[str, list]] = None
-
-def normalize_plan(plan: str) -> str:
-    """Normalize composite plan_type (e.g., 'pro_monthly') to base plan (e.g., 'pro') for feature granting."""
-    if '_' in plan:
-        return plan.split('_')[0]
-    return plan
-
-def is_valid_trade(trade_dict: Dict[str, Any]) -> bool:
-    """Check if trade has at least 2 key fields populated."""
-    key_fields = ['symbol', 'entry_price', 'sl_price', 'tp_price', 'direction']
-    return sum(1 for f in key_fields if trade_dict.get(f) is not None) >= 2
-
-async def get_cached_symbols(db: AsyncSession) -> list:
-    """Fetch recent symbols for fuzzy matching."""
-    global _symbol_cache
-    if _symbol_cache is not None and not ENABLE_FUZZY_CACHE:
-        return list(_symbol_cache.get("symbols", []))
-    try:
-        q = await db.execute(
-            select(models.Trade.symbol)
-            .distinct()
-            .order_by(models.Trade.created_at.desc())
-            .limit(500)
-        )
-        symbols = [r[0] for r in q.fetchall() if r[0]]
-        if ENABLE_FUZZY_CACHE:
-            pass  # TODO: Redis integration
-        else:
-            _symbol_cache = {"symbols": symbols}
-        return symbols
-    except Exception as e:
-        logger.error("Failed to fetch symbols: %s", e)
-        return []
-
-async def get_monthly_upload_count(db: AsyncSession, user_id: int) -> int:
-    """Count trades uploaded this month for the user."""
-    now = datetime.utcnow()
-    start_of_month = now.replace(day=1)
-    try:
-        count = await db.execute(
-            select(func.count(models.Trade.id))
-            .where(
-                models.Trade.owner_id == user_id,
-                models.Trade.created_at >= start_of_month
-            )
-        )
-        return count.scalar() or 0
-    except Exception as e:
-        logger.error("Failed to count monthly uploads: %s", e)
-        return 0
-
-async def get_plan_limits(db: AsyncSession, plan: str) -> Dict[str, Any]:
-    """Get monthly, batch limits, and TP costs based on normalized plan from DB."""
-    plan = normalize_plan(plan)
-    try:
-        # Fetch upload limits
-        result_upload = await db.execute(
-            select(models.UploadLimits.monthly_limit, models.UploadLimits.batch_limit, models.UploadLimits.tp_cost)
-            .where(models.UploadLimits.plan == plan)
-        )
-        row_upload = result_upload.fetchone()
-        
-        # Fetch insights/chat limits (for AI extraction/insights)
-        result_insights = await db.execute(
-            select(models.InsightsLimits.monthly_limit, models.InsightsLimits.monthly_chat_limit, 
-                   models.InsightsLimits.tp_cost_insight, models.InsightsLimits.tp_cost_chat)
-            .where(models.InsightsLimits.plan == plan)
-        )
-        row_insights = result_insights.fetchone()
-        
-        if row_upload and row_insights:
-            return {
-                "monthly_upload_limit": row_upload[0] or 3,
-                "batch_upload_limit": row_upload[1] or 5,
-                "tp_cost_upload": row_upload[2] or 1,  # FIXED: Default to 1 for uploads (costs TP for starter)
-                "monthly_insight_limit": row_insights[0] or 0,
-                "monthly_chat_limit": row_insights[1] or 5,
-                "tp_cost_insight": row_insights[2] or 1,
-                "tp_cost_chat": row_insights[3] or 1
-            }
-    except Exception as e:
-        logger.warning("Failed to fetch limits from DB: %s; using hardcoded", e)
-    
-    # FIXED: Hardcoded fallback updated to match DB defaults (starter: monthly=3, batch=5, tp_upload=1 to enable expenditure)
-    if plan == 'starter':
-        return {
-            "monthly_upload_limit": 3, "batch_upload_limit": 5, "tp_cost_upload": 1,  # FIXED: Set to 1 (uploads cost TP)
-            "monthly_insight_limit": 0, "monthly_chat_limit": 5, "tp_cost_insight": 1, "tp_cost_chat": 1
-        }
-    elif plan == 'pro':
-        return {
-            "monthly_upload_limit": 29, "batch_upload_limit": 10, "tp_cost_upload": 0,  # Unlimited, no TP cost
-            "monthly_insight_limit": 1000, "monthly_chat_limit": 20, "tp_cost_insight": 0, "tp_cost_chat": 0
-        }
-    elif plan == 'elite':
-        return {
-            "monthly_upload_limit": 1000, "batch_upload_limit": 10, "tp_cost_upload": 0,
-            "monthly_insight_limit": 1000, "monthly_chat_limit": 1000, "tp_cost_insight": 0, "tp_cost_chat": 0
-        }
-    else:
-        return {
-            "monthly_upload_limit": 3, "batch_upload_limit": 5, "tp_cost_upload": 1,  # FIXED: Default to 1
-            "monthly_insight_limit": 0, "monthly_chat_limit": 5, "tp_cost_insight": 1, "tp_cost_chat": 1
-        }
-
-async def spend_trade_points(db: AsyncSession, user: models.User, action: str, amount: int = 1) -> None:
-    """Deduct Trade Points for an action (e.g., 'upload', 'insight')."""
-    current_points = user.trade_points or 0  # Coerce None to 0 for check
-    if current_points < amount:
-        raise HTTPException(status_code=402, detail=f"Insufficient Trade Points ({current_points} remaining). Refer friends to earn more!")
-    
-    # FIXED: Direct SQL UPDATE for reliability (bypasses object state issues); handle None as 0
-    from sqlalchemy import case
-    stmt = (
-        update(models.User)
-        .where(models.User.id == user.id)
-        .values(trade_points=case((models.User.trade_points.is_(None), 0 - amount), else_=models.User.trade_points - amount))
-        .execution_options(synchronize_session="fetch")
-    )
-    await db.execute(stmt)
-    
-    # Log transaction (unchanged)
-    tx = models.PointTransaction(
-        user_id=user.id,
-        type=action,
-        amount=-amount,
-        description=f"Spent {amount} TP on {action}"
-    )
-    db.add(tx)
-    await db.flush()  # Flush tx before commit for atomicity
-    await db.commit()
-    
-    # FIXED: Refresh user object post-update for in-request consistency
-    await db.refresh(user)
-    
-    logger.info(f"Spent {amount} TP for user {user.id} on {action}; new balance: {user.trade_points}")
-
-async def enforce_upload_limits(db: AsyncSession, current_user: models.User, num_files: int, action_type: str = "upload") -> None:
-    """Enforce plan-based limits and TP costs (upload count + TP deduction)."""
-    normalized_plan = normalize_plan(current_user.plan)
-    limits = await get_plan_limits(db, normalized_plan)
-    
-    # Check monthly count
-    monthly_count = await get_monthly_upload_count(db, current_user.id)
-    monthly_limit = limits["monthly_upload_limit"]
-    if action_type == "upload" and num_files > limits["batch_upload_limit"]:
-        raise HTTPException(
-            status_code=413,
-            detail=f"Batch size exceeds plan limit ({limits['batch_upload_limit']} max). Upgrade for more."
-        )
-    projected_count = monthly_count + num_files
-    if projected_count > monthly_limit:
-        remaining = max(0, monthly_limit - monthly_count)
-        raise HTTPException(  # FIXED: Changed to 429 for rate limiting distinction
-            status_code=429,
-            detail=f"Monthly upload limit reached ({monthly_limit} total). {remaining} remaining this month. Upgrade for more."
-        )
-    
-    # FIXED: Deduct TP only for extraction/AI steps (0 cost for "save" or other)
-    tp_cost = limits[f"tp_cost_{action_type}"] * num_files if action_type in ["upload", "insight"] else 0
-    if tp_cost > 0:
-        await spend_trade_points(db, current_user, action_type, tp_cost)
-        await db.refresh(current_user)  # Ensure in-request user sees update
-
-def validate_and_preprocess_image(contents: bytes, max_pixels: int = 1_000_000) -> bytes:
-    """Validate and compress image for token efficiency."""
-    if len(contents) > MAX_FILE_SIZE_BYTES:
-        raise HTTPException(status_code=413, detail="File too large")
-    try:
-        img = Image.open(io.BytesIO(contents))
-        content_type = img.format.lower() if img.format else "unknown"
-        if f"image/{content_type}" not in ALLOWED_IMAGE_TYPES:
-            raise ValueError("Unsupported image type")
-        w, h = img.size
-        if w * h > max_pixels:
-            ratio = (max_pixels / (w * h)) ** 0.5
-            new_size = (int(w * ratio), int(h * ratio))
-            img = img.resize(new_size, Image.Resampling.LANCZOS)
-        buffer = io.BytesIO()
-        img.convert("RGB").save(buffer, format="JPEG", quality=60, optimize=True)
-        compressed_bytes = buffer.getvalue()
-        logger.debug("Image compressed: %d -> %d bytes", len(contents), len(compressed_bytes))
-        return compressed_bytes
-    except Exception as e:
-        logger.error("Image preprocessing failed: %s", e)
-        raise HTTPException(status_code=400, detail=f"Invalid image: {e}")
-
-def save_image_locally(image_bytes: bytes, filename: str) -> str:
-    """Save image to static/trades and return URL."""
-    file_path = TRADES_DIR / filename
-    with open(file_path, "wb") as f:
-        f.write(image_bytes)
-    return f"/static/trades/{filename}"
-
-def normalize_symbol(raw: Optional[str]) -> Optional[str]:
-    """Clean symbol: Uppercase, standardize separators."""
-    if not raw:
-        return None
-    s = re.sub(r"[^\w/]", "", str(raw).strip().upper())
-    s = re.sub(r"([A-Z0-9]+)([A-Z0-9]{3,})", r"\1/\2", s)
-    s = re.sub(r"(LIVE|V\d+|YG|TEST|DEMO)$", "", s, flags=re.IGNORECASE)
-    s = s.strip("/ ")
-    return s if s else None
-
-def infer_asset_type(symbol: Optional[str], notes: Optional[str] = None) -> Optional[str]:
-    """Infer asset_type from symbol or notes."""
-    if not symbol:
-        return None
-    symbol_upper = symbol.upper()
-    forex_pairs = ['EUR', 'USD', 'GBP', 'JPY', 'AUD', 'CAD', 'CHF', 'NZD']
-    if any(pair in symbol_upper for pair in forex_pairs) and '/' in symbol_upper:
-        return "FOREX"
-    if any(crypto in symbol_upper for crypto in ['BTC', 'ETH', 'USDT', 'USDC']):
-        return "CRYPTO"
-    if notes:
-        notes_lower = notes.lower()
-        if 'lot' in notes_lower or 'pip' in notes_lower:
-            return "FOREX"
-        if 'perp' in notes_lower or 'contract' in notes_lower:
-            return "CRYPTO"
-    return None
-
-async def fuzzy_match_symbol(db: AsyncSession, candidate: str, symbols: list) -> str:
-    """Fuzzy match symbol against known symbols."""
-    if not candidate or not symbols:
-        return candidate
-    from difflib import get_close_matches
-    matches = get_close_matches(candidate, symbols, n=1, cutoff=0.8)
-    return matches[0] if matches else candidate
-
-def get_pip_value(asset_type: str, symbol: str) -> float:
-    """Get pip value: $10/lot for forex majors, $1/unit for crypto."""
-    if asset_type == "FOREX":
-        return 10.0
-    elif asset_type == "CRYPTO":
-        return 1.0
-    return 1.0
-
-def compute_trade_metrics(parsed: Dict[str, Any]) -> Dict[str, Any]:
-    """Compute metrics: back-calc position_size if needed, add pip distance for forex."""
-    entry = parsed.get("entry_price")
-    sl = parsed.get("sl_price")
-    tp = parsed.get("tp_price")
-    direction = parsed.get("direction") or "LONG"
-    leverage = parsed.get("leverage")
-    risk_amount = parsed.get("risk_amount")
-    position_size = parsed.get("position_size")
-    
-    asset_type = parsed.get("asset_type") or infer_asset_type(parsed.get("symbol"), parsed.get("notes"))
-    parsed["asset_type"] = asset_type
-    if parsed.get("session") is None or parsed.get("session") == "N/A":
-        parsed["session"] = "UTC"
-    if not all([entry is not None, sl is not None]):
-        return parsed
-    
-    risk_dist = entry - sl if direction == "LONG" else sl - entry
-    reward_dist = (tp - entry if direction == "LONG" else entry - tp) if tp is not None else 0
-    
-    if risk_dist <= 0:
-        return parsed
-    
-    if parsed.get("r_r_ratio") is None and reward_dist > 0:
-        parsed["r_r_ratio"] = round(reward_dist / risk_dist, 2)
-    
-    if risk_amount is not None and position_size is None and risk_dist != 0:
-        pip_value = get_pip_value(asset_type, parsed.get("symbol", ""))
-        position_size = risk_amount / (abs(risk_dist) * pip_value)
-        parsed["position_size"] = round(position_size, 4)
-        parsed["notes"] = parsed.get("notes", "") + f" (Position sized for ${risk_amount:.2f} risk)"
-    
-    if parsed.get("reward_amount") is None and reward_dist > 0 and position_size is not None:
-        pip_value = get_pip_value(asset_type, parsed.get("symbol", ""))
-        parsed["reward_amount"] = round(position_size * reward_dist * pip_value, 2)
-    
-    if leverage and leverage > 1:
-        parsed["notes"] = parsed.get("notes", "") + f"; Leverage: {leverage}x"
-    
-    if asset_type == "FOREX" and risk_dist != 0:
-        pip_dist = abs(risk_dist) * 10000
-        parsed["notes"] = parsed.get("notes", "") + f"; SL distance: {pip_dist:.1f} pips"
-    
-    if risk_amount:
-        rr = parsed.get("r_r_ratio") or 1.0
-        base_sugg = parsed.get("suggestion", "")
-        risk_tip = f"Risk ${risk_amount:.2f} {'solid' if risk_amount <= 50 else 'high—scale down'}"
-        rr_tip = f"; R:R {rr}: {'excellent (>2)' if rr >= 2 else 'improve (>1.5)' if rr >= 1.5 else 'tighten'}"
-        leverage_tip = f"; Leverage {leverage}x {'safe' if leverage <= 20 else 'risky—reduce'}" if leverage and leverage > 1 else ""
-        parsed["suggestion"] = f"{base_sugg} {risk_tip}{rr_tip}{leverage_tip}."
-    
-    return parsed
-
-def compute_confidence(parsed: Dict[str, Any], source: ExtractionSource) -> Dict[str, float]:
-    """Compute confidence scores for extracted fields."""
-    weights = {ExtractionSource.VISION: 0.95, ExtractionSource.FAILED: 0.0}
-    base = weights.get(source, 0.0)
-    conf = {}
-    fields = ["symbol", "trade_date", "entry_price", "exit_price", "sl_price", "tp_price", "direction", "position_size", "leverage", "pnl", "notes", "session", "strategy", "risk_percentage", "risk_amount", "reward_amount", "r_r_ratio", "suggestion", "asset_type", "is_trade_confirmation"]
-    for field in fields:
-        conf[field] = round(base if parsed.get(field) is not None or field == "is_trade_confirmation" else 0.0, 2)
-    conf["overall"] = round(sum(conf.values()) / len(conf), 2)
-    return conf
-
-async def _call_openai_with_lib(messages: list, response_format: Dict[str, Any], model: str = OPENAI_MODEL) -> Dict[str, Any]:
-    """Call OpenAI with official client and retries."""
-    try:
-        raw_response = await openai_client.chat.completions.with_raw_response.create(
-            model=model,
-            messages=messages,
-            response_format=response_format,
-            temperature=0.0,
-            max_tokens=512,
-        )
-        remaining_tokens = int(raw_response.headers.get('x-ratelimit-remaining-tokens', 0)) if raw_response.headers else 0
-        if remaining_tokens < 50000:
-            logger.warning("Low tokens remaining: %d; consider tier bump", remaining_tokens)
-        return raw_response.parse().model_dump()
-    except openai.RateLimitError as e:
-        logger.warning("OpenAI rate limit hit: %s. Extended backoff...", e)
-        await asyncio.sleep(120)
-        raise
-    except Exception as e:
-        logger.warning("OpenAI call failed: %s", e)
-        raise
-
-@retry(
-    stop=stop_after_attempt(10),
-    wait=wait_exponential_jitter(initial=2, exp_base=2, max=120, jitter=1),
-    retry=retry_if_exception_type(httpx.HTTPStatusError)
-)
-async def _call_openai_fallback(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Fallback OpenAI call with httpx and retry logic."""
-    headers = {
-        "Authorization": f"Bearer {settings.OPENAI_API_KEY}",
-        "Content-Type": "application/json",
-    }
-    async with httpx.AsyncClient(timeout=120, limits=httpx.Limits(max_keepalive_connections=5)) as client:
-        resp = await client.post("https://api.openai.com/v1/chat/completions", json=payload, headers=headers)
-        if resp.status_code == 429:
-            retry_after = int(resp.headers.get("retry-after", 30))
-            logger.warning("429 detected; waiting %d seconds", retry_after)
-            await asyncio.sleep(retry_after)
-        resp.raise_for_status()
-        return resp.json()
-
-async def call_openai_vision(image_bytes: bytes, max_attempts: int = 3) -> Tuple[Optional[TradeSchema], Dict[str, Any]]:
-    """Extract trade data from image using OpenAI vision API."""
-    b64_image = base64.b64encode(image_bytes).decode("utf-8")
-    messages = [
-        {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": SYSTEM_PROMPT},
-                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_image}"}},
-            ]
-        }
-    ]
-    response_format = {
-        "type": "json_schema",
-        "json_schema": {
-            "name": "trade_extraction",
-            "strict": True,
-            "schema": TRADE_JSON_SCHEMA
-        }
-    }
-    
-    for attempt in range(max_attempts):
-        try:
-            if HAS_OPENAI_LIB:
-                raw = await _call_openai_with_lib(messages, response_format)
-            else:
-                payload = {
-                    "model": OPENAI_MODEL,
-                    "messages": messages,
-                    "response_format": response_format,
-                    "temperature": 0.0,
-                    "max_tokens": 512,
-                }
-                raw = await _call_openai_fallback(payload)
-            
-            content = raw["choices"][0]["message"]["content"]
-            parsed_dict = json.loads(content) if content else None
-            parsed = TradeSchema(**parsed_dict) if parsed_dict else None
-            if parsed:
-                computed_dict = compute_trade_metrics(parsed.dict())
-                parsed = TradeSchema(**computed_dict)
-                logger.info("Vision extraction succeeded on attempt %d", attempt + 1)
-                return parsed, raw
-        except Exception as e:
-            logger.warning("Vision attempt %d failed: %s", attempt + 1, e)
-            if attempt < max_attempts - 1:
-                await asyncio.sleep(2 ** attempt)
-    
-    logger.error("Vision extraction failed after %d attempts", max_attempts)
-    return None, {"error": "Max attempts exceeded"}
-
 @router.get("/monthly_uploads")
 async def get_monthly_uploads(db: AsyncSession = Depends(get_session), current_user: models.User = Depends(auth.get_current_user)):
-    """Get count of trades uploaded this month."""
     count = await get_monthly_upload_count(db, current_user.id)
     return {"count": count}
 
-# NEW: Dynamic limits endpoint
 @router.get("/limits", response_model=Dict[str, Any])
 async def get_upload_limits(
-    plan: Optional[str] = None,  # Optional: fetch for specific plan (e.g., current user's)
-    current_user: Optional[models.User] = Depends(auth.get_current_user),  # Only if plan not provided
+    plan: Optional[str] = None,
+    current_user: Optional[models.User] = Depends(auth.get_current_user),
     db: AsyncSession = Depends(get_session)
 ):
-    """Fetch dynamic upload limits for plans (or current user's plan)."""
     if plan:
         limits = await get_plan_limits(db, plan)
         return limits
     
-    # Default: fetch for all plans if no plan specified
     plans = ['starter', 'pro', 'elite']
     all_limits = {}
     for p in plans:
         all_limits[p] = await get_plan_limits(db, p)
     return all_limits
 
-# NEW: TP balance endpoint
 @router.get("/points/balance")
 async def get_points_balance(current_user: models.User = Depends(auth.get_current_user)):
-    """Get current Trade Points balance."""
     return {"trade_points": current_user.trade_points}
 
 @router.post("/points/spend")
 async def spend_points(
-    payload: dict = Body(...),  # {"action": "upload"|"insight"|"chat", "amount": int (optional, defaults 1)}
+    payload: dict = Body(...),
     current_user: models.User = Depends(auth.get_current_user),
     db: AsyncSession = Depends(get_session)
 ):
-    """Spend Trade Points for an action."""
     action = payload.get("action")
     amount = payload.get("amount", 1)
     if not action:
         raise HTTPException(status_code=400, detail="Action required (e.g., 'upload', 'insight')")
+    # CHANGED: Call the imported async function for points spending (no redis here, so None)
     await spend_trade_points(db, current_user, action, amount)
-    # FIXED: Re-fetch balance post-refresh for accurate response
     await db.refresh(current_user)
     return {"balance": current_user.trade_points, "message": f"Spent {amount} TP on {action}."}
 
@@ -698,17 +70,18 @@ async def spend_points(
 async def extract_batch_trades(
     files: List[UploadFile] = File(..., media_type="image/*"),
     db: AsyncSession = Depends(get_session),
+    redis_client: Optional[Redis] = Depends(redis_dependency),  # NEW: Optional Redis
     current_user: models.User = Depends(auth.get_current_user),
 ):
-    """Extract trades from multiple screenshots, deduplicate, and return for review."""
     num_files = len(files)
-    await enforce_upload_limits(db, current_user, num_files, "upload")  # Deducts TP for batch
+    await enforce_upload_limits(db, current_user, num_files, "upload")
     correlation_id = asyncio.current_task().get_name()
     logger.info("Batch extract started: user=%s, files=%d", current_user.id, num_files, extra={"corr_id": correlation_id})
     
     symbols_cache = await get_cached_symbols(db)
     extracted = []
     source = ExtractionSource.VISION
+    account_balance = getattr(current_user, 'account_balance', 10000.0)
     
     for file in files:
         contents = await file.read()
@@ -718,7 +91,7 @@ async def extract_batch_trades(
         filename = f"{uuid.uuid4()}.{ext}"
         chart_url = save_image_locally(contents, filename)
         processed_bytes = validate_and_preprocess_image(contents)
-        parsed, raw_response = await call_openai_vision(processed_bytes)
+        parsed, raw_response = await call_openai_vision(processed_bytes, account_balance=account_balance, redis_client=redis_client)
         
         if not parsed:
             partial = {
@@ -742,16 +115,20 @@ async def extract_batch_trades(
                 "suggestion": "Upload a clearer screenshot with entry/exit/SL/TP/risk markers next time.",
                 "chart_url": chart_url,
                 "asset_type": None,
+                # New fields
+                "margin_required": None,
+                "notional_value": None,
+                "calculator_note": None,
+                "auto_calculated": None,
+                "calculator_version": None,
                 "_confidence": 0.0,
                 "_is_partial": True
             }
             extracted.append(partial)
-            logger.warning(f"Partial entry created for {file.filename}", extra={"corr_id": correlation_id})
             continue
         
         if (parsed.symbol or parsed.entry_price or parsed.sl_price or parsed.tp_price) and not parsed.is_trade_confirmation:
             parsed.is_trade_confirmation = True
-            logger.info(f"Overrode confirmation for partial chart in {file.filename}")
         
         if not parsed.is_trade_confirmation:
             partial = parsed.dict()
@@ -778,7 +155,7 @@ async def extract_batch_trades(
     extracted = [ex for ex in extracted if is_valid_trade(ex)]
     
     if not extracted:
-        raise HTTPException(status_code=422, detail="No meaningful trade data extracted from any image. Try clearer screenshots with marked entry/SL/TP.")
+        raise HTTPException(status_code=422, detail="No meaningful trade data extracted from any image.")
     
     groups = defaultdict(list)
     for ex in extracted:
@@ -802,33 +179,50 @@ async def extract_batch_trades(
 async def extract_trade_screenshot(
     file: UploadFile = File(..., media_type="image/*"),
     db: AsyncSession = Depends(get_session),
+    redis_client: Optional[Redis] = Depends(redis_dependency),  # NEW: Optional Redis
     current_user: models.User = Depends(auth.get_current_user),
 ):
-    """Extract trade from a single screenshot for review."""
-    num_files = 1
-    await enforce_upload_limits(db, current_user, num_files, "upload")  # FIXED: Changed from "insight" to "upload" (deduct TP once)
+    await enforce_upload_limits(db, current_user, 1, "upload")
     correlation_id = asyncio.current_task().get_name()
     logger.info("Extract started: user=%s, file=%s", current_user.id, file.filename, extra={"corr_id": correlation_id})
+    
+    # NEW: Check Redis for recent backoff before calling AI
+    user_key = f"rate_limit_backoff:{current_user.id}"
+    backoff_data = await get_cache(redis_client, user_key) if redis_client else None
+    if backoff_data:
+        try:
+            backoff = json.loads(backoff_data)
+            retry_after = backoff.get("retry_after", 300)
+            raise HTTPException(503, f"Recent rate limit detected. Wait {retry_after//60}min before retrying. Error: {backoff.get('error', 'Unknown')}")
+        except (json.JSONDecodeError, KeyError):
+            pass  # Proceed if invalid
     
     contents = await file.read()
     if not contents:
         raise HTTPException(status_code=400, detail="Empty file")
     
     processed_bytes = validate_and_preprocess_image(contents)
-    parsed: Optional[TradeSchema] = None
-    raw_response: Dict[str, Any] = {}
-    source = ExtractionSource.VISION
-    symbols_cache = await get_cached_symbols(db)
-    
+    account_balance = getattr(current_user, 'account_balance', 10000.0)
     try:
-        parsed, raw_response = await call_openai_vision(processed_bytes)
-        if not parsed:
-            raise ValueError("AI extraction returned no data")
-    except Exception as e:
-        logger.error("AI vision failed entirely: %s", e, extra={"corr_id": correlation_id})
-        source = ExtractionSource.FAILED
-        parsed = TradeSchema(session="UTC")
-        raise HTTPException(status_code=503, detail="AI extraction temporarily unavailable (rate limit?) - try again soon")
+        parsed, raw_response = await call_openai_vision(
+            processed_bytes, account_balance=account_balance, redis_client=redis_client
+        )
+    except HTTPException:
+        raise  # Re-raise enhanced 503 from vision func
+    if not parsed:
+        # NEW: Fallback to partial extraction
+        logger.warning("Falling back to partial mode for user %s", current_user.id, extra={"corr_id": correlation_id})
+        parsed = TradeSchema(
+            symbol=None, direction=None, notes="AI extraction failed - manual review required",
+            chart_url=save_image_locally(contents, f"{uuid.uuid4()}.jpg"),  # Save image anyway
+            is_trade_confirmation=False, suggestion="Upload clearer chart or review manually.",
+            # Set other fields to defaults/None
+            trade_date=None, entry_price=None, exit_price=None, sl_price=None, tp_price=None,
+            position_size=None, leverage=None, pnl=None, session="UTC", strategy=None,
+            risk_percentage=None, risk_amount=None, reward_amount=None, r_r_ratio=None,
+            asset_type=None, margin_required=None, notional_value=None, calculator_note=None,
+            auto_calculated=None, calculator_version="1.1"
+        )
     
     if not parsed.is_trade_confirmation:
         raise HTTPException(status_code=422, detail="Image not recognized as trade confirmation")
@@ -839,83 +233,79 @@ async def extract_trade_screenshot(
         except JsonSchemaValidationError as e:
             logger.warning("Schema validation failed: %s; using partial data", e, extra={"corr_id": correlation_id})
     
+    symbols_cache = await get_cached_symbols(db)
     parsed.symbol = normalize_symbol(parsed.symbol)
     if parsed.symbol:
         parsed.symbol = await fuzzy_match_symbol(db, parsed.symbol, symbols_cache)
     
     parsed_dict = parsed.dict()
     if not is_valid_trade(parsed_dict):
-        raise HTTPException(status_code=422, detail="Incomplete trade data: At least 2 key fields (symbol, direction, entry_price, sl_price, tp_price) required")
+        raise HTTPException(status_code=422, detail="Incomplete trade data")
     
     ext = file.filename.split('.')[-1]
     filename = f"{uuid.uuid4()}.{ext}"
     chart_url = save_image_locally(contents, filename)
     parsed.chart_url = chart_url
     
-    conf = compute_confidence(parsed.dict(), source)
+    conf = compute_confidence(parsed.dict(), ExtractionSource.VISION)
     parsed_dict = parsed.dict()
     parsed_dict["_confidence"] = conf
-    parsed_dict["_extraction_source"] = source.value
+    parsed_dict["_extraction_source"] = ExtractionSource.VISION.value
     
-    logger.info("Extract completed: symbol=%s, conf=%.2f", parsed.symbol, conf["overall"], extra={"corr_id": correlation_id})
-    
-    return TradeSchema(**{k: v for k, v in parsed_dict.items() if k not in ["_confidence", "_extraction_source"]})
+    return TradeSchema(**{k: v for k, v in parsed_dict.items() if not k.startswith('_')})
 
-@router.post("/save_batch", response_model=List[Dict[str, Any]], status_code=status.HTTP_201_CREATED)
+# FIXED: Changed response_model to Dict[str, Any] to accommodate error responses
+@router.post("/save_batch", response_model=Dict[str, Any], status_code=status.HTTP_201_CREATED)
 async def save_batch_trades(
     trades_data: List[TradeSchema] = Body(...),
     db: AsyncSession = Depends(get_session),
     current_user: models.User = Depends(auth.get_current_user),
 ):
-    """Save multiple reviewed trades to the database with detailed error handling."""
     if not trades_data:
         raise HTTPException(status_code=400, detail="No trades to save")
-    num_files = len(trades_data)  # Treat as batch save (no extra TP; TP deducted on extract)
-    await enforce_upload_limits(db, current_user, num_files, "save")  # FIXED: Changed to "save" (checks limits, deducts 0 TP)
+    num_files = len(trades_data)
+    await enforce_upload_limits(db, current_user, num_files, "save")
     correlation_id = asyncio.current_task().get_name()
-    logger.info("Batch save started: user=%s, trades=%d, data=%s", current_user.id, len(trades_data), trades_data, extra={"corr_id": correlation_id})
+    logger.info("Batch save started: user=%s, trades=%d", current_user.id, len(trades_data), extra={"corr_id": correlation_id})
     
-    supported_fields = {
+    # FIXED: Separate DB fields from calculator fields (assuming Trade model lacks new fields)
+    db_fields = {
         'symbol', 'trade_date', 'entry_price', 'exit_price', 'sl_price', 'tp_price', 'direction', 'position_size', 'leverage',
         'pnl', 'notes', 'session', 'strategy', 'risk_percentage', 'risk_amount', 'reward_amount', 'r_r_ratio', 'suggestion',
         'fees', 'ai_log', 'chart_url', 'asset_type'
     }
     saved_trades = []
     errors = []
-    total_pnl_delta = 0.0  # Accumulate for logging
+    total_pnl_delta = 0.0
     
     for idx, trade in enumerate(trades_data):
         try:
             if not trade.symbol:
-                logger.warning("Skipping trade at index %d: missing symbol", idx, extra={"corr_id": correlation_id})
                 errors.append({"index": idx, "error": "Symbol is required"})
                 continue
             
             trade_dict = trade.dict(exclude_none=False)
-            logger.debug("Processing trade at index %d: %s", idx, trade_dict, extra={"corr_id": correlation_id})
             
-            # Handle legacy mappings
             if 'position_size' not in trade_dict or trade_dict['position_size'] is None:
                 trade_dict['position_size'] = trade_dict.get('size')
             if 'risk_percentage' not in trade_dict or trade_dict['risk_percentage'] is None:
                 trade_dict['risk_percentage'] = trade_dict.get('risk')
             
-            trade_dict_filtered = {k: v for k, v in trade_dict.items() if k in supported_fields}
+            # FIXED: Filter only to DB fields, exclude calculator fields
+            trade_dict_filtered = {k: v for k, v in trade_dict.items() if k in db_fields}
             
             if 'direction' in trade_dict_filtered and isinstance(trade_dict_filtered['direction'], TradeDirection):
                 trade_dict_filtered['direction'] = trade_dict_filtered['direction'].value
             if 'asset_type' in trade_dict_filtered and isinstance(trade_dict_filtered['asset_type'], AssetType):
                 trade_dict_filtered['asset_type'] = trade_dict_filtered['asset_type'].value
             
-            # Default strategy and session
             if 'strategy' not in trade_dict_filtered or not trade_dict_filtered['strategy']:
                 trade_dict_filtered['strategy'] = getattr(current_user, 'strategy', 'Manual')
             if 'session' not in trade_dict_filtered or not trade_dict_filtered['session']:
                 trade_dict_filtered['session'] = 'UTC'
             
             if not is_valid_trade(trade_dict_filtered):
-                logger.warning("Skipping trade at index %d for %s: insufficient key fields", idx, trade_dict_filtered.get('symbol'), extra={"corr_id": correlation_id})
-                errors.append({"index": idx, "error": "Incomplete trade data: At least 2 key fields (symbol, direction, entry_price, sl_price, tp_price) required"})
+                errors.append({"index": idx, "error": "Incomplete trade data"})
                 continue
             
             if trade_dict_filtered.get('risk_amount') and current_user.account_balance > 0:
@@ -926,13 +316,13 @@ async def save_batch_trades(
                     dt_str = trade_dict_filtered['trade_date']
                     if 'Z' in dt_str:
                         dt_str = dt_str.replace('Z', '+00:00')
-                    trade_dict_filtered['trade_date'] = datetime.fromisoformat(dt_str)
-                except ValueError as e:
-                    logger.warning("Invalid trade_date format at index %d: %s", idx, trade_dict_filtered['trade_date'], extra={"corr_id": correlation_id})
-                    errors.append({"index": idx, "error": f"Invalid trade_date format: {trade_dict_filtered['trade_date']}"})
+                    parsed_dt = datetime.fromisoformat(dt_str)
+                    trade_dict_filtered['trade_date'] = parsed_dt.replace(tzinfo=None)
+                except ValueError:
+                    errors.append({"index": idx, "error": "Invalid trade_date format"})
                     continue
             
-            # Recalc P&L if needed (fallback, same as journal.py)
+            # P&L recalc
             if (trade_dict_filtered.get('entry_price') is not None and 
                 trade_dict_filtered.get('exit_price') is not None and
                 trade_dict_filtered.get('position_size') is not None and
@@ -944,7 +334,7 @@ async def save_batch_trades(
                 asset_type_str = str(trade_dict_filtered.get('asset_type')) if trade_dict_filtered.get('asset_type') else None
                 if asset_type_str == 'FOREX':
                     pip_factor = 100 if 'JPY' in (trade_dict_filtered.get('symbol') or '') else 10000
-                    base_pnl *= (abs(delta) * pip_factor / abs(delta)) * 10  # Approx pip value
+                    base_pnl *= (abs(delta) * pip_factor / abs(delta)) * 10
                 fees_val = trade_dict_filtered.get('fees') or 0.0
                 trade_dict_filtered['pnl'] = round(base_pnl - fees_val, 2)
             
@@ -960,43 +350,40 @@ async def save_batch_trades(
             if hasattr(new_trade, "confidence"):
                 new_trade.confidence = 0.95
             
-            # Update user balance incrementally
             pnl_delta = new_trade.pnl or 0.0
             if pnl_delta != 0:
                 current_user.account_balance += pnl_delta
                 total_pnl_delta += pnl_delta
-                logger.info(f"Batch-saved trade {new_trade.id} for user {current_user.id}, added {pnl_delta:.2f} to balance (new: {current_user.account_balance:.2f})", extra={"corr_id": correlation_id})
             
             db.add(new_trade)
             saved_trades.append(new_trade)
-        except ValidationError as e:
-            error_details = [{"loc": err["loc"], "msg": err["msg"], "type": err["type"]} for err in e.errors()]
-            logger.error("Validation failed for trade at index %d: %s, data: %s", idx, error_details, trade_dict, extra={"corr_id": correlation_id})
-            errors.append({"index": idx, "error": error_details})
-            continue
         except Exception as e:
-            logger.error("Failed to save trade at index %d: %s, data: %s", idx, e, trade_dict, extra={"corr_id": correlation_id})
             errors.append({"index": idx, "error": str(e)})
             continue
     
-    if errors and not saved_trades:
-        raise HTTPException(
-            status_code=422,
-            detail={"message": "All trades failed validation", "errors": errors}
-        )
+    # FIXED: Raise if all failed
+    if len(saved_trades) == 0 and errors:
+        raise HTTPException(status_code=422, detail={"message": "All trades failed", "errors": errors})
     
     try:
-        await db.commit()
-        logger.info("Batch save completed: %d trades saved, %d failed, total P&L delta: %.2f", len(saved_trades), len(errors), total_pnl_delta, extra={"corr_id": correlation_id})
+        if saved_trades:
+            await db.commit()
+            if total_pnl_delta != 0:  # Only update if needed
+                current_user.account_balance += total_pnl_delta
+                await db.commit()  # Single commit for user update
+            logger.info("Batch save completed: %d saved, %d failed, P&L delta: %.2f", len(saved_trades), len(errors), total_pnl_delta, extra={"corr_id": correlation_id})
+            
+            response = [schemas.TradeResponse.model_validate(t, from_attributes=True).dict() for t in saved_trades]
+        else:
+            response = []
         
-        response = [schemas.TradeResponse.model_validate(t, from_attributes=True).dict() for t in saved_trades]
-        if errors:
-            return {"saved_trades": response, "errors": errors}
-        return response
-    except Exception as e:
+        # FIXED: Always return dict for consistency
+        result = {"saved_trades": response, "errors": errors}
+        return result
+    except Exception as commit_e:
         await db.rollback()
-        logger.error("DB commit failed: %s", e, extra={"corr_id": correlation_id})
-        raise HTTPException(status_code=500, detail={"message": "Database save failed", "errors": errors})
+        logger.error("Batch commit failed: %s", commit_e, extra={"corr_id": correlation_id})
+        raise HTTPException(status_code=500, detail=f"Database commit failed: {str(commit_e)}")
 
 @router.post("/save", response_model=Dict[str, Any], status_code=status.HTTP_201_CREATED)
 async def save_extracted_trade(
@@ -1004,16 +391,15 @@ async def save_extracted_trade(
     db: AsyncSession = Depends(get_session),
     current_user: models.User = Depends(auth.get_current_user),
 ):
-    """Save a single reviewed trade to the database."""
-    num_files = 1
-    await enforce_upload_limits(db, current_user, num_files, "save")  # FIXED: Changed to "save" (checks limits, deducts 0 TP)
+    await enforce_upload_limits(db, current_user, 1, "save")
     correlation_id = asyncio.current_task().get_name()
     logger.info("Save started: user=%s, symbol=%s, data=%s", current_user.id, trade_data.symbol, trade_data.dict(), extra={"corr_id": correlation_id})
     
     if not trade_data.symbol:
         raise HTTPException(status_code=422, detail="Symbol is required")
     
-    supported_fields = {
+    # FIXED: Separate DB fields from calculator fields
+    db_fields = {
         'symbol', 'trade_date', 'entry_price', 'exit_price', 'sl_price', 'tp_price', 'direction', 'position_size', 'leverage',
         'pnl', 'notes', 'session', 'strategy', 'risk_percentage', 'risk_amount', 'reward_amount', 'r_r_ratio', 'suggestion',
         'fees', 'ai_log', 'chart_url', 'asset_type'
@@ -1025,7 +411,8 @@ async def save_extracted_trade(
     if 'risk_percentage' not in trade_dict or trade_dict['risk_percentage'] is None:
         trade_dict['risk_percentage'] = trade_dict.get('risk')
     
-    trade_dict = {k: v for k, v in trade_dict.items() if k in supported_fields and k != "is_trade_confirmation"}
+    # FIXED: Filter only to DB fields, exclude calculator fields
+    trade_dict = {k: v for k, v in trade_dict.items() if k in db_fields and k != "is_trade_confirmation"}
     
     if 'direction' in trade_dict and isinstance(trade_dict['direction'], TradeDirection):
         trade_dict['direction'] = trade_dict['direction'].value
@@ -1049,12 +436,13 @@ async def save_extracted_trade(
             dt_str = trade_dict['trade_date']
             if 'Z' in dt_str:
                 dt_str = dt_str.replace('Z', '+00:00')
-            trade_dict['trade_date'] = datetime.fromisoformat(dt_str)
+            parsed_dt = datetime.fromisoformat(dt_str)
+            trade_dict['trade_date'] = parsed_dt.replace(tzinfo=None)
         except ValueError:
             logger.warning("Invalid trade_date format: %s", trade_dict['trade_date'], extra={"corr_id": correlation_id})
             del trade_dict['trade_date']
     
-    # Recalc P&L if needed (fallback, same as journal.py)
+    # Recalc P&L if needed
     if (trade_dict.get('entry_price') is not None and 
         trade_dict.get('exit_price') is not None and
         trade_dict.get('position_size') is not None and
@@ -1066,7 +454,7 @@ async def save_extracted_trade(
         asset_type_str = str(trade_dict.get('asset_type')) if trade_dict.get('asset_type') else None
         if asset_type_str == 'FOREX':
             pip_factor = 100 if 'JPY' in (trade_dict.get('symbol') or '') else 10000
-            base_pnl *= (abs(delta) * pip_factor / abs(delta)) * 10  # Approx pip value
+            base_pnl *= (abs(delta) * pip_factor / abs(delta)) * 10
         fees_val = trade_dict.get('fees') or 0.0
         trade_dict['pnl'] = round(base_pnl - fees_val, 2)
     
@@ -1083,7 +471,6 @@ async def save_extracted_trade(
         if hasattr(new_trade, "confidence"):
             new_trade.confidence = 0.95
         
-        # Update user balance incrementally
         pnl_delta = new_trade.pnl or 0.0
         if pnl_delta != 0:
             current_user.account_balance += pnl_delta
@@ -1102,13 +489,23 @@ async def save_extracted_trade(
 async def upload_trade_screenshot(
     file: UploadFile = File(..., media_type="image/*"),
     db: AsyncSession = Depends(get_session),
+    redis_client: Optional[Redis] = Depends(redis_dependency),  # NEW: Optional Redis
     current_user: models.User = Depends(auth.get_current_user),
 ):
-    """Upload, extract, and save trade from a screenshot."""
-    num_files = 1
-    await enforce_upload_limits(db, current_user, num_files, "upload")  # Deducts TP for full flow
+    await enforce_upload_limits(db, current_user, 1, "upload")
     correlation_id = asyncio.current_task().get_name()
     logger.info("Upload started: user=%s, file=%s", current_user.id, file.filename, extra={"corr_id": correlation_id})
+    
+    # NEW: Check Redis for recent backoff before calling AI
+    user_key = f"rate_limit_backoff:{current_user.id}"
+    backoff_data = await get_cache(redis_client, user_key) if redis_client else None
+    if backoff_data:
+        try:
+            backoff = json.loads(backoff_data)
+            retry_after = backoff.get("retry_after", 300)
+            raise HTTPException(503, f"Recent rate limit detected. Wait {retry_after//60}min before retrying. Error: {backoff.get('error', 'Unknown')}")
+        except (json.JSONDecodeError, KeyError):
+            pass  # Proceed if invalid
     
     contents = await file.read()
     if not contents:
@@ -1119,16 +516,28 @@ async def upload_trade_screenshot(
     raw_response: Dict[str, Any] = {}
     source = ExtractionSource.VISION
     symbols_cache = await get_cached_symbols(db)
+    account_balance = getattr(current_user, 'account_balance', 10000.0)
     
     try:
-        parsed, raw_response = await call_openai_vision(processed_bytes)
-        if not parsed:
-            raise ValueError("AI extraction returned no data")
-    except Exception as e:
-        logger.error("AI vision failed entirely: %s", e, extra={"corr_id": correlation_id})
-        source = ExtractionSource.FAILED
-        parsed = TradeSchema(session="UTC")
-        raise HTTPException(status_code=503, detail="AI extraction temporarily unavailable (rate limit?) - try again soon")
+        parsed, raw_response = await call_openai_vision(
+            processed_bytes, account_balance=account_balance, redis_client=redis_client
+        )
+    except HTTPException:
+        raise  # Re-raise enhanced 503 from vision func
+    if not parsed:
+        # NEW: Fallback to partial upload (manual review mode)
+        logger.warning("Falling back to manual mode for user %s", current_user.id, extra={"corr_id": correlation_id})
+        parsed = TradeSchema(
+            symbol=None, direction=None, notes="AI extraction failed - manual review required",
+            chart_url=save_image_locally(contents, f"{uuid.uuid4()}.jpg"),  # Save image anyway
+            is_trade_confirmation=False, suggestion="Upload clearer chart or review manually.",
+            # Set other fields to defaults/None
+            trade_date=None, entry_price=None, exit_price=None, sl_price=None, tp_price=None,
+            position_size=None, leverage=None, pnl=None, session="UTC", strategy=None,
+            risk_percentage=None, risk_amount=None, reward_amount=None, r_r_ratio=None,
+            asset_type=None, margin_required=None, notional_value=None, calculator_note=None,
+            auto_calculated=None, calculator_version="1.1"
+        )
     
     if not parsed.is_trade_confirmation:
         raise HTTPException(status_code=422, detail="Image not recognized as trade confirmation")
@@ -1153,22 +562,21 @@ async def upload_trade_screenshot(
     parsed.chart_url = chart_url
     
     conf = compute_confidence(parsed.dict(), source)
-    parsed_dict = parsed.dict()
-    parsed_dict["_confidence"] = conf
-    parsed_dict["_extraction_source"] = source.value
     
     try:
-        supported_fields = {
+        # FIXED: Separate DB fields from calculator fields
+        db_fields = {
             'symbol', 'trade_date', 'entry_price', 'exit_price', 'sl_price', 'tp_price', 'direction', 'position_size', 'leverage',
             'pnl', 'notes', 'session', 'strategy', 'risk_percentage', 'risk_amount', 'reward_amount', 'r_r_ratio', 'suggestion', 'chart_url', 'asset_type'
         }
-        trade_dict = parsed_dict.copy()
+        trade_dict = parsed.dict().copy()
         if 'position_size' not in trade_dict or trade_dict['position_size'] is None:
             trade_dict['position_size'] = trade_dict.get('size')
         if 'risk_percentage' not in trade_dict or trade_dict['risk_percentage'] is None:
             trade_dict['risk_percentage'] = trade_dict.get('risk')
         
-        trade_dict = {k: v for k, v in trade_dict.items() if k in supported_fields}
+        # FIXED: Filter only to DB fields, exclude calculator fields
+        trade_dict = {k: v for k, v in trade_dict.items() if k in db_fields}
         
         if 'direction' in trade_dict and isinstance(trade_dict['direction'], TradeDirection):
             trade_dict['direction'] = trade_dict['direction'].value
@@ -1189,12 +597,13 @@ async def upload_trade_screenshot(
                 dt_str = trade_dict['trade_date']
                 if 'Z' in dt_str:
                     dt_str = dt_str.replace('Z', '+00:00')
-                trade_dict['trade_date'] = datetime.fromisoformat(dt_str)
+                parsed_dt = datetime.fromisoformat(dt_str)
+                trade_dict['trade_date'] = parsed_dt.replace(tzinfo=None)
             except ValueError:
                 logger.warning("Invalid trade_date format: %s", trade_dict['trade_date'], extra={"corr_id": correlation_id})
                 del trade_dict['trade_date']
         
-        # Recalc P&L if needed (fallback, same as journal.py)
+        # Recalc P&L if needed
         if (trade_dict.get('entry_price') is not None and 
             trade_dict.get('exit_price') is not None and
             trade_dict.get('position_size') is not None and
@@ -1206,7 +615,7 @@ async def upload_trade_screenshot(
             asset_type_str = str(trade_dict.get('asset_type')) if trade_dict.get('asset_type') else None
             if asset_type_str == 'FOREX':
                 pip_factor = 100 if 'JPY' in (trade_dict.get('symbol') or '') else 10000
-                base_pnl *= (abs(delta) * pip_factor / abs(delta)) * 10  # Approx pip value
+                base_pnl *= (abs(delta) * pip_factor / abs(delta)) * 10
             fees_val = trade_dict.get('fees') or 0.0
             trade_dict['pnl'] = round(base_pnl - fees_val, 2)
         
@@ -1222,7 +631,6 @@ async def upload_trade_screenshot(
         if hasattr(new_trade, "confidence"):
             new_trade.confidence = conf["overall"]
         
-        # Update user balance incrementally
         pnl_delta = new_trade.pnl or 0.0
         if pnl_delta != 0:
             current_user.account_balance += pnl_delta
@@ -1238,3 +646,39 @@ async def upload_trade_screenshot(
         await db.rollback()
         logger.error("DB save failed: %s | Trade data: %s", e, trade_dict, extra={"corr_id": correlation_id})
         raise HTTPException(status_code=500, detail=f"Database save failed: {str(e)}")
+
+@router.get("/platform-plan", response_model=Dict[str, str])
+async def get_platform_plan(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_session)
+):
+    # Query active platform subscription (trader_id is None, status=active)
+    result = await db.execute(
+        select(models.Subscription.plan_type)
+        .where(
+            models.Subscription.user_id == current_user.id,
+            models.Subscription.status == 'active',
+            models.Subscription.trader_id.is_(None)
+        )
+        .order_by(models.Subscription.start_date.desc())
+        .limit(1)
+    )
+    sub_plan_type = result.scalar_one_or_none()
+    
+    if sub_plan_type:
+        # Extract base plan (e.g., 'pro_monthly' -> 'pro')
+        platform_plan = sub_plan_type.split('_')[0].lower()
+        # Validate it's a platform plan
+        if platform_plan in ['starter', 'pro', 'elite']:
+            logger.info("Queried platform plan for user %s: %s", current_user.id, platform_plan)
+            return {"platform_plan": platform_plan}
+    
+    # Fallback to user.plan (assuming it's the platform plan)
+    user_plan = current_user.plan.lower()
+    if user_plan in ['starter', 'pro', 'elite']:
+        logger.info("Queried platform plan for user %s: %s (fallback)", current_user.id, user_plan)
+        return {"platform_plan": user_plan}
+    
+    # Ultimate fallback
+    logger.info("Queried platform plan for user %s: starter (ultimate fallback)", current_user.id)
+    return {"platform_plan": "starter"}

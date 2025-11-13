@@ -11,11 +11,13 @@ from templates_config import templates
 from models.models import User, Subscription, Payment  # FIXED: Direct import for clarity
 from database import get_session
 import auth
-from config import settings
+
 
 # Shared helpers
 from .payments import get_nowpayments_token, create_direct_invoice  # FIXED: Assume payments.py is sibling module
+from config import get_settings
 
+settings = get_settings()
 router = APIRouter(prefix="/subscriptions", tags=["Subscriptions"])
 
 

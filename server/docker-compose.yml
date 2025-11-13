@@ -1,0 +1,98 @@
+services:
+  app:
+    build:
+      context: ..                 # ← Build context = ~/itrade/
+      dockerfile: Dockerfile      # ← Use ~/itrade/Dockerfile
+    dns:
+    - 8.8.8.8  # Google DNS
+    - 1.1.1.1  
+    volumes:
+      - .:/app                    # ← Mount server/ → /app (hot reload)
+      - ./.env:/app/.env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-itrade}
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+    # NEW: Expose port internally for Nginx
+    expose:
+      - "8000"
+
+  # NEW: Nginx reverse proxy service
+  nginx:
+    image: nginx:alpine  # Lightweight image
+    ports:
+      - "80:80"          # Expose HTTP (add "443:443" for HTTPS)
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro  # Mount your custom config
+      # For SSL (optional): - ./certs:/etc/nginx/certs:ro  # Mount certs here
+    depends_on:
+      - app
+    restart: unless-stopped
+    networks:
+      - default  # Ensure it's on the same network as app
+
+  db:
+    image: postgres:16-alpine
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-itrade}
+      - POSTGRES_USER=${POSTGRES_USER:-user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../init-db:/docker-entrypoint-initdb.d:ro   # ← Go up to ~/itrade/init-db/
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-user} -d ${POSTGRES_DB:-itrade}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # UPDATED: Automated PostgreSQL backup service (dumps locally, uploads to S3/Backblaze)
+  pgbackups:
+    image: eeshugerman/postgres-backup-s3:16  # PG16-compatible, supports B2 endpoint
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      # Database connection (matches your db service)
+      - POSTGRES_HOST=db
+      - POSTGRES_DATABASE=${POSTGRES_DB:-itrade}
+      - POSTGRES_USER=${POSTGRES_USER:-user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
+      # S3/Backblaze upload config (from .env)
+      - S3_BUCKET=${S3_BUCKET}
+      - S3_REGION=${S3_REGION}
+      - S3_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID}
+      - S3_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY}
+      - S3_ENDPOINT=${S3_ENDPOINT}
+      # Backup scheduling & behavior
+      - SCHEDULE=@daily  # Runs at midnight UTC; set @hourly for testing
+      # Retention (deletes old files on S3 after upload)
+      - BACKUP_KEEP_DAYS=7
+      # Optional: Prefix for files in bucket (e.g., itrade/)
+      - S3_PREFIX=itrade
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:

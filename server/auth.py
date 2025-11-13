@@ -1,27 +1,44 @@
-# server/auth.py
 import jwt
+import bcrypt  # NEW: Direct import instead of passlib
 from datetime import datetime, timedelta
-from passlib.context import CryptContext
 from jose import JWTError
 from fastapi import Depends, HTTPException, status, Cookie
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+import logging
+
 from database import get_session
 from models import models
-from config import settings 
+from config import get_settings
+
+settings = get_settings()
 
 SECRET_KEY = settings.SECRET_KEY
 ALGORITHM = settings.ALGORITHM
 ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+logger = logging.getLogger(__name__)
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    if not password:
+        raise ValueError("Password cannot be empty")
+    
+    # NEW: Explicitly truncate to 72 bytes (bcrypt limit; UTF-8 safe)
+    password_bytes = password.encode('utf-8')
+    if len(password_bytes) > 72:
+        logger.warning(f"Password truncated from {len(password_bytes)} to 72 bytes for bcrypt compatibility")
+        password_bytes = password_bytes[:72]
+        # Note: We don't decode back—hash the bytes directly
+    
+    salt = bcrypt.gensalt()  # Uses default rounds (12); adjust if needed via rounds=14
+    hashed = bcrypt.hashpw(password_bytes, salt)
+    return hashed.decode('utf-8')  # Return as str for storage
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    plain_bytes = plain_password.encode('utf-8')
+    hashed_bytes = hashed_password.encode('utf-8')
+    return bcrypt.checkpw(plain_bytes, hashed_bytes)
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()

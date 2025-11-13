@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="description" content="iTradex Support - Help center for beta users." />
+  <title>Support - iTradex</title>
+  <!-- Open Graph -->
+  <meta property="og:title" content="Support - iTradex" />
+  <meta property="og:description" content="Help center for iTradex beta users. FAQs, guides, and contact options." />
+  <meta property="og:image" content="og-image.png" />
+  <meta property="og:type" content="website" />
+  <!-- Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [{
+      "@type": "Question",
+      "name": "How do I sign up for beta?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Join the waitlist on our homepage. We'll email you when spots open."
+      }
+    }]
+  }
+  </script>
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="static/img/favicon-16x16.png" />
+  <!-- Canonical URL -->
+  <link rel="canonical" href="https://itradex.xyz/support" />
+  <!-- Fonts - Preload both -->
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
+  <!-- Bootstrap Icons - Preload -->
+  <link rel="preload" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet"></noscript>
+  <style>
+    :root {
+      --brand-500: #2F6BFF;
+      --brand-600: #1F55E0;
+      --gold: #EAB308;
+      --bg: linear-gradient(135deg, #F8FAFC 0%, #E2E8F0 100%);
+      --surface: #fff;
+      --text: #0F172A;
+      --text-dark: #111827;
+      --muted: #475569;
+      --border: #E2E8F0;
+      --radius: 20px;
+      --shadow: 0 20px 40px rgba(0,0,0,0.05);
+      --shadow-lg: 0 25px 50px -12px rgba(0,0,0,0.25);
+      --shadow-color: rgba(0,0,0,0.1);
+      --accent: #06B6D4;
+      --success: #10B981;
+      --warning: #F59E0B;
+      --error: #EF4444;
+      --glass-weak: rgba(255,255,255,0.06);
+      --gradient-brand: linear-gradient(135deg, var(--brand-500), var(--brand-600));
+      --gradient-accent: linear-gradient(135deg, var(--accent), #0891b2);
+      --gradient-success: linear-gradient(135deg, var(--success), #059669);
+      --gradient-warning: linear-gradient(135deg, var(--warning), #d97706);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; background: var(--bg); }
+    body {
+      font-family: Inter, system-ui, sans-serif;
+      color: var(--text);
+      overflow-x: hidden;
+      line-height: 1.7;
+      min-height: 100vh;
+      position: relative;
+      background: 
+        linear-gradient(135deg, #f5f8ff 0%, #e5efff 50%, #d1e3ff 100%),
+        radial-gradient(circle at 50% 50%, rgba(47,107,255,0.08) 0%, transparent 70%);
+      background-size: 100% 100%, 200% 200%;
+      background-attachment: fixed;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      * { transition: none !important; animation: none !important; }
+    }
+
+    /* Navbar */
+    nav.navbar {
+      position: fixed;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      justify-content: center;
+      padding: 0.75rem 0;
+      background: linear-gradient(135deg, rgba(245,248,255,0.4), rgba(209,227,255,0.2));
+      -webkit-backdrop-filter: blur(20px) saturate(1.8);
+      backdrop-filter: blur(20px) saturate(1.8);
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 50px;
+      z-index: 100;
+      transition: all 0.3s ease;
+      box-shadow: 0 8px 32px var(--shadow-color);
+      max-width: 1200px;
+      width: 90%;
+    }
+
+    nav.navbar.scrolled { 
+      padding: 0.5rem 0; 
+      box-shadow: 0 4px 20px var(--shadow-color); 
+    }
+
+    .navbar .container { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      width: 100%;
+      padding: 0 2rem;
+    }
+    .brand { 
+      font-weight: 800; 
+      font-size: 1.3rem; 
+      display: flex; 
+      gap: 0.625rem;
+      align-items: center; 
+      text-decoration: none;
+      background: var(--gradient-brand);
+      -webkit-background-clip: text; 
+      -webkit-text-fill-color: transparent;
+    }
+
+    .nav-links { display: flex; gap: 2rem; align-items: center; }
+    .nav-link { 
+      color: var(--text); 
+      text-decoration: none; 
+      font-weight: 500; 
+      transition: all 0.2s ease;
+      position: relative;
+    }
+    .nav-link:hover { color: var(--brand-500); }
+    .nav-link.current { 
+      color: var(--brand-500); 
+      font-weight: 600;
+    }
+    .nav-link.current::after {
+      content: '';
+      position: absolute;
+      bottom: -4px;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: var(--gradient-brand);
+    }
+
+    .hamburger {
+      display: none;
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      color: var(--text);
+      cursor: pointer;
+      padding: 0.25rem;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+    .hamburger:focus { outline: 2px solid var(--brand-500); outline-offset: 2px; }
+
+    /* Support Styles */
+    .support-wrapper {
+      padding-top: 120px;
+      padding-bottom: 4rem;
+    }
+    .section { 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      min-height: auto; 
+      position: relative; 
+      padding: 0 5%; 
+    }
+    .container { 
+      max-width: 1200px; 
+      margin: 0 auto; 
+      width: 100%; 
+    }
+
+    .hero-content { 
+      padding: 0 0 60px;
+      display: flex; 
+      flex-direction: column; 
+      align-items: center; 
+      justify-content: center; 
+      gap: 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+      width: 100%;
+      text-align: center;
+    }
+
+    .hero h1 {
+      font-weight: 800; 
+      font-size: clamp(2.5rem, 6vw, 3.5rem);
+      margin-bottom: 1rem;
+      background: var(--gradient-brand);
+      -webkit-background-clip: text; 
+      -webkit-text-fill-color: transparent; 
+      line-height: 1.05;
+    }
+
+    .hero p {
+      font-size: 1.1rem;
+      color: var(--muted);
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .search-bar {
+      width: 100%;
+      max-width: 500px;
+      padding: 0.75rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 1rem;
+      background: rgba(255,255,255,0.95);
+      transition: border-color 0.2s ease;
+    }
+    .search-bar:focus {
+      outline: none;
+      border-color: var(--brand-500);
+      box-shadow: 0 0 0 3px rgba(47,107,255,0.1);
+    }
+
+    .support-section {
+      max-width: 900px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .support-section h2 {
+      font-size: 1.75rem;
+      margin-top: 3rem;
+      margin-bottom: 1.5rem;
+      color: var(--text-dark);
+      text-align: center;
+    }
+    .support-section h2:first-of-type {
+      margin-top: 0;
+    }
+
+    .faq-item {
+      background: rgba(255,255,255,0.95);
+      border-radius: var(--radius);
+      margin-bottom: 1rem;
+      padding: 1.5rem;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+      transition: all 0.3s ease;
+    }
+    .faq-item:hover {
+      box-shadow: var(--shadow-lg);
+      transform: translateY(-2px);
+    }
+    .faq-question {
+      font-weight: 600;
+      color: var(--brand-500);
+      cursor: pointer;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .faq-question::after {
+      content: '▼';
+      transition: transform 0.3s ease;
+      font-size: 0.8rem;
+    }
+    .faq-question[aria-expanded="true"]::after {
+      transform: rotate(180deg);
+    }
+    .faq-answer {
+      color: var(--text);
+      display: none;
+      margin-top: 1rem;
+    }
+    .faq-answer[aria-hidden="false"] {
+      display: block;
+    }
+
+    .direct-support {
+      text-align: center;
+      padding: 2rem;
+      background: rgba(16,185,129,0.05);
+      border-radius: var(--radius);
+      border: 1px solid rgba(16,185,129,0.1);
+    }
+    .direct-support p {
+      margin-bottom: 1rem;
+      font-size: 1.1rem;
+    }
+
+    .btn-primary {
+      background: var(--gradient-brand);
+      border: none; 
+      border-radius: 12px; 
+      height: 52px;
+      font-weight: 600; 
+      color: white; 
+      padding: 0 1.75rem; 
+      display: inline-flex; 
+      align-items: center; 
+      text-decoration: none;
+      box-shadow: 0 10px 30px rgba(47,107,255,0.2); 
+      transition: all 0.2s ease;
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 15px 40px rgba(47,107,255,0.25);
+    }
+
+    /* Footer */
+    footer {
+      background: var(--surface);
+      padding: 3rem 0;
+      border-top: 0.05rem solid var(--border);
+      text-align: center;
+    }
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .footer-link {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 1rem;
+      transition: all 0.2s ease;
+      padding: 0.75rem 1.25rem;
+      border-radius: 25px;
+    }
+    .footer-link:hover {
+      color: var(--brand-500);
+      background: rgba(47,107,255,0.08);
+      transform: translateY(-1px);
+    }
+    footer p {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .hamburger { display: block; }
+      .nav-links { 
+        display: none; 
+        flex-direction: column;
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 90%;
+        background: linear-gradient(135deg, #f5f8ff, #d1e3ff);
+        backdrop-filter: blur(20px) saturate(1.8);
+        border: 1px solid rgba(255,255,255,0.3);
+        border-top: none;
+        padding: 1rem;
+        border-radius: 0 0 50px 50px;
+        box-shadow: 0 8px 32px var(--shadow-color);
+        gap: 1rem;
+        z-index: 99;
+      }
+      .nav-links.active { display: flex; }
+      .nav-link {
+        padding: 0.75rem 0;
+        text-align: center;
+        font-size: 1.1rem;
+      }
+      .support-wrapper {
+        padding-top: 100px;
+      }
+      .hero-content { padding: 0 0 40px; gap: 1.5rem; }
+      .support-section { padding: 0 1rem; }
+      .faq-item { padding: 1.25rem; }
+    }
+
+    @media (max-width: 480px) {
+      .navbar .container { padding: 0 1rem; }
+      .hero h1 { font-size: 2.25rem; }
+      .faq-item { padding: 1rem; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar" role="navigation" aria-label="Main navigation">
+    <div class="container">
+      <a class="brand" href="/" aria-label="iTradex homepage">
+        <img src="static/img/logo.png" alt="iTradex Logo" style="height: 1.3rem; width: auto;">
+        iTradex
+      </a>
+      <div class="nav-links" id="nav-links">
+        <a href="/" class="nav-link">Home</a>
+        <a href="/features" class="nav-link">Features</a>
+        <a href="/pricing" class="nav-link">Pricing</a>
+        <a href="/privacy" class="nav-link">Privacy</a>
+        <a href="/terms" class="nav-link">Terms</a>
+        <a href="/support" class="nav-link current">Support</a>
+        <a href="/contact" class="nav-link">Contact</a>
+      </div>
+      <button class="hamburger" aria-label="Toggle menu" aria-expanded="false" aria-controls="nav-links">☰</button>
+    </div>
+  </nav>
+
+  <div class="support-wrapper">
+    <section class="section hero" aria-labelledby="support-heading">
+      <div class="container">
+        <div class="hero-content">
+          <h1 id="support-heading">Help Center</h1>
+          <p>Welcome to iTradex support. Search below or browse FAQs for quick help. For more, contact us.</p>
+          <input type="search" class="search-bar" placeholder="Search for articles... (e.g., account setup, trading features)" aria-label="Search support articles">
+        </div>
+      </div>
+    </section>
+
+    <main class="support-section" id="main-content" tabindex="-1">
+      <section id="getting-started">
+        <h2>Getting Started</h2>
+        <article class="faq-item" itemscope itemtype="https://schema.org/Question">
+          <h3 class="faq-question" tabindex="0" role="button" aria-expanded="false" aria-controls="faq1">
+            <i class="bi bi-question-circle" aria-hidden="true"></i>
+            How do I sign up for beta?
+          </h3>
+          <div id="faq1" class="faq-answer" aria-hidden="true" itemprop="acceptedAnswer" itemscope itemtype="https://schema.org/Answer">
+            <p itemprop="text">Join the waitlist on our homepage. We'll email you when spots open.</p>
+          </div>
+        </article>
+        <article class="faq-item" itemscope itemtype="https://schema.org/Question">
+          <h3 class="faq-question" tabindex="0" role="button" aria-expanded="false" aria-controls="faq2">
+            <i class="bi bi-question-circle" aria-hidden="true"></i>
+            What features are in beta?
+          </h3>
+          <div id="faq2" class="faq-answer" aria-hidden="true" itemprop="acceptedAnswer" itemscope itemtype="https://schema.org/Answer">
+            <p itemprop="text">Basic trade logging, AI insights, and analytics. Pro features coming soon.</p>
+          </div>
+        </article>
+      </section>
+
+      <section id="product-docs">
+        <h2>Product Documentation</h2>
+        <article class="faq-item" itemscope itemtype="https://schema.org/Question">
+          <h3 class="faq-question" tabindex="0" role="button" aria-expanded="false" aria-controls="faq3">
+            <i class="bi bi-question-circle" aria-hidden="true"></i>
+            How to log a trade?
+          </h3>
+          <div id="faq3" class="faq-answer" aria-hidden="true" itemprop="acceptedAnswer" itemscope itemtype="https://schema.org/Answer">
+            <p itemprop="text">Go to Uploads > New Trade > Upload screenshot of the trade chart > Save.</p>
+          </div>
+        </article>
+        <article class="faq-item" itemscope itemtype="https://schema.org/Question">
+          <h3 class="faq-question" tabindex="0" role="button" aria-expanded="false" aria-controls="faq4">
+            <i class="bi bi-question-circle" aria-hidden="true"></i>
+            Using AI insights?
+          </h3>
+          <div id="faq4" class="faq-answer" aria-hidden="true" itemprop="acceptedAnswer" itemscope itemtype="https://schema.org/Answer">
+            <p itemprop="text">After logging 5 trades, generate report in Insights tab.</p>
+          </div>
+        </article>
+      </section>
+
+      <section id="faq">
+        <h2>Frequently Asked Questions</h2>
+        <article class="faq-item" itemscope itemtype="https://schema.org/Question">
+          <h3 class="faq-question" tabindex="0" role="button" aria-expanded="false" aria-controls="faq5">
+            <i class="bi bi-question-circle" aria-hidden="true"></i>
+            How do I reset my password?
+          </h3>
+          <div id="faq5" class="faq-answer" aria-hidden="true" itemprop="acceptedAnswer" itemscope itemtype="https://schema.org/Answer">
+            <p itemprop="text">Go to login > Forgot Password > Enter email for reset link.</p>
+          </div>
+        </article>
+        <article class="faq-item" itemscope itemtype="https://schema.org/Question">
+          <h3 class="faq-question" tabindex="0" role="button" aria-expanded="false" aria-controls="faq6">
+            <i class="bi bi-question-circle" aria-hidden="true"></i>
+            What are trading limits?
+          </h3>
+          <div id="faq6" class="faq-answer" aria-hidden="true" itemprop="acceptedAnswer" itemscope itemtype="https://schema.org/Answer">
+            <p itemprop="text">Free: 5 uploads/month. Pro: Unlimited. Check dashboard.</p>
+          </div>
+        </article>
+      </section>
+
+      <section class="direct-support" id="contact-support">
+        <h2>Direct Support</h2>
+        <p>Email: <a href="mailto:contact@itradex.xyz">contact@itradex.xyz</a> | Response time: 24-48 hours during beta.</p>
+        <a href="/contact" class="btn-primary">Submit a Ticket</a>
+      </section>
+    </main>
+  </div>
+
+  <footer role="contentinfo">
+    <div class="container">
+      <div class="footer-links">
+        <a href="/privacy" class="footer-link">Privacy</a>
+        <a href="/terms" class="footer-link">Terms</a>
+        <a href="/contact" class="footer-link">Contact</a>
+        <a href="/support" class="footer-link">Support</a>
+      </div>
+      <p>© 2025 iTradex. All rights reserved. | Built with ❤️ for traders.</p>
+    </div>
+  </footer>
+
+  <script>
+    // Navbar scroll effect
+    const navbar = document.querySelector('.navbar');
+    let ticking = false;
+    function updateNavbar() {
+      if (window.scrollY > 50) {
+        navbar.classList.add('scrolled');
+      } else {
+        navbar.classList.remove('scrolled');
+      }
+      ticking = false;
+    }
+    window.addEventListener('scroll', () => {
+      if (!ticking) {
+        requestAnimationFrame(updateNavbar);
+        ticking = true;
+      }
+    });
+
+    // Mobile menu toggle
+    const hamburger = document.querySelector('.hamburger');
+    const navLinks = document.getElementById('nav-links');
+    if (hamburger && navLinks) {
+      hamburger.addEventListener('click', () => {
+        const isActive = navLinks.classList.toggle('active');
+        hamburger.setAttribute('aria-expanded', isActive);
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && navLinks.classList.contains('active')) {
+          navLinks.classList.remove('active');
+          hamburger.setAttribute('aria-expanded', 'false');
+        }
+      });
+    }
+
+    // FAQ Accordion
+    document.querySelectorAll('.faq-question').forEach(question => {
+      question.addEventListener('click', () => {
+        const expanded = question.getAttribute('aria-expanded') === 'true';
+        const answer = question.nextElementSibling;
+        question.setAttribute('aria-expanded', !expanded);
+        answer.setAttribute('aria-hidden', expanded);
+      });
+      question.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          question.click();
+        }
+      });
+    });
+
+    // Search functionality (basic filter)
+    const searchBar = document.querySelector('.search-bar');
+    const faqItems = document.querySelectorAll('.faq-item');
+    searchBar.addEventListener('input', (e) => {
+      const term = e.target.value.toLowerCase();
+      faqItems.forEach(item => {
+        const text = item.textContent.toLowerCase();
+        item.style.display = text.includes(term) ? 'block' : 'none';
+      });
+    });
+  </script>
+</body>
+</html>

@@ -13,12 +13,15 @@ from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc, and_, insert
 
+# NEW: Redis imports
+from redis.asyncio import Redis  # NEW: Import Redis type
+from redis_client import init_redis, close_redis, redis_dependency, get_cache, set_cache
+
 from database import Base, engine, get_session
 from templates_config import templates
 from models import models
 from models.schemas import TradeResponse, ProfileUpdateRequest
 import auth
-from config import settings
 
 # APScheduler
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -33,11 +36,19 @@ from auth import get_current_user_optional
 from router import (
     users, uploads, insights, journal, profile,
     admin, ai, payments, dashboard, subscriptions,
-    notifications
+    notifications, waitlist
 )
 
 # --- NEW: Import required functions from payments ---
 from router.payments import get_nowpayments_token, create_direct_invoice
+from config import get_settings
+
+# NEW: SlowAPI imports for rate limiting
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
+settings = get_settings()
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger("iTrade")
@@ -46,6 +57,11 @@ BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 
 app = FastAPI(title="iTrade Journal")
+
+# NEW: Global Limiter setup
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # SessionMiddleware FIRST (before CORS, for better cookie/response handling)
 app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)
@@ -106,7 +122,7 @@ async def init_models():
     logger.info("Database models initialized and seeded")
 
 # --- AUTO RENEWALS CRON JOB (MOVED HERE) ---
-async def auto_generate_renewals(db: AsyncSession):
+async def auto_generate_renewals(db: AsyncSession, redis: Redis):
     """Generate renewal invoices 3 days before next_billing_date."""
     due_date = datetime.utcnow() + timedelta(days=3)
     result = await db.execute(
@@ -122,7 +138,7 @@ async def auto_generate_renewals(db: AsyncSession):
         logger.info("No subscriptions due for auto-renewal.")
         return
 
-    token = await get_nowpayments_token()
+    token = await get_nowpayments_token(redis)
     for sub in subs:
         try:
             order_id = f"{sub.user_id}_{sub.plan_type}_renew"
@@ -166,13 +182,15 @@ async def auto_generate_renewals(db: AsyncSession):
 @app.on_event("startup")
 async def startup_event():
     await init_models()
+    await init_redis(getattr(settings, 'REDIS_URL', "redis://localhost:6379"))  # NEW: Initialize Redis
 
     # Start APScheduler
     scheduler = AsyncIOScheduler()
     # Patch: Run auto_generate_renewals with session via wrapper
     async def wrapped_renewals():
         async with get_session() as db:
-            await auto_generate_renewals(db=db)
+            redis = redis_dependency()
+            await auto_generate_renewals(db=db, redis=redis)
     scheduler.add_job(
         wrapped_renewals,
         trigger=CronTrigger(hour=2, minute=0),
@@ -182,7 +200,12 @@ async def startup_event():
     scheduler.start()
     logger.info("APScheduler started: auto-renewals scheduled at 2:00 AM UTC")
 
-# --- Middleware (UPDATED: Exempt /payment-success from auth) ---
+# NEW: Shutdown Event for Redis
+@app.on_event("shutdown")
+async def shutdown_event():
+    await close_redis()
+
+# --- Middleware (UPDATED: Validate token early for protected routes) ---
 @app.middleware("http")
 async def auth_redirect_middleware(request: Request, call_next):
     protected = [
@@ -192,9 +215,18 @@ async def auth_redirect_middleware(request: Request, call_next):
     # NEW: Exempt payment success page (public, no auth needed)
     if request.url.path.startswith("/payment-success"):
         return await call_next(request)
-    if any(request.url.path.startswith(p) for p in protected) and not request.cookies.get("access_token"):
-        logger.info(f"Redirecting unauthenticated {request.url.path} -> /")
-        return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
+    if any(request.url.path.startswith(p) for p in protected):
+        access_token = request.cookies.get("access_token")
+        if not access_token:
+            logger.info(f"Redirecting unauthenticated {request.url.path} -> /")
+            return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
+        try:
+            # Validate token without DB query (just decode for expiry/invalid check)
+            payload = auth.decode_access_token(access_token)
+            # If decode succeeds, proceed (user fetch happens in Depends later)
+        except HTTPException:
+            logger.info(f"Redirecting expired/invalid token for {request.url.path} -> /")
+            return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
     return await call_next(request)
 
 # --- Routes ---
@@ -204,16 +236,36 @@ async def root(
     current_user: Optional[models.User] = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_session)
 ):
-    # Fetch beta config (with fallback)
-    result = await db.execute(select(models.BetaConfig).where(models.BetaConfig.id == 1))
-    beta_config = result.scalar_one_or_none()
-    if not beta_config:
-        beta_config = models.BetaConfig(
-            id=1,
-            is_active=False,  # Default: inactive (normal referral mode)
-            required_for_signup=False,
-            award_points_on_use=3
-        )
+    # NEW: Redirect to onboarding if user is logged in but hasn't completed it
+    if current_user and not current_user.trading_style:
+        return RedirectResponse(url="/onboard", status_code=status.HTTP_303_SEE_OTHER)
+    
+    # Fetch/create beta config (consistent with users.py logic)
+    beta_config = await users.get_beta_config(db)  # This creates/commits if missing, defaults to active=True
+
+    context = {
+        "request": request,
+        "now": datetime.utcnow(),
+        "is_logged_in": bool(current_user),
+        "current_user": current_user,
+        "success": "success" in request.query_params,
+        "ref_code": request.query_params.get("ref"),
+        "beta_config": beta_config  # Now guaranteed active if no row
+    }
+    return templates.TemplateResponse("hero.html", context)
+
+@app.get("/auth", response_class=HTMLResponse)
+async def auth_page(
+    request: Request,
+    current_user: Optional[models.User] = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_session)
+):
+    # If already logged in, redirect to dashboard
+    if current_user:
+        return RedirectResponse(url="/dashboard", status_code=status.HTTP_303_SEE_OTHER)
+    
+    # Fetch/create beta config (consistent with users.py logic)
+    beta_config = await users.get_beta_config(db)  # This creates/commits if missing, defaults to active=True
 
     context = {
         "request": request,
@@ -223,7 +275,7 @@ async def root(
         "current_user": current_user,
         "success": "success" in request.query_params,
         "ref_code": request.query_params.get("ref"),
-        "beta_config": beta_config  # NEW: Pass to template for conditional rendering
+        "beta_config": beta_config  # Now guaranteed active if no row
     }
     return templates.TemplateResponse("index.html", context)
 
@@ -359,15 +411,14 @@ async def journal_page(request: Request, current_user: Optional[models.User] = D
 async def profile_page(
     request: Request,
     current_user: Optional[models.User] = Depends(get_current_user_optional),
-    db: AsyncSession = Depends(get_session)
+    db: AsyncSession = Depends(get_session),
+    redis: Redis = Depends(redis_dependency)
 ):
     if not current_user:
         return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
 
-    profile_data = await get_profile(db=db, current_user=current_user)
-    profile_data["computed_daily_limit"] = round(
-        (profile_data.get("daily_loss_percent", 5) / 100) * profile_data.get("account_balance", 10000)
-    )
+    # UPDATED: Direct call to get_profile with redis (caching handled in API)
+    profile_data = await get_profile(db=db, current_user=current_user, redis=redis)
 
     initials = (
         "".join([n[0].upper() for n in current_user.full_name.split()[:2]]) if current_user.full_name
@@ -387,55 +438,202 @@ async def profile_page(
         "goals": profile_data.get('goals', ''), "now": datetime.utcnow()
     })
 
+# --------------------------------------------------------------
+#  REPLACE the existing @app.get("/plans") block with this one
+# --------------------------------------------------------------
 @app.get("/plans", response_class=HTMLResponse)
 async def plans_page(
     request: Request,
     current_user: Optional[models.User] = Depends(get_current_user_optional),
-    db: AsyncSession = Depends(get_session)
+    db: AsyncSession = Depends(get_session),
+    redis: Redis = Depends(redis_dependency)  # NEW: Add Redis dependency
 ):
     if not current_user:
         return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
 
-    initials = (
-        "".join([n[0].upper() for n in current_user.full_name.split()[:2]]) if current_user.full_name
-        else "U"
-    )
+    # NEW: Cache plans data globally (TTL 1 hour, as pricing/limits change rarely)
+    cache_key = "plans_data"
+    plans_data = await get_cache(redis, cache_key)
+    if plans_data is None:
+        # ------------------------------------------------------------------
+        # 1. Pricing (still pulled from DB, fallback to defaults)
+        # ------------------------------------------------------------------
+        pricing = {
+            "pro_monthly": 9.99, "pro_yearly": 99.00,
+            "elite_monthly": 19.99, "elite_yearly": 199.00,
+        }
+        result = await db.execute(
+            select(models.Pricing).where(
+                models.Pricing.plan.in_(["pro", "elite"]),
+                models.Pricing.interval.in_(["monthly", "yearly"]),
+            )
+        )
+        for p in result.scalars():
+            pricing[f"{p.plan}_{p.interval}"] = p.amount
 
-    pricing = {'pro_monthly': 9.99, 'pro_yearly': 99.00, 'elite_monthly': 19.99, 'elite_yearly': 199.00}
-    result = await db.execute(select(models.Pricing).where(
-        models.Pricing.plan.in_(['pro', 'elite']),
-        models.Pricing.interval.in_(['monthly', 'yearly'])
-    ))
-    for p in result.scalars():
-        pricing[f"{p.plan}_{p.interval}"] = p.amount
+        nested_pricing = {
+            "pro": {"monthly": pricing["pro_monthly"], "yearly": pricing["pro_yearly"]},
+            "elite": {"monthly": pricing["elite_monthly"], "yearly": pricing["elite_yearly"]},
+        }
 
-    discount = {'enabled': False, 'percentage': 0.0, 'expiry': None}
-    result = await db.execute(select(models.Discount).where(models.Discount.id == 1))
-    db_discount = result.scalar_one_or_none()
-    if db_discount:
-        discount.update({'enabled': db_discount.enabled, 'percentage': db_discount.percentage, 'expiry': db_discount.expiry})
+        # ------------------------------------------------------------------
+        # 2. Discount
+        # ------------------------------------------------------------------
+        result = await db.execute(select(models.Discount).where(models.Discount.id == 1))
+        db_discount = result.scalar_one_or_none()
+        effective_discount = (
+            db_discount.percentage
+            if db_discount
+            and db_discount.enabled
+            and (not db_discount.expiry or db_discount.expiry > date.today())
+            else 0.0
+        )
 
-    effective_discount = db_discount.percentage if db_discount and db_discount.enabled and (not db_discount.expiry or db_discount.expiry > date.today()) else 0.0
+        # ------------------------------------------------------------------
+        # 3. ALL DYNAMIC LIMITS (the ones that were missing)
+        # ------------------------------------------------------------------
+        # Helper to fetch a limit by plan
+        def _limit(records, plan, field):
+            rec = next((r for r in records if r.plan == plan), None)
+            return getattr(rec, field) if rec else 0
 
-    nested_pricing = {
-        'pro': {'monthly': pricing['pro_monthly'], 'yearly': pricing['pro_yearly']},
-        'elite': {'monthly': pricing['elite_monthly'], 'yearly': pricing['elite_yearly']}
-    }
+        # Initial TP (signup & upgrade)
+        init_cfg = (await db.execute(select(models.InitialTpConfig).where(models.InitialTpConfig.id == 1))).scalar_one_or_none()
+        starter_initial_tp = init_cfg.amount if init_cfg else 3
 
+        upgrade_cfg = (await db.execute(select(models.UpgradeTpConfig))).scalars().all()
+        pro_initial_tp   = next((c.amount for c in upgrade_cfg if c.plan == "pro"), 10)
+        elite_initial_tp = next((c.amount for c in upgrade_cfg if c.plan == "elite"), 20)
+
+        # Uploads
+        uploads = (await db.execute(select(models.UploadLimits))).scalars().all()
+        starter_uploads_monthly = _limit(uploads, "starter", "monthly_limit")
+        pro_uploads_monthly     = _limit(uploads, "pro", "monthly_limit")
+        elite_uploads_monthly   = _limit(uploads, "elite", "monthly_limit")
+
+        # Insights
+        insights = (await db.execute(select(models.InsightsLimits))).scalars().all()
+        starter_insights_monthly = _limit(insights, "starter", "monthly_limit")
+        pro_insights_monthly     = _limit(insights, "pro", "monthly_limit")
+        elite_insights_monthly   = _limit(insights, "elite", "monthly_limit")
+
+        # AI chats
+        ai_chats = (await db.execute(select(models.AiChatLimits))).scalars().all()
+        starter_ai_chats_monthly = _limit(ai_chats, "starter", "monthly_limit")
+        pro_ai_chats_monthly     = _limit(ai_chats, "pro", "monthly_limit")
+        elite_ai_chats_monthly   = _limit(ai_chats, "elite", "monthly_limit")
+
+        # Referral TP
+        ref_cfg = (await db.execute(select(models.BetaReferralTpConfig).where(models.BetaReferralTpConfig.id == 1))).scalar_one_or_none()
+        starter_referral_tp = ref_cfg.starter_tp if ref_cfg else 5
+        pro_referral_tp     = ref_cfg.pro_tp     if ref_cfg else 20
+        elite_referral_tp   = ref_cfg.elite_tp   if ref_cfg else 45
+
+        # Pack into dict for caching
+        plans_data = {
+            "pricing": {
+                "pro_monthly": pricing["pro_monthly"],
+                "pro_yearly": pricing["pro_yearly"],
+                "elite_monthly": pricing["elite_monthly"],
+                "elite_yearly": pricing["elite_yearly"],
+            },
+            "nested_pricing": nested_pricing,
+            "effective_discount": effective_discount,
+            # ---- DYNAMIC LIMITS ----
+            "starter_initial_tp": starter_initial_tp,
+            "pro_initial_tp": pro_initial_tp,
+            "elite_initial_tp": elite_initial_tp,
+            "starter_uploads_monthly": starter_uploads_monthly,
+            "pro_uploads_monthly": pro_uploads_monthly,
+            "elite_uploads_monthly": elite_uploads_monthly,
+            "starter_insights_monthly": starter_insights_monthly,
+            "pro_insights_monthly": pro_insights_monthly,
+            "elite_insights_monthly": elite_insights_monthly,
+            "starter_ai_chats_monthly": starter_ai_chats_monthly,
+            "pro_ai_chats_monthly": pro_ai_chats_monthly,
+            "elite_ai_chats_monthly": elite_ai_chats_monthly,
+            "starter_referral_tp": starter_referral_tp,
+            "pro_referral_tp": pro_referral_tp,
+            "elite_referral_tp": elite_referral_tp,
+        }
+        await set_cache(redis, cache_key, plans_data, ttl=3600)  # 1 hour TTL
+        logger.info("Cached plans data")
+
+    # Unpack cached data
+    pricing_obj = type("obj", (), plans_data["pricing"])
+    nested_pricing = plans_data["nested_pricing"]
+    effective_discount = plans_data["effective_discount"]
+    # ... (unpack all limits similarly)
+    starter_initial_tp = plans_data["starter_initial_tp"]
+    pro_initial_tp = plans_data["pro_initial_tp"]
+    elite_initial_tp = plans_data["elite_initial_tp"]
+    starter_uploads_monthly = plans_data["starter_uploads_monthly"]
+    pro_uploads_monthly = plans_data["pro_uploads_monthly"]
+    elite_uploads_monthly = plans_data["elite_uploads_monthly"]
+    starter_insights_monthly = plans_data["starter_insights_monthly"]
+    pro_insights_monthly = plans_data["pro_insights_monthly"]
+    elite_insights_monthly = plans_data["elite_insights_monthly"]
+    starter_ai_chats_monthly = plans_data["starter_ai_chats_monthly"]
+    pro_ai_chats_monthly = plans_data["pro_ai_chats_monthly"]
+    elite_ai_chats_monthly = plans_data["elite_ai_chats_monthly"]
+    starter_referral_tp = plans_data["starter_referral_tp"]
+    pro_referral_tp = plans_data["pro_referral_tp"]
+    elite_referral_tp = plans_data["elite_referral_tp"]
+
+    # ------------------------------------------------------------------
+    # 4. Current subscription (for “Current” badge)
+    # ------------------------------------------------------------------
     result_sub = await db.execute(
-        select(models.Subscription).where(
-            models.Subscription.user_id == current_user.id,
-            models.Subscription.status == 'active'
-        ).order_by(desc(models.Subscription.start_date))
+        select(models.Subscription)
+        .where(models.Subscription.user_id == current_user.id, models.Subscription.status == "active")
+        .order_by(desc(models.Subscription.start_date))
     )
     current_sub = result_sub.scalars().first()
 
-    return templates.TemplateResponse("plans.html", {
-        "request": request, "current_user": current_user, "initials": initials,
-        "pricing": pricing, "nested_pricing": nested_pricing,
-        "discount": discount, "effective_discount": effective_discount,
-        "current_subscription": current_sub, "now": datetime.utcnow()
-    })
+    # ------------------------------------------------------------------
+    # 5. Avatar initials
+    # ------------------------------------------------------------------
+    initials = (
+        "".join([n[0].upper() for n in current_user.full_name.split()[:2]])
+        if current_user.full_name
+        else "U"
+    )
+
+    # ------------------------------------------------------------------
+    # 6. Render
+    # ------------------------------------------------------------------
+    return templates.TemplateResponse(
+        "plans.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            "initials": initials,
+            # pricing
+            "pricing": pricing_obj,
+            "nested_pricing": nested_pricing,
+            "effective_discount": effective_discount,
+            "current_subscription": current_sub,
+            # ---- DYNAMIC LIMITS ----
+            "starter_initial_tp": starter_initial_tp,
+            "pro_initial_tp": pro_initial_tp,
+            "elite_initial_tp": elite_initial_tp,
+            "starter_uploads_monthly": starter_uploads_monthly,
+            "pro_uploads_monthly": pro_uploads_monthly,
+            "elite_uploads_monthly": elite_uploads_monthly,
+            "starter_insights_monthly": starter_insights_monthly,
+            "pro_insights_monthly": pro_insights_monthly,
+            "elite_insights_monthly": elite_insights_monthly,
+            "starter_ai_chats_monthly": starter_ai_chats_monthly,
+            "pro_ai_chats_monthly": pro_ai_chats_monthly,
+            "elite_ai_chats_monthly": elite_ai_chats_monthly,
+            "starter_referral_tp": starter_referral_tp,
+            "pro_referral_tp": pro_referral_tp,
+            "elite_referral_tp": elite_referral_tp,
+            "now": datetime.utcnow(),
+        },
+    )
+
+
 
 @app.post("/wallet-verify")
 async def verify_and_set_wallet(
@@ -473,6 +671,27 @@ async def verify_and_set_wallet(
         logger.error(f"Wallet setting failed for user {current_user.id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to set wallet address")
 
+# NEW: Static Pages Routes (public, no auth required)
+@app.get("/privacy", response_class=HTMLResponse)
+async def privacy_page(request: Request):
+    context = {"request": request, "now": datetime.utcnow()}
+    return templates.TemplateResponse("privacy.html", context)
+
+@app.get("/terms", response_class=HTMLResponse)
+async def terms_page(request: Request):
+    context = {"request": request, "now": datetime.utcnow()}
+    return templates.TemplateResponse("terms.html", context)
+
+@app.get("/contact", response_class=HTMLResponse)
+async def contact_page(request: Request):
+    context = {"request": request, "now": datetime.utcnow()}
+    return templates.TemplateResponse("contact.html", context)
+
+@app.get("/support", response_class=HTMLResponse)
+async def support_page(request: Request):
+    context = {"request": request, "now": datetime.utcnow()}
+    return templates.TemplateResponse("support.html", context)
+
 # --- Include Routers ---
 app.include_router(users.router)
 app.include_router(uploads.router)
@@ -485,6 +704,7 @@ app.include_router(payments.router)
 app.include_router(dashboard.router)
 app.include_router(subscriptions.router)
 app.include_router(notifications.router)
+app.include_router(waitlist.router, prefix="/waitlist")
 
 # --- Redirects ---
 @app.get("/subscriptions", response_class=RedirectResponse)
@@ -492,8 +712,13 @@ async def redirect_subscriptions():
     return RedirectResponse(url="/subscriptions/", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
 @app.get("/subscription", response_class=RedirectResponse)
-async def redirect_subscriptions():
+async def redirect_subscription():
     return RedirectResponse(url="/subscriptions/", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+
+@app.get("/waitlist", response_class=RedirectResponse)
+async def redirect_waitlist():
+    return RedirectResponse(url="/waitlist/", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+
 
 @app.get("/{full_path:path}")
 async def catch_html_redirect(full_path: str):

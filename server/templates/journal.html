@@ -24,7 +24,8 @@
         <div class="stat-value" id="statTotal">--</div>
       </div>
     </div>
-  </div> <!-- Tabs Container -->
+  </div>
+  <!-- Tabs Container -->
   <div class="card" style="background: var(--surface); border: 1px solid var(--border);">
     <div class="card-header" style="background: var(--surface-variant); border-bottom: 1px solid var(--border);">
       <ul class="nav nav-tabs card-header-tabs" id="journalTabs" role="tablist">
@@ -52,7 +53,8 @@
             <option value="personal">My Journal</option>
           </select>
           <span id="traderBadge" class="badge bg-info ms-2" style="display:none;"></span>
-        </div><!-- Filters -->
+        </div>
+        <!-- Filters -->
         <div class="d-flex filter-bar mb-3 flex-wrap align-items-center">
           <input id="searchInput" type="text" class="form-control" placeholder="Search trades..."
             style="max-width:200px; background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
@@ -92,44 +94,45 @@
             <option value="Swing Trading">Swing Trading</option>
           </select>
 
-          <!-- Replaced plain date inputs with input-groups to guarantee visible calendar icon on mobile -->
-          <div class="input-group" style="max-width:150px;">
-            <input id="dateStart" type="date" class="form-control date-input"
-              style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);" data-bs-theme="auto">
-            <button type="button" class="btn calendar-btn" onclick="openDatePicker('dateStart')" aria-label="Open start date">
-              <i class="bi bi-calendar"></i>
-            </button>
-          </div>
+      <!-- Replaced plain date inputs with input-groups to guarantee visible calendar icon on mobile -->
+      <div class="input-group" style="max-width:150px;">
+        <input id="dateStart" type="date" class="form-control date-input"
+          style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);" data-bs-theme="auto">
+        <button type="button" class="btn calendar-btn" onclick="openDatePicker('dateStart')" aria-label="Open start date">
+          <i class="bi bi-calendar"></i>
+        </button>
+      </div>
 
-          <div class="input-group" style="max-width:150px;">
-            <input id="dateEnd" type="date" class="form-control date-input"
-              style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);" data-bs-theme="auto">
-            <button type="button" class="btn calendar-btn" onclick="openDatePicker('dateEnd')" aria-label="Open end date">
-              <i class="bi bi-calendar"></i>
-            </button>
-          </div>
+      <div class="input-group" style="max-width:150px;">
+        <input id="dateEnd" type="date" class="form-control date-input"
+          style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);" data-bs-theme="auto">
+        <button type="button" class="btn calendar-btn" onclick="openDatePicker('dateEnd')" aria-label="Open end date">
+          <i class="bi bi-calendar"></i>
+        </button>
+      </div>
 
-          <select id="sortSelect" class="form-select"
-            style="max-width:160px; background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
-            data-bs-theme="auto">
-            <option value="dateDesc">Sort: Date Down</option>
-            <option value="plHigh">P/L Down (highest first)</option>
-            <option value="plLow">P/L Up (lowest first)</option>
-            <option value="symbol">Symbol A-Z</option>
-          </select>
-          <select id="pageSize" class="form-select"
-            style="max-width:100px; background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
-            data-bs-theme="auto">
-            <option value="10">10/trades</option>
-            <option value="20">20</option>
-            <option value="50">50</option>
-          </select>
-          <button id="clearFilters" class="btn btn-outline-secondary btn-sm">Clear</button>
-          <div class="ms-auto d-flex align-items-center gap-2">
-            <span id="tradeCountBadge" class="badge bg-primary" style="display:none;"></span>
-            <span id="showingTrades" class="text-muted small" style="display:none;"></span>
-          </div>
-        </div>    <!-- Trade list -->
+      <select id="sortSelect" class="form-select"
+        style="max-width:160px; background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
+        data-bs-theme="auto">
+        <option value="dateDesc">Sort: Date Down</option>
+        <option value="plHigh">P/L Down (highest first)</option>
+        <option value="plLow">P/L Up (lowest first)</option>
+        <option value="symbol">Symbol A-Z</option>
+      </select>
+      <select id="pageSize" class="form-select"
+        style="max-width:100px; background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
+        data-bs-theme="auto">
+        <option value="10">10/trades</option>
+        <option value="20">20</option>
+        <option value="50">50</option>
+      </select>
+      <button id="clearFilters" class="btn btn-outline-secondary btn-sm">Clear</button>
+      <div class="ms-auto d-flex align-items-center gap-2">
+        <span id="tradeCountBadge" class="badge bg-primary" style="display:none;"></span>
+        <span id="showingTrades" class="text-muted small" style="display:none;"></span>
+      </div>
+    </div>
+    <!-- Trade list -->
     <div id="tradesList" style="position: relative;"></div>
     <div id="loadingSpinner" class="text-center py-3" style="display:none;">
       <div class="spinner-border text-primary" role="status">
@@ -158,6 +161,8 @@
       </div>
       <div class="card-body">
         <div id="eligibilityStatus"></div>
+        <!-- NEW: Refresh Button -->
+        <button id="refreshEligibility" class="btn btn-outline-secondary btn-sm ms-2" style="display: none;">Refresh Status</button>
         <form id="priceForm" style="display: none;">
           <div class="mb-3">
             <label for="priceInput" class="form-label" style="color: var(--text);">Subscription Price
@@ -218,188 +223,205 @@
       </div>
     </div>
   </div>
-</div>  </div>
+</div>
 
-  <div class="footer-text">Powered by your AI co-pilot</div>
-</main>
+<div class="footer-text">Powered by your AI co-pilot</div>  </main>
 
-<!-- Trade Detail Modal -->
-<div class="modal fade" id="tradeModal" tabindex="-1" data-bs-theme="auto">
-  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-    <div class="modal-content card-radius" style="background: var(--surface); border: 1px solid var(--border);">
-      <div class="modal-header" style="background: var(--surface-variant); border-bottom: 1px solid var(--border);">
-        <h5 class="modal-title" id="modalTitle" style="color: var(--text);">Trade Details</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <div class="row g-3">
-          <div class="col-sm-6">
-            <label for="mDate" class="form-label" style="color: var(--text);"><strong>Date & Time</strong> <small
-                class="text-muted">(YYYY-MM-DD HH:MM, UTC)</small></label>
-            <input id="mDate" class="form-control" type="datetime-local"
-              placeholder="Select date and time of trade entry"
-              style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
-              data-bs-theme="auto">
-          </div>
-          <div class="col-sm-6">
-            <label for="mSymbol" class="form-label" style="color: var(--text);"><strong>Symbol</strong> <small
-                class="text-muted">(e.g., EURUSD, BTCUSD)</small></label>
-            <input id="mSymbol" class="form-control" type="text" placeholder="Enter trading pair symbol"
-              style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
-              data-bs-theme="auto">
-          </div>
-          <div class="col-sm-6">
-            <label for="mAssetType" class="form-label" style="color: var(--text);"><strong>Asset Type</strong></label>
-            <select id="mAssetType" class="form-select"
-              style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
-              data-bs-theme="auto">
-              <option value="forex">Forex</option>
-              <option value="crypto">Crypto</option>
-            </select>
-          </div>
-          <div class="col-sm-6">
-            <label for="mSession" class="form-label" style="color: var(--text);"><strong>Session</strong> <small
-                class="text-muted">(Trading session)</small></label>
-            <select id="mSession" class="form-select"
-              style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
-              data-bs-theme="auto">
-              <option value="">Select session</option>
-              <option value="London">London</option>
-              <option value="New York">New York</option>
-              <option value="Tokyo">Tokyo</option>
-              <option value="Sydney">Sydney</option>
-              <option value="UTC">UTC</option>
-            </select>
-          </div>
-          <div class="col-sm-6">
-            <label for="mStrategy" class="form-label" style="color: var(--text);"><strong>Strategy</strong> <small
-                class="text-muted">(Trading approach used)</small></label>
-            <select id="mStrategy" class="form-select"
-              style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
-              data-bs-theme="auto">
-              <option value="">Unknown</option>
-              <option value="Breakout">Breakout</option>
-              <option value="Scalp">Scalp</option>
-              <option value="Reversal">Reversal</option>
-              <option value="RSI Divergence">RSI Divergence</option>
-              <option value="Swing Trading">Swing Trading</option>
-            </select>
-          </div>
-          <div class="col-sm-6">
-            <label for="mDirection" class="form-label" style="color: var(--text);"><strong>Direction</strong></label>
-            <select id="mDirection" class="form-select"
-              style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
-              data-bs-theme="auto">
-              <option value="LONG">Long</option>
-              <option value="SHORT">Short</option>
-            </select>
-          </div>
-          <div class="col-sm-6">
-            <label for="mEntry" class="form-label" style="color: var(--text);"><strong>Entry Price</strong> <small
-                class="text-muted">(Price at which you entered the trade)</small></label>
-            <input id="mEntry" class="form-control" type="number" step="0.0001" placeholder="e.g., 1.0850"
-              style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
-              data-bs-theme="auto">
-          </div>
-          <div class="col-sm-6">
-            <label for="mExit" class="form-label" style="color: var(--text);"><strong>Exit Price</strong> <small
-                class="text-muted">(Price at which you exited the trade)</small></label>
-            <input id="mExit" class="form-control" type="number" step="0.0001" placeholder="e.g., 1.0900"
-              style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
-              data-bs-theme="auto">
-          </div>
-          <div class="col-sm-6">
-            <label for="mSize" class="form-label" style="color: var(--text);"><strong>Position Size</strong> <small
-                class="text-muted">(Trade volume, e.g., lots or units)</small></label>
-            <input id="mSize" class="form-control" type="number" step="0.0001" placeholder="e.g., 0.1 (for 0.1 lot)"
-              style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
-              data-bs-theme="auto">
-          </div>
-          <div class="col-sm-6">
-            <label for="mRisk" class="form-label" style="color: var(--text);"><strong>Risk %</strong> <small
-                class="text-muted">(Percentage of account risked, 0-100)</small></label>
-            <input id="mRisk" class="form-control" type="number" step="0.01" min="0" max="100" placeholder="e.g., 1.0"
-              style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
-              data-bs-theme="auto">
-          </div>
-          <div class="col-sm-6">
-            <label for="mSL" class="form-label" style="color: var(--text);"><strong>Stop Loss (SL)</strong> <small
-                class="text-muted">(Price level for stop loss)</small></label>
-            <input id="mSL" class="form-control" type="number" step="0.0001" placeholder="e.g., 1.0800"
-              style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
-              data-bs-theme="auto">
-          </div>
-          <div class="col-sm-6">
-            <label for="mTP" class="form-label" style="color: var(--text);"><strong>Take Profit (TP)</strong> <small
-                class="text-muted">(Price level for take profit)</small></label>
-            <input id="mTP" class="form-control" type="number" step="0.0001" placeholder="e.g., 1.0950"
-              style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
-              data-bs-theme="auto">
-          </div>
-          <div class="col-sm-6">
-            <label for="mLeverage" class="form-label" style="color: var(--text);"><strong>Leverage</strong> <small
-                class="text-muted">(Multiplier, 1-100, e.g., 10 for 10x)</small></label>
-            <input id="mLeverage" class="form-control" type="number" min="1" max="100" step="0.1" placeholder="e.g., 10"
-              style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
-              data-bs-theme="auto">
-          </div>
-          <div class="col-sm-6">
-            <label for="mRiskAmount" class="form-label" style="color: var(--text);"><strong>Risk Amount ($)</strong>
-              <small class="text-muted">(Absolute risk in USD)</small></label>
-            <input id="mRiskAmount" class="form-control" type="number" step="0.01" min="0" placeholder="e.g., 50.00"
-              style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
-              data-bs-theme="auto">
-          </div>
-          <div class="col-sm-6">
-            <label for="mRewardAmount" class="form-label" style="color: var(--text);"><strong>Reward Amount ($)</strong>
-              <small class="text-muted">(Expected or realized reward in USD)</small></label>
-            <input id="mRewardAmount" class="form-control" type="number" step="0.01" min="0" placeholder="e.g., 100.00"
-              style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
-              data-bs-theme="auto">
-          </div>
-          <div class="col-sm-6">
-            <label for="mRRRatio" class="form-label" style="color: var(--text);"><strong>R:R Ratio</strong> <small
-                class="text-muted">(Risk:Reward ratio, e.g., 1:2)</small></label>
-            <input id="mRRRatio" class="form-control" type="number" step="0.01" min="0" placeholder="e.g., 2.0"
-              style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
-              data-bs-theme="auto">
-          </div>
-          <div class="col-12">
-            <label class="form-label" style="color: var(--text);"><strong>P/L</strong> <small
-                class="text-muted">(Profit/Loss - auto-calculated on save)</small></label>
-            <div id="mPL" class="fw-bold p-2 rounded"
-              style="background: var(--surface-variant); border: 1px solid var(--border);">N/A</div>
-          </div>
-          <div class="col-12">
-            <label for="mNotes" class="form-label" style="color: var(--text);"><strong>Notes</strong> <small
-                class="text-muted">(Any additional thoughts or lessons learned)</small></label>
-            <textarea id="mNotes" class="form-control" rows="3" placeholder="Enter notes about this trade..."
-              style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
-              data-bs-theme="auto"></textarea>
-          </div>
-          <div class="col-12">
-            <label class="form-label" style="color: var(--text);"><strong>AI Suggestion</strong></label>
-            <div id="mSuggestion" class="insight-box">Loading...</div>
-          </div>
-          <div class="col-12">
-            <label class="form-label" style="color: var(--text);"><strong>Chart</strong> <small
-                class="text-muted">(Screenshot of the trade setup)</small></label>
-            <img id="mChart" src="" alt="Trade Chart" class="img-fluid chart-preview" style="display:none;"
-              onerror="this.style.display='none'; document.getElementById('mChartPlaceholder').style.display='block';">
-            <div id="mChartPlaceholder" class="chart-preview-placeholder">No chart available</div>
+  <!-- Trade Detail Modal -->
+  <div class="modal fade" id="tradeModal" tabindex="-1" data-bs-theme="auto">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content card-radius" style="background: var(--surface); border: 1px solid var(--border);">
+        <div class="modal-header" style="background: var(--surface-variant); border-bottom: 1px solid var(--border);">
+          <h5 class="modal-title" id="modalTitle" style="color: var(--text);">Trade Details</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-sm-6">
+              <label for="mDate" class="form-label" style="color: var(--text);"><strong>Date & Time</strong> <small
+                  class="text-muted">(YYYY-MM-DD HH:MM, UTC)</small></label>
+              <input id="mDate" class="form-control" type="datetime-local"
+                placeholder="Select date and time of trade entry"
+                style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
+                data-bs-theme="auto">
+            </div>
+            <div class="col-sm-6">
+              <label for="mSymbol" class="form-label" style="color: var(--text);"><strong>Symbol</strong> <small
+                  class="text-muted">(e.g., EURUSD, BTCUSD)</small></label>
+              <input id="mSymbol" class="form-control" type="text" placeholder="Enter trading pair symbol"
+                style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
+                data-bs-theme="auto">
+            </div>
+            <div class="col-sm-6">
+              <label for="mAssetType" class="form-label" style="color: var(--text);"><strong>Asset Type</strong></label>
+              <select id="mAssetType" class="form-select"
+                style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
+                data-bs-theme="auto">
+                <option value="forex">Forex</option>
+                <option value="crypto">Crypto</option>
+              </select>
+            </div>
+            <div class="col-sm-6">
+              <label for="mSession" class="form-label" style="color: var(--text);"><strong>Session</strong> <small
+                  class="text-muted">(Trading session)</small></label>
+              <select id="mSession" class="form-select"
+                style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
+                data-bs-theme="auto">
+                <option value="">Select session</option>
+                <option value="London">London</option>
+                <option value="New York">New York</option>
+                <option value="Tokyo">Tokyo</option>
+                <option value="Sydney">Sydney</option>
+                <option value="UTC">UTC</option>
+              </select>
+            </div>
+            <div class="col-sm-6">
+              <label for="mStrategy" class="form-label" style="color: var(--text);"><strong>Strategy</strong> <small
+                  class="text-muted">(Trading approach used)</small></label>
+              <select id="mStrategy" class="form-select"
+                style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
+                data-bs-theme="auto">
+                <option value="">Unknown</option>
+                <option value="Breakout">Breakout</option>
+                <option value="Scalp">Scalp</option>
+                <option value="Reversal">Reversal</option>
+                <option value="RSI Divergence">RSI Divergence</option>
+                <option value="Swing Trading">Swing Trading</option>
+              </select>
+            </div>
+            <div class="col-sm-6">
+              <label for="mDirection" class="form-label" style="color: var(--text);"><strong>Direction</strong></label>
+              <select id="mDirection" class="form-select"
+                style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
+                data-bs-theme="auto">
+                <option value="LONG">Long</option>
+                <option value="SHORT">Short</option>
+              </select>
+            </div>
+            <div class="col-sm-6">
+              <label for="mEntry" class="form-label" style="color: var(--text);"><strong>Entry Price</strong> <small
+                  class="text-muted">(Price at which you entered the trade)</small></label>
+              <input id="mEntry" class="form-control" type="number" step="0.0001" placeholder="e.g., 1.0850"
+                style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
+                data-bs-theme="auto">
+            </div>
+            <div class="col-sm-6">
+              <label for="mExit" class="form-label" style="color: var(--text);"><strong>Exit Price</strong> <small
+                  class="text-muted">(Price at which you exited the trade)</small></label>
+              <input id="mExit" class="form-control" type="number" step="0.0001" placeholder="e.g., 1.0900"
+                style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
+                data-bs-theme="auto">
+            </div>
+            <div class="col-sm-6">
+              <label for="mSize" class="form-label" style="color: var(--text);"><strong>Position Size</strong> <small
+                  class="text-muted">(Trade volume, e.g., lots or units)</small></label>
+              <input id="mSize" class="form-control" type="number" step="0.0001" placeholder="e.g., 0.1 (for 0.1 lot)"
+                style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
+                data-bs-theme="auto">
+            </div>
+            <div class="col-sm-6">
+              <label for="mRisk" class="form-label" style="color: var(--text);"><strong>Risk %</strong> <small
+                  class="text-muted">(Percentage of account risked, 0-100)</small></label>
+              <input id="mRisk" class="form-control" type="number" step="0.01" min="0" max="100" placeholder="e.g., 1.0"
+                style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
+                data-bs-theme="auto">
+            </div>
+            <div class="col-sm-6">
+              <label for="mSL" class="form-label" style="color: var(--text);"><strong>Stop Loss (SL)</strong> <small
+                  class="text-muted">(Price level for stop loss)</small></label>
+              <input id="mSL" class="form-control" type="number" step="0.0001" placeholder="e.g., 1.0800"
+                style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
+                data-bs-theme="auto">
+            </div>
+            <div class="col-sm-6">
+              <label for="mTP" class="form-label" style="color: var(--text);"><strong>Take Profit (TP)</strong> <small
+                  class="text-muted">(Price level for take profit)</small></label>
+              <input id="mTP" class="form-control" type="number" step="0.0001" placeholder="e.g., 1.0950"
+                style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
+                data-bs-theme="auto">
+            </div>
+            <div class="col-sm-6">
+              <label for="mLeverage" class="form-label" style="color: var(--text);"><strong>Leverage</strong> <small
+                  class="text-muted">(Multiplier, 1-100, e.g., 10 for 10x)</small></label>
+              <input id="mLeverage" class="form-control" type="number" min="1" max="100" step="0.1" placeholder="e.g., 10"
+                style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
+                data-bs-theme="auto">
+            </div>
+            <div class="col-sm-6">
+              <label for="mRiskAmount" class="form-label" style="color: var(--text);"><strong>Risk Amount ($)</strong>
+                <small class="text-muted">(Absolute risk in USD)</small></label>
+              <input id="mRiskAmount" class="form-control" type="number" step="0.01" min="0" placeholder="e.g., 50.00"
+                style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
+                data-bs-theme="auto">
+            </div>
+            <div class="col-sm-6">
+              <label for="mRewardAmount" class="form-label" style="color: var(--text);"><strong>Reward Amount ($)</strong>
+                <small class="text-muted">(Expected or realized reward in USD)</small></label>
+              <input id="mRewardAmount" class="form-control" type="number" step="0.01" min="0" placeholder="e.g., 100.00"
+                style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
+                data-bs-theme="auto">
+            </div>
+            <div class="col-sm-6">
+              <label for="mRRRatio" class="form-label" style="color: var(--text);"><strong>R:R Ratio</strong> <small
+                  class="text-muted">(Risk:Reward ratio, e.g., 1:2)</small></label>
+              <input id="mRRRatio" class="form-control" type="number" step="0.01" min="0" placeholder="e.g., 2.0"
+                style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
+                data-bs-theme="auto">
+            </div>
+            <div class="col-12">
+              <label class="form-label" style="color: var(--text);"><strong>P/L</strong> <small
+                  class="text-muted">(Profit/Loss - auto-calculated on save)</small></label>
+              <div id="mPL" class="fw-bold p-2 rounded"
+                style="background: var(--surface-variant); border: 1px solid var(--border);">N/A</div>
+            </div>
+            <div class="col-12">
+              <label for="mNotes" class="form-label" style="color: var(--text);"><strong>Notes</strong> <small
+                  class="text-muted">(Any additional thoughts or lessons learned)</small></label>
+              <textarea id="mNotes" class="form-control" rows="3" placeholder="Enter notes about this trade..."
+                style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);"
+                data-bs-theme="auto"></textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label" style="color: var(--text);"><strong>AI Suggestion</strong></label>
+              <div id="mSuggestion" class="insight-box">Loading...</div>
+            </div>
+            <div class="col-12">
+              <label class="form-label" style="color: var(--text);"><strong>Chart</strong> <small
+                  class="text-muted">(Screenshot of the trade setup)</small></label>
+              <img id="mChart" src="" alt="Trade Chart" class="img-fluid chart-preview" style="display:none;"
+                onerror="this.style.display='none'; document.getElementById('mChartPlaceholder').style.display='block';">
+              <div id="mChartPlaceholder" class="chart-preview-placeholder">No chart available</div>
+            </div>
           </div>
         </div>
+        <div class="modal-footer" style="background: var(--surface-variant); border-top: 1px solid var(--border);">
+          <button id="saveEdit" class="btn btn-primary">Save Changes</button>
+          <button id="deleteTrade" class="btn btn-danger">Delete</button>
+        </div>
       </div>
-      <div class="modal-footer" style="background: var(--surface-variant); border-top: 1px solid var(--border);">
-        <button id="saveEdit" class="btn btn-primary">Save Changes</button>
-        <button id="deleteTrade" class="btn btn-danger">Delete</button>
+    </div>
+  </div>
+
+  <!-- Confirmation Modal -->
+  <div class="modal fade" id="confirmModal" tabindex="-1" data-bs-theme="auto">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+      <div class="modal-content card-radius" style="background: var(--surface); border: 1px solid var(--border);">
+        <div class="modal-header" style="background: var(--surface-variant); border-bottom: 1px solid var(--border);">
+          <h5 class="modal-title" id="confirmTitle" style="color: var(--text);">Confirm Action</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" id="confirmBody" style="color: var(--text);"></div>
+        <div class="modal-footer" style="background: var(--surface-variant); border-top: 1px solid var(--border);">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="confirmYes">Confirm</button>
+        </div>
       </div>
     </div>
   </div>
 </div>
 {% endblock %}
-{% block scripts %}
-<style>
+
+{% block scripts %}<style>
   .stat-card {
     padding: 16px;
     border-radius: var(--radius);
@@ -417,14 +439,17 @@
     height: 6px;
     width: 44px;
     border-bottom-right-radius: 8px;
-  }  .stat-value {
+  }
+  .stat-value {
     font-size: 1.4rem;
     font-weight: 700;
     margin-top: 6px;
     color: var(--text);
-  }  .filter-bar {
+  }
+  .filter-bar {
     gap: 10px;
-  }  .trade-card {
+  }
+  .trade-card {
     height: auto;
     min-height: 200px;
     display: flex;
@@ -438,12 +463,15 @@
     margin-bottom: 16px;
     position: relative;
     color: var(--text);
-  }  /* make read-only cards still clickable to view details (they are read-only inside modal) */
+  }
+  /* make read-only cards still clickable to view details (they are read-only inside modal) */
   .trade-card.readonly {
     cursor: pointer;
-  }  .trade-card.readonly:hover {
+  }
+  .trade-card.readonly:hover {
     box-shadow: none;
-  }  .trade-card .session-badge {
+  }
+  .trade-card .session-badge {
     position: absolute;
     top: 12px;
     left: 12px;
@@ -452,22 +480,28 @@
     border-radius: 999px;
     font-weight: 600;
     z-index: 2;
-  }  .session-london {
+  }
+  .session-london {
     background: rgba(139, 92, 246, 0.12);
     color: var(--violet);
-  }  .session-new-york {
+  }
+  .session-new-york {
     background: rgba(var(--success-rgb), 0.12);
     color: var(--success);
-  }  .session-tokyo {
+  }
+  .session-tokyo {
     background: rgba(var(--warning-rgb), 0.12);
     color: var(--warning);
-  }  .session-sydney {
+  }
+  .session-sydney {
     background: rgba(var(--danger-rgb), 0.12);
     color: var(--danger);
-  }  .session-utc {
+  }
+  .session-utc {
     background: rgba(75, 192, 192, 0.12);
     color: #36A2EB;
-  }  .trade-card .actions {
+  }
+  .trade-card .actions {
     position: absolute;
     top: 12px;
     right: 12px;
@@ -476,47 +510,57 @@
     opacity: 0;
     transition: opacity .2s ease;
     z-index: 2;
-  }  .trade-card:hover .actions {
+  }
+  .trade-card:hover .actions {
     opacity: 1;
-  }  .trade-card.readonly .actions {
+  }
+  .trade-card.readonly .actions {
     display: none;
-  }  .actions button {
+  }
+  .actions button {
     background: none;
     border: none;
     color: var(--muted);
     font-size: .9rem;
     padding: 4px;
-  }  .trade-card .content-wrapper {
+  }
+  .trade-card .content-wrapper {
     padding-top: 32px;
     flex: 1;
-  }  .trade-header {
+  }
+  .trade-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
     margin-bottom: 8px;
-  }  .trade-symbol {
+  }
+  .trade-symbol {
     font-weight: 600;
     font-size: 1.1rem;
     margin: 0;
     color: var(--text);
-  }  .trade-date {
+  }
+  .trade-date {
     font-size: .85rem;
     color: var(--muted);
     margin: 0;
-  }  .center {
+  }
+  .center {
     flex: 1;
     display: flex;
     align-items: center;
     gap: 12px;
     margin-top: 8px;
-  }  .chart-thumb {
+  }
+  .chart-thumb {
     width: 80px;
     height: 60px;
     border-radius: 4px;
     object-fit: cover;
     background: var(--border);
     flex-shrink: 0;
-  }  .chart-thumb-placeholder {
+  }
+  .chart-thumb-placeholder {
     width: 80px;
     height: 60px;
     border-radius: 4px;
@@ -527,63 +571,78 @@
     font-size: 0.75rem;
     color: var(--muted);
     flex-shrink: 0;
-  }  .metrics-row {
+  }
+  .metrics-row {
     flex: 1;
     display: flex;
     flex-direction: column;
     gap: 8px;
-  }  .pl-bar {
+  }
+  .pl-bar {
     height: 8px;
     background: var(--border);
     border-radius: 4px;
     overflow: hidden;
-  }  .pl-fill {
+  }
+  .pl-fill {
     height: 100%;
     width: 0%;
     transition: width .3s ease;
-  }  .pl-positive-fill {
+  }
+  .pl-positive-fill {
     background: var(--success);
-  }  .pl-negative-fill {
+  }
+  .pl-negative-fill {
     background: var(--danger);
-  }  .win-loss-icon {
+  }
+  .win-loss-icon {
     font-size: 1.2rem;
-  }  .trade-entry-exit {
+  }
+  .trade-entry-exit {
     font-size: .9rem;
     color: var(--text);
-  }  .bottom {
+  }
+  .bottom {
     display: flex;
     flex-direction: column;
     gap: 8px;
     margin-top: auto;
-  }  .ai-snippet {
+  }
+  .ai-snippet {
     font-size: .85rem;
     color: var(--muted);
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
-  }  .tags {
+  }
+  .tags {
     display: flex;
     gap: 4px;
     flex-wrap: wrap;
-  }  .tag-chip {
+  }
+  .tag-chip {
     font-size: .75rem;
     padding: 2px 6px;
     background: rgba(var(--muted-rgb), 0.12);
     color: var(--muted);
     border-radius: 4px;
-  }  .empty-state {
+  }
+  .empty-state {
     text-align: center;
     padding: 40px;
     color: var(--muted);
-  }  .empty-state button {
+  }
+  .empty-state button {
     margin-top: 16px;
-  }  .footer-text {
+  }
+  .footer-text {
     text-align: center;
     font-size: .8rem;
     color: var(--muted);
     margin-top: 40px;
-  }  .insight-box {
+  }
+  .insight-box {
     background: rgba(var(--brand-rgb), 0.05);
     padding: 12px;
     border-radius: 8px;
@@ -591,13 +650,15 @@
     font-style: italic;
     border-left: 3px solid var(--brand);
     color: var(--text);
-  }  .chart-preview {
+  }
+  .chart-preview {
     height: auto;
     max-height: 500px;
     width: 100%;
     object-fit: contain;
     border-radius: 8px;
-  }  .chart-preview-placeholder {
+  }
+  .chart-preview-placeholder {
     height: 200px;
     background: var(--border);
     border-radius: 8px;
@@ -606,7 +667,8 @@
     justify-content: center;
     color: var(--muted);
     font-style: italic;
-  }  /* Ensure form controls keep native select arrow and correct placeholder/text colors */
+  }
+  /* Ensure form controls keep native select arrow and correct placeholder/text colors */
   .form-select,
   .form-control,
   textarea {
@@ -642,15 +704,18 @@
   .form-select {
     background-image: none !important;
     padding-right: 1.75rem;
-  }  /* Preserve browser arrow on Edge/IE */
+  }
+  /* Preserve browser arrow on Edge/IE */
   .form-select::-ms-expand {
     display: block;
-  }  /* Make placeholder visible and consistent */
+  }
+  /* Make placeholder visible and consistent */
   .form-control::placeholder,
   textarea::placeholder {
     color: var(--muted);
     opacity: 1;
-  }  /* Dark theme overrides (keeps arrow because we use background-color not background shorthand) */
+  }
+  /* Dark theme overrides (keeps arrow because we use background-color not background shorthand) */
   [data-theme="dark"] .form-select,
   [data-theme="dark"] .form-control,
   [data-theme="dark"] textarea,
@@ -658,44 +723,58 @@
     background-color: var(--surface) !important;
     border-color: var(--border) !important;
     color: var(--text) !important;
-  }  [data-theme="dark"] .form-control::placeholder,
+  }
+  [data-theme="dark"] .form-control::placeholder,
   [data-theme="dark"] textarea::placeholder {
     color: var(--muted) !important;
     opacity: 1;
-  }  [data-theme="dark"] .alert {
+  }
+  [data-theme="dark"] .alert {
     background-color: var(--surface-variant) !important;
     border-color: var(--border) !important;
     color: var(--text) !important;
-  }  [data-theme="dark"] .badge {
+  }
+  [data-theme="dark"] .badge {
     background-color: rgba(var(--on-surface-rgb), 0.12) !important;
     color: var(--text) !important;
-  }  [data-theme="dark"] .card {
+  }
+  [data-theme="dark"] .card {
     background: var(--surface) !important;
     border-color: var(--border) !important;
     color: var(--text) !important;
-  }  [data-theme="dark"] .modal-content {
+  }
+  [data-theme="dark"] .modal-content {
     background: var(--surface) !important;
     border-color: var(--border) !important;
     color: var(--text) !important;
-  }  [data-theme="dark"] .pagination .page-link {
+  }
+  [data-theme="dark"] .pagination .page-link {
     background: var(--surface) !important;
     border-color: var(--border) !important;
     color: var(--text) !important;
-  }  /* Tab styles for consistency */
+  }
+  /* Tab styles for consistency */
   .nav-tabs .nav-link {
     color: var(--text);
     border: 1px solid var(--border);
     background: var(--surface-variant);
-  }  .nav-tabs .nav-link.active {
+  }
+  .nav-tabs .nav-link.active {
     color: var(--text);
     background: var(--surface);
     border-color: var(--border) var(--border) var(--surface);
-  }  .nav-tabs .nav-link:hover {
+  }
+  .nav-tabs .nav-link:hover {
     color: var(--text);
     background: var(--surface);
     border-color: var(--border);
   }
-</style><script>
+
+  /* OPTIMIZATION: Reduce transition complexity and remove some shadows for faster repaints */
+  * { transition: none !important; } /* Global disable transitions for perf; re-enable selectively if needed */
+  .trade-card, .actions button { transition: opacity 0.2s ease; } /* Selective re-enable */
+</style>
+<script>
   (function () {
     // expose helper to open date picker programmatically
     window.openDatePicker = function (id) {
@@ -728,6 +807,79 @@
     // safe symbol regex (supports optional slash)
     const symbolRegex = /^[A-Z]{3,}\/?[A-Z]{3,}$/;
 
+    // OPTIMIZATION: Cache common DOM elements to reduce repeated queries
+    const cachedElements = {
+      tradesList: document.getElementById('tradesList'),
+      loadingSpinner: document.getElementById('loadingSpinner'),
+      emptyState: document.getElementById('emptyState'),
+      emptyMessage: document.getElementById('emptyMessage'),
+      uploadBtn: document.getElementById('uploadBtn'),
+      paginationContainer: document.getElementById('paginationContainer'),
+      tradeCountBadge: document.getElementById('tradeCountBadge'),
+      showingTrades: document.getElementById('showingTrades'),
+      traderBadge: document.getElementById('traderBadge'),
+      statWin: document.getElementById('statWin'),
+      statAvg: document.getElementById('statAvg'),
+      statTotal: document.getElementById('statTotal'),
+      searchInput: document.getElementById('searchInput'),
+      pageSize: document.getElementById('pageSize'),
+      clearFilters: document.getElementById('clearFilters'),
+      traderSelect: document.getElementById('traderSelect'),
+      traderSelectorContainer: document.getElementById('traderSelectorContainer'),
+      eligibilityStatus: document.getElementById('eligibilityStatus'),
+      applyBtn: document.getElementById('applyBtn'),
+      priceForm: document.getElementById('priceForm'),
+      priceInput: document.getElementById('priceInput'),
+      revenueSplit: document.getElementById('revenueSplit'),
+      traderShare: document.getElementById('traderShare'),
+      platformShare: document.getElementById('platformShare'),
+      earningsSection: document.getElementById('earningsSection'),
+      totalEarnings: document.getElementById('totalEarnings'),
+      pendingPayout: document.getElementById('pendingPayout'),
+      nextPayoutDate: document.getElementById('nextPayoutDate'),
+      walletStatus: document.getElementById('walletStatus'),
+      requestPayoutBtn: document.getElementById('requestPayoutBtn'),
+      tradeModal: document.getElementById('tradeModal'),
+      modalTitle: document.getElementById('modalTitle'),
+      saveEdit: document.getElementById('saveEdit'),
+      deleteTrade: document.getElementById('deleteTrade'),
+      mDate: document.getElementById('mDate'),
+      mSymbol: document.getElementById('mSymbol'),
+      mAssetType: document.getElementById('mAssetType'),
+      mSession: document.getElementById('mSession'),
+      mStrategy: document.getElementById('mStrategy'),
+      mDirection: document.getElementById('mDirection'),
+      mEntry: document.getElementById('mEntry'),
+      mExit: document.getElementById('mExit'),
+      mSize: document.getElementById('mSize'),
+      mRisk: document.getElementById('mRisk'),
+      mSL: document.getElementById('mSL'),
+      mTP: document.getElementById('mTP'),
+      mLeverage: document.getElementById('mLeverage'),
+      mRiskAmount: document.getElementById('mRiskAmount'),
+      mRewardAmount: document.getElementById('mRewardAmount'),
+      mRRRatio: document.getElementById('mRRRatio'),
+      mPL: document.getElementById('mPL'),
+      mNotes: document.getElementById('mNotes'),
+      mSuggestion: document.getElementById('mSuggestion'),
+      mChart: document.getElementById('mChart'),
+      mChartPlaceholder: document.getElementById('mChartPlaceholder'),
+      filterType: document.getElementById('filterType'),
+      assetTypeFilter: document.getElementById('assetTypeFilter'),
+      sessionFilter: document.getElementById('sessionFilter'),
+      strategyFilter: document.getElementById('strategyFilter'),
+      dateStart: document.getElementById('dateStart'),
+      dateEnd: document.getElementById('dateEnd'),
+      sortSelect: document.getElementById('sortSelect'),
+      // NEW: Refresh button
+      refreshEligibility: document.getElementById('refreshEligibility'),
+      // Confirmation modal elements
+      confirmModal: document.getElementById('confirmModal'),
+      confirmTitle: document.getElementById('confirmTitle'),
+      confirmBody: document.getElementById('confirmBody'),
+      confirmYes: document.getElementById('confirmYes')
+    };
+
     // Utility small helpers
     function safeQuery(selector) { return document.querySelector(selector); }
     function showErrorToast(msg) {
@@ -755,22 +907,43 @@
       toast.show();
     }
 
+    // Confirmation dialog
+    function showConfirm(message, title = 'Confirm Action', buttonClass = 'btn-primary', onConfirm) {
+      if (cachedElements.confirmBody) cachedElements.confirmBody.textContent = message;
+      if (cachedElements.confirmTitle) cachedElements.confirmTitle.textContent = title;
+      const modal = new bootstrap.Modal(cachedElements.confirmModal);
+      // Clone to remove previous listeners
+      const newConfirmYes = cachedElements.confirmYes.cloneNode(true);
+      cachedElements.confirmYes.parentNode.replaceChild(newConfirmYes, cachedElements.confirmYes);
+      cachedElements.confirmYes = newConfirmYes;
+      // Set class
+      cachedElements.confirmYes.className = buttonClass;
+      cachedElements.confirmYes.onclick = () => {
+        modal.hide();
+        if (onConfirm) onConfirm();
+      };
+      // Cleanup on hide
+      const cleanup = () => {
+        cachedElements.confirmYes.onclick = null;
+      };
+      cachedElements.confirmModal.addEventListener('hidden.bs.modal', cleanup, { once: true });
+      modal.show();
+    }
+
     // Load active traders for selector
     async function loadActiveTraders() {
       try {
         const res = await fetch('/journal/subscriptions/active');
         if (!res.ok) return;
         const subs = await res.json();
-        const select = document.getElementById('traderSelect');
-        const container = document.getElementById('traderSelectorContainer');
-        if (Array.isArray(subs) && subs.length > 0) {
+        if (cachedElements.traderSelect && Array.isArray(subs) && subs.length > 0) {
           subs.forEach(s => {
             const opt = document.createElement('option');
             opt.value = 'trader_' + s.trader_id;
             opt.textContent = (s.trader_name || 'Trader') + "'s Journal";
-            select.appendChild(opt);
+            cachedElements.traderSelect.appendChild(opt);
           });
-          container.style.display = 'block';
+          if (cachedElements.traderSelectorContainer) cachedElements.traderSelectorContainer.style.display = 'block';
         }
       } catch (err) {
         console.error('Active traders error:', err);
@@ -787,8 +960,7 @@
     async function loadTrades() {
       if (loading) return;
       loading = true;
-      const spinner = document.getElementById('loadingSpinner');
-      if (spinner) spinner.style.display = 'block';
+      if (cachedElements.loadingSpinner) cachedElements.loadingSpinner.style.display = 'block';
       try {
         // determine ownership from the currentSource explicitly
         isOwner = (currentSource === 'personal');
@@ -803,9 +975,8 @@
         if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + res.statusText);
         const data = await res.json();
         currentTraderName = data.trader_name || null;
-        const list = document.getElementById('tradesList');
-        if (!list) throw new Error('tradesList container not found');
-        list.innerHTML = '';
+        if (!cachedElements.tradesList) throw new Error('tradesList container not found');
+        cachedElements.tradesList.innerHTML = '';
         (data.trades || []).forEach(t => renderTradeCard(t, !isOwner));
         totalTrades = data.total || 0;
         totalPages = Math.max(1, Math.ceil(totalTrades / (currentFilters.page_size || 10)));
@@ -820,18 +991,17 @@
       } finally {
         loading = false;
         isRefreshing = false;
-        if (spinner) spinner.style.display = 'none';
+        if (cachedElements.loadingSpinner) cachedElements.loadingSpinner.style.display = 'none';
       }
     }
 
     function updateTraderBadge() {
-      const badge = document.getElementById('traderBadge');
-      if (!badge) return;
+      if (!cachedElements.traderBadge) return;
       if (!isOwner && currentTraderName) {
-        badge.textContent = 'Viewing ' + currentTraderName + "'s Journal";
-        badge.style.display = 'inline-block';
+        cachedElements.traderBadge.textContent = 'Viewing ' + currentTraderName + "'s Journal";
+        cachedElements.traderBadge.style.display = 'inline-block';
       } else {
-        badge.style.display = 'none';
+        cachedElements.traderBadge.style.display = 'none';
       }
     }
 
@@ -894,7 +1064,7 @@
         </div>
       </div>
     `;
-      document.getElementById('tradesList').appendChild(card);
+      if (cachedElements.tradesList) cachedElements.tradesList.appendChild(card);
     }
 
     function updateTradeCardInList(id, updatedData) {
@@ -926,51 +1096,51 @@
     }
 
     function updateStatsFromData(data) {
-      const winRate = (data.win_rate != null) ? Number(data.win_rate).toFixed(1) : '0.0';
-      const avgPL = (data.avg_pl != null) ? Number(data.avg_pl) : 0;
-      document.getElementById('statWin').textContent = winRate + '%';
-      document.getElementById('statAvg').textContent = '$' + avgPL.toFixed(2);
-      document.getElementById('statTotal').textContent = (data.total != null) ? data.total : 0;
+      if (cachedElements.statWin) {
+        const winRate = (data.win_rate != null) ? Number(data.win_rate).toFixed(1) : '0.0';
+        cachedElements.statWin.textContent = winRate + '%';
+      }
+      if (cachedElements.statAvg) {
+        const avgPL = (data.avg_pl != null) ? Number(data.avg_pl) : 0;
+        cachedElements.statAvg.textContent = '$' + avgPL.toFixed(2);
+      }
+      if (cachedElements.statTotal) {
+        cachedElements.statTotal.textContent = (data.total != null) ? data.total : 0;
+      }
     }
 
     function updateTradeCount() {
-      const badge = document.getElementById('tradeCountBadge');
-      if (badge) {
-        badge.textContent = totalTrades + ' trades';
-        badge.style.display = totalTrades > 0 ? 'inline-block' : 'none';
+      if (cachedElements.tradeCountBadge) {
+        cachedElements.tradeCountBadge.textContent = totalTrades + ' trades';
+        cachedElements.tradeCountBadge.style.display = totalTrades > 0 ? 'inline-block' : 'none';
       }
       const start = Math.min(((page - 1) * (currentFilters.page_size || 10)) + 1, totalTrades || 0);
       const end = Math.min(page * (currentFilters.page_size || 10), totalTrades || 0);
-      const showing = document.getElementById('showingTrades');
-      if (showing) {
-        showing.textContent = 'Showing ' + (totalTrades > 0 ? start + '-' + end + ' of ' + totalTrades : '0 trades');
-        showing.style.display = totalTrades > 0 ? 'inline' : 'none';
+      if (cachedElements.showingTrades) {
+        cachedElements.showingTrades.textContent = 'Showing ' + (totalTrades > 0 ? start + '-' + end + ' of ' + totalTrades : '0 trades');
+        cachedElements.showingTrades.style.display = totalTrades > 0 ? 'inline' : 'none';
       }
     }
 
     function toggleEmptyState(empty) {
-      const el = document.getElementById('emptyState');
-      const msg = document.getElementById('emptyMessage');
-      const btn = document.getElementById('uploadBtn');
-      if (!el || !msg) return;
+      if (!cachedElements.emptyState || !cachedElements.emptyMessage) return;
       if (empty) {
         if (isOwner) {
-          msg.textContent = "Your journal's a blank canvas—log a trade to begin!";
-          if (btn) btn.style.display = 'inline-block';
+          cachedElements.emptyMessage.textContent = "Your journal's a blank canvas—log a trade to begin!";
+          if (cachedElements.uploadBtn) cachedElements.uploadBtn.style.display = 'inline-block';
         } else {
-          msg.textContent = "This trader has no journal entries yet.";
-          if (btn) btn.style.display = 'none';
+          cachedElements.emptyMessage.textContent = "This trader has no journal entries yet.";
+          if (cachedElements.uploadBtn) cachedElements.uploadBtn.style.display = 'none';
         }
-        el.style.display = 'block';
+        cachedElements.emptyState.style.display = 'block';
       } else {
-        el.style.display = 'none';
+        cachedElements.emptyState.style.display = 'none';
       }
-      const pagination = document.getElementById('paginationContainer');
-      if (pagination) pagination.style.display = empty ? 'none' : 'block';
+      if (cachedElements.paginationContainer) cachedElements.paginationContainer.style.display = empty ? 'none' : 'block';
     }
 
     function renderPagination() {
-      const ul = document.querySelector('#paginationContainer ul');
+      const ul = safeQuery('#paginationContainer ul');
       if (!ul) return;
       ul.innerHTML = '';
       const createLi = (html, cls = '') => {
@@ -1012,7 +1182,7 @@
             page = p;
             loadTrades();
           }
-        });
+        }, { passive: true });
       });
     }
 
@@ -1021,59 +1191,64 @@
       loadTrades();
     }
 
-    // Event wiring (defer until DOM ready)
+    // OPTIMIZATION: Deferred event wiring
     function wireEvents() {
-      const searchInput = document.getElementById('searchInput');
-      if (searchInput) {
-        searchInput.addEventListener('input', e => {
+      if (cachedElements.searchInput) {
+        cachedElements.searchInput.addEventListener('input', e => {
           clearTimeout(debounceTimer);
           debounceTimer = setTimeout(() => {
             currentFilters.search = e.target.value || '';
             applyFilters();
           }, 300);
-        });
+        }, { passive: true });
       }
 
-      const pageSizeEl = document.getElementById('pageSize');
-      if (pageSizeEl) {
-        pageSizeEl.addEventListener('change', e => {
+      if (cachedElements.pageSize) {
+        cachedElements.pageSize.addEventListener('change', e => {
           currentFilters.page_size = parseInt(e.target.value, 10) || 10;
           applyFilters(true);
-        });
+        }, { passive: true });
       }
 
       ['filterType', 'assetTypeFilter', 'sessionFilter', 'strategyFilter', 'dateStart', 'dateEnd', 'sortSelect'].forEach(id => {
-        const el = document.getElementById(id);
+        const el = cachedElements[id];
         if (!el) return;
         el.addEventListener('change', e => {
           const map = { filterType: 'filter_type', assetTypeFilter: 'asset_type', sessionFilter: 'session', strategyFilter: 'strategy', dateStart: 'date_from', dateEnd: 'date_to', sortSelect: 'sort' };
           currentFilters[map[id]] = (e.target.value === 'all') ? '' : e.target.value;
           applyFilters();
-        });
+        }, { passive: true });
       });
 
-      const clearBtn = document.getElementById('clearFilters');
-      if (clearBtn) {
-        clearBtn.addEventListener('click', () => {
-          document.querySelectorAll('#searchInput, #filterType, #assetTypeFilter, #sessionFilter, #strategyFilter, #dateStart, #dateEnd, #sortSelect, #pageSize').forEach(el => {
+      if (cachedElements.clearFilters) {
+        cachedElements.clearFilters.addEventListener('click', () => {
+          ['searchInput', 'filterType', 'assetTypeFilter', 'sessionFilter', 'strategyFilter', 'dateStart', 'dateEnd', 'sortSelect', 'pageSize'].forEach(id => {
+            const el = cachedElements[id];
             if (!el) return;
-            if (el.id === 'pageSize') el.value = '10';
-            else if (el.id.includes('Filter') || el.id === 'sortSelect') el.value = 'all';
+            if (id === 'pageSize') el.value = '10';
+            else if (id.includes('Filter') || id === 'sortSelect') el.value = 'all';
             else el.value = '';
           });
           currentFilters = { search: '', filter_type: 'all', asset_type: '', session: '', strategy: '', date_from: '', date_to: '', sort: 'dateDesc', page_size: 10 };
           applyFilters();
-        });
+        }, { passive: true });
       }
 
-      const traderSelect = document.getElementById('traderSelect');
-      if (traderSelect) {
-        traderSelect.addEventListener('change', e => {
+      if (cachedElements.traderSelect) {
+        cachedElements.traderSelect.addEventListener('change', e => {
           const val = e.target.value;
           currentSource = val === 'personal' ? 'personal' : 'trader';
           currentTraderId = val === 'personal' ? null : (val.split('_')[1] || null);
           applyFilters(true);
-        });
+        }, { passive: true });
+      }
+
+      // NEW: Refresh eligibility button
+      if (cachedElements.refreshEligibility) {
+        cachedElements.refreshEligibility.addEventListener('click', () => {
+          loadEligibility();
+          showToast('Status refreshed');
+        }, { passive: true });
       }
     }
 
@@ -1083,23 +1258,23 @@
         const res = await fetch('/journal/trades/' + id);
         if (!res.ok) throw new Error('Failed to load trade');
         const t = await res.json();
-        const modalEl = document.getElementById('tradeModal');
-        const modal = new bootstrap.Modal(modalEl);
+        if (!cachedElements.tradeModal) return;
+        const modal = new bootstrap.Modal(cachedElements.tradeModal);
         // isOwner already set by loadTrades based on currentSource
-        document.getElementById('modalTitle').textContent = isOwner ? 'Trade Details & Edit' : 'Trade Details (Read-Only)';
-        document.getElementById('saveEdit').style.display = isOwner ? 'inline-block' : 'none';
-        document.getElementById('deleteTrade').style.display = isOwner ? 'inline-block' : 'none';
+        if (cachedElements.modalTitle) cachedElements.modalTitle.textContent = isOwner ? 'Trade Details & Edit' : 'Trade Details (Read-Only)';
+        if (cachedElements.saveEdit) cachedElements.saveEdit.style.display = isOwner ? 'inline-block' : 'none';
+        if (cachedElements.deleteTrade) cachedElements.deleteTrade.style.display = isOwner ? 'inline-block' : 'none';
         document.querySelectorAll('#tradeModal input, #tradeModal select, #tradeModal textarea').forEach(el => { el.disabled = !isOwner; });
         modal.show();
-        modal._element.addEventListener('shown.bs.modal', () => populateModal(t), { once: true });
+        cachedElements.tradeModal.addEventListener('shown.bs.modal', () => populateModal(t), { once: true });
 
         if (isOwner) {
-          document.getElementById('saveEdit').onclick = () => saveTrade(id, modal);
-          document.getElementById('deleteTrade').onclick = () => confirmDelete(id, modal);
+          if (cachedElements.saveEdit) cachedElements.saveEdit.onclick = () => saveTrade(id, modal);
+          if (cachedElements.deleteTrade) cachedElements.deleteTrade.onclick = () => confirmDelete(id, modal);
         } else {
           // ensure handlers removed to prevent accidental actions in read-only mode
-          document.getElementById('saveEdit').onclick = null;
-          document.getElementById('deleteTrade').onclick = null;
+          if (cachedElements.saveEdit) cachedElements.saveEdit.onclick = null;
+          if (cachedElements.deleteTrade) cachedElements.deleteTrade.onclick = null;
         }
       } catch (err) {
         console.error('Failed to load trade', err);
@@ -1108,100 +1283,103 @@
     };
 
     function populateModal(t) {
-      const utcDate = t.trade_date ? new Date(t.trade_date).toISOString().slice(0, 16) : '';
-      document.getElementById('mDate').value = utcDate;
-      document.getElementById('mSymbol').value = (t.symbol || '').toUpperCase().trim();
-      document.getElementById('mAssetType').value = (t.asset_type || 'forex').toLowerCase();
-      document.getElementById('mSession').value = t.session || '';
-      document.getElementById('mStrategy').value = t.strategy || '';
-      document.getElementById('mDirection').value = t.direction || 'LONG';
-      document.getElementById('mEntry').value = t.entry_price || '';
-      document.getElementById('mExit').value = t.exit_price || '';
-      document.getElementById('mSize').value = t.position_size || '';
-      document.getElementById('mRisk').value = t.risk_percentage || '';
-      document.getElementById('mSL').value = t.sl_price || '';
-      document.getElementById('mTP').value = t.tp_price || '';
-      document.getElementById('mLeverage').value = (t.leverage && t.leverage >= 1) ? t.leverage : '';
-      document.getElementById('mRiskAmount').value = t.risk_amount || '';
-      document.getElementById('mRewardAmount').value = t.reward_amount || '';
-      document.getElementById('mRRRatio').value = t.r_r_ratio || '';
-      const mPL = document.getElementById('mPL');
-      if (mPL) {
-        mPL.innerHTML = t.pnl != null ? ('<span class="' + (t.pnl >= 0 ? 'text-success' : 'text-danger') + '">' + (t.pnl >= 0 ? '+' : '') + '$' + Number(t.pnl).toFixed(2) + '</span>') : 'N/A';
+      if (cachedElements.mDate) {
+        const utcDate = t.trade_date ? new Date(t.trade_date).toISOString().slice(0, 16) : '';
+        cachedElements.mDate.value = utcDate;
       }
-      document.getElementById('mNotes').value = t.notes || '';
-      document.getElementById('mSuggestion').textContent = t.suggestion || 'No AI suggestion available.';
-      const chart = document.getElementById('mChart');
-      const placeholder = document.getElementById('mChartPlaceholder');
-      if (t.chart_url) {
-        chart.src = t.chart_url;
-        chart.style.display = 'block';
-        if (placeholder) placeholder.style.display = 'none';
-      } else {
-        if (chart) chart.style.display = 'none';
-        if (placeholder) placeholder.style.display = 'block';
+      if (cachedElements.mSymbol) cachedElements.mSymbol.value = (t.symbol || '').toUpperCase().trim();
+      if (cachedElements.mAssetType) cachedElements.mAssetType.value = (t.asset_type || 'forex').toLowerCase();
+      if (cachedElements.mSession) cachedElements.mSession.value = t.session || '';
+      if (cachedElements.mStrategy) cachedElements.mStrategy.value = t.strategy || '';
+      if (cachedElements.mDirection) cachedElements.mDirection.value = t.direction || 'LONG';
+      if (cachedElements.mEntry) cachedElements.mEntry.value = t.entry_price || '';
+      if (cachedElements.mExit) cachedElements.mExit.value = t.exit_price || '';
+      if (cachedElements.mSize) cachedElements.mSize.value = t.position_size || '';
+      if (cachedElements.mRisk) cachedElements.mRisk.value = t.risk_percentage || '';
+      if (cachedElements.mSL) cachedElements.mSL.value = t.sl_price || '';
+      if (cachedElements.mTP) cachedElements.mTP.value = t.tp_price || '';
+      if (cachedElements.mLeverage) cachedElements.mLeverage.value = (t.leverage && t.leverage >= 1) ? t.leverage : '';
+      if (cachedElements.mRiskAmount) cachedElements.mRiskAmount.value = t.risk_amount || '';
+      if (cachedElements.mRewardAmount) cachedElements.mRewardAmount.value = t.reward_amount || '';
+      if (cachedElements.mRRRatio) cachedElements.mRRRatio.value = t.r_r_ratio || '';
+      if (cachedElements.mPL) {
+        cachedElements.mPL.innerHTML = t.pnl != null ? ('<span class="' + (t.pnl >= 0 ? 'text-success' : 'text-danger') + '">' + (t.pnl >= 0 ? '+' : '') + '$' + Number(t.pnl).toFixed(2) + '</span>') : 'N/A';
+      }
+      if (cachedElements.mNotes) cachedElements.mNotes.value = t.notes || '';
+      if (cachedElements.mSuggestion) cachedElements.mSuggestion.textContent = t.suggestion || 'No AI suggestion available.';
+      if (cachedElements.mChart && cachedElements.mChartPlaceholder) {
+        if (t.chart_url) {
+          cachedElements.mChart.src = t.chart_url;
+          cachedElements.mChart.style.display = 'block';
+          cachedElements.mChartPlaceholder.style.display = 'none';
+        } else {
+          cachedElements.mChart.style.display = 'none';
+          cachedElements.mChartPlaceholder.style.display = 'block';
+        }
       }
     }
 
     async function saveTrade(id, modal) {
       try {
-        const entry = parseFloat(document.getElementById('mEntry').value) || null;
-        const exit = parseFloat(document.getElementById('mExit').value) || null;
-        const sl = parseFloat(document.getElementById('mSL').value) || null;
-        const tp = parseFloat(document.getElementById('mTP').value) || null;
-        const dir = document.getElementById('mDirection').value;
-        const rawSymbol = document.getElementById('mSymbol').value.trim();
-        const symbol = rawSymbol.toUpperCase();
-        const asset = document.getElementById('mAssetType').value;
-        const risk = parseFloat(document.getElementById('mRisk').value) || null;
-        const leverage = parseFloat(document.getElementById('mLeverage').value) || null;
+        if (cachedElements.mEntry) {
+          const entry = parseFloat(cachedElements.mEntry.value) || null;
+          const exit = parseFloat(cachedElements.mExit ? cachedElements.mExit.value : '') || null;
+          const sl = parseFloat(cachedElements.mSL ? cachedElements.mSL.value : '') || null;
+          const tp = parseFloat(cachedElements.mTP ? cachedElements.mTP.value : '') || null;
+          const dir = cachedElements.mDirection ? cachedElements.mDirection.value : '';
+          const rawSymbol = cachedElements.mSymbol ? cachedElements.mSymbol.value.trim() : '';
+          const symbol = rawSymbol.toUpperCase();
+          const asset = cachedElements.mAssetType ? cachedElements.mAssetType.value : '';
+          const risk = parseFloat(cachedElements.mRisk ? cachedElements.mRisk.value : '') || null;
+          const leverage = parseFloat(cachedElements.mLeverage ? cachedElements.mLeverage.value : '') || null;
 
-        if (risk != null && (risk < 0 || risk > 100)) return showErrorToast('Risk % must be 0–100');
-        if (leverage != null && (leverage < 1 || leverage > 100)) return showErrorToast('Leverage must be 1–100');
-        if (entry && sl && ((dir === 'LONG' && entry < sl) || (dir === 'SHORT' && entry > sl))) return showErrorToast('Invalid SL');
-        if (entry && tp && ((dir === 'LONG' && entry > tp) || (dir === 'SHORT' && entry < tp))) return showErrorToast('Invalid TP');
+          if (risk != null && (risk < 0 || risk > 100)) return showErrorToast('Risk % must be 0–100');
+          if (leverage != null && (leverage < 1 || leverage > 100)) return showErrorToast('Leverage must be 1–100');
+          if (entry && sl && ((dir === 'LONG' && entry < sl) || (dir === 'SHORT' && entry > sl))) return showErrorToast('Invalid SL');
+          if (entry && tp && ((dir === 'LONG' && entry > tp) || (dir === 'SHORT' && entry < tp))) return showErrorToast('Invalid TP');
 
-        if (!symbol || !symbolRegex.test(symbol)) return showErrorToast('Invalid symbol: ' + rawSymbol);
+          if (!symbol || !symbolRegex.test(symbol)) return showErrorToast('Invalid symbol: ' + rawSymbol);
 
-        const localStr = document.getElementById('mDate').value;
-        const updateData = {
-          trade_date: localStr ? new Date(localStr + ':00').toISOString() : null,
-          symbol,
-          asset_type: asset,
-          session: document.getElementById('mSession').value || null,
-          strategy: document.getElementById('mStrategy').value || 'Manual',
-          direction: dir,
-          entry_price: entry || null,
-          exit_price: exit || null,
-          position_size: parseFloat(document.getElementById('mSize').value) || null,
-          risk_percentage: risk || null,
-          sl_price: sl || null,
-          tp_price: tp || null,
-          leverage: isNaN(leverage) ? null : leverage,
-          risk_amount: parseFloat(document.getElementById('mRiskAmount').value) || null,
-          reward_amount: parseFloat(document.getElementById('mRewardAmount').value) || null,
-          r_r_ratio: parseFloat(document.getElementById('mRRRatio').value) || null,
-          notes: document.getElementById('mNotes').value.trim(),
-        };
+          const localStr = cachedElements.mDate ? cachedElements.mDate.value : '';
+          const updateData = {
+            trade_date: localStr ? new Date(localStr + ':00').toISOString() : null,
+            symbol,
+            asset_type: asset,
+            session: cachedElements.mSession ? cachedElements.mSession.value || null : null,
+            strategy: cachedElements.mStrategy ? cachedElements.mStrategy.value || 'Manual' : 'Manual',
+            direction: dir,
+            entry_price: entry || null,
+            exit_price: exit || null,
+            position_size: parseFloat(cachedElements.mSize ? cachedElements.mSize.value : '') || null,
+            risk_percentage: risk || null,
+            sl_price: sl || null,
+            tp_price: tp || null,
+            leverage: isNaN(leverage) ? null : leverage,
+            risk_amount: parseFloat(cachedElements.mRiskAmount ? cachedElements.mRiskAmount.value : '') || null,
+            reward_amount: parseFloat(cachedElements.mRewardAmount ? cachedElements.mRewardAmount.value : '') || null,
+            r_r_ratio: parseFloat(cachedElements.mRRRatio ? cachedElements.mRRRatio.value : '') || null,
+            notes: cachedElements.mNotes ? cachedElements.mNotes.value.trim() : '',
+          };
 
-        // normalize empty strings
-        Object.keys(updateData).forEach(k => { if (updateData[k] === '') updateData[k] = null; });
+          // normalize empty strings
+          Object.keys(updateData).forEach(k => { if (updateData[k] === '') updateData[k] = null; });
 
-        const res = await fetch('/journal/trades/' + id, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updateData)
-        });
+          const res = await fetch('/journal/trades/' + id, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updateData)
+          });
 
-        if (res.ok) {
-          const updated = await res.json();
-          updateTradeCardInList(id, updated);
-          updateStatsAfterChange();
-          showToast('Changes saved.');
-          modal.hide();
-        } else {
-          const err = await res.json().catch(() => ({}));
-          showErrorToast(err.detail || 'Failed to save');
+          if (res.ok) {
+            const updated = await res.json();
+            updateTradeCardInList(id, updated);
+            updateStatsAfterChange();
+            showToast('Changes saved.');
+            modal.hide();
+          } else {
+            const err = await res.json().catch(() => ({}));
+            showErrorToast(err.detail || 'Failed to save');
+          }
         }
       } catch (err) {
         console.error('saveTrade error', err);
@@ -1210,10 +1388,9 @@
     }
 
     async function confirmDelete(id, modal) {
-      if (confirm('Delete permanently?')) {
-        await deleteTrade(id);
-        modal.hide();
-      }
+      showConfirm('Delete this trade permanently. This action cannot be undone.', 'Delete Trade', 'btn-danger', () => {
+        deleteTrade(id).then(() => modal.hide());
+      });
     }
 
     async function deleteTrade(id) {
@@ -1242,46 +1419,43 @@
           return;
         }
         const data = await res.json();
-        const statusDiv = document.getElementById('eligibilityStatus');
-        const applyBtn = document.getElementById('applyBtn');
-        const priceForm = document.getElementById('priceForm');
-        const priceInput = document.getElementById('priceInput');
-        const revenueSplit = document.getElementById('revenueSplit');
-        const traderShareEl = document.getElementById('traderShare');
-        const platformShareEl = document.getElementById('platformShare');
-        if (!statusDiv) return;
+        if (!cachedElements.eligibilityStatus) return;
 
-        if (priceInput) { priceInput.min = 1.00; priceInput.max = 99.99; }
+        if (cachedElements.priceInput) { cachedElements.priceInput.min = 1.00; cachedElements.priceInput.max = 99.99; }
 
         if (data.is_trader) {
-          statusDiv.innerHTML = '<div class="alert alert-success" style="background: var(--success-container); border: 1px solid var(--success); color: var(--on-success-container);">Your journal is listed! Win Rate: ' + (data.current_win_rate || 0) + '%, Trades: ' + (data.current_trades || 0) + '</div>';
-          if (priceForm) priceForm.style.display = 'block';
-          if (priceInput && typeof data.marketplace_price !== 'undefined' && data.marketplace_price !== null) priceInput.value = parseFloat(data.marketplace_price).toFixed(2);
-          if (applyBtn) applyBtn.style.display = 'none';
+          cachedElements.eligibilityStatus.innerHTML = '<div class="alert alert-success" style="background: var(--success-container); border: 1px solid var(--success); color: var(--on-success-container);">Your journal is listed! Win Rate: ' + (data.current_win_rate || 0) + '%, Trades: ' + (data.current_trades || 0) + '</div>';
+          if (cachedElements.priceForm) cachedElements.priceForm.style.display = 'block';
+          if (cachedElements.priceInput && typeof data.marketplace_price !== 'undefined' && data.marketplace_price !== null) cachedElements.priceInput.value = parseFloat(data.marketplace_price).toFixed(2);
+          if (cachedElements.applyBtn) cachedElements.applyBtn.style.display = 'none';
+          if (cachedElements.refreshEligibility) cachedElements.refreshEligibility.style.display = 'none';
           // NEW: Show revenue split for listed traders
-          if (revenueSplit && traderShareEl && platformShareEl && typeof data.trader_share_percent !== 'undefined') {
+          if (cachedElements.revenueSplit && cachedElements.traderShare && cachedElements.platformShare && typeof data.trader_share_percent !== 'undefined') {
             const traderShare = Math.round(data.trader_share_percent);
             const platformShare = 100 - traderShare;
-            traderShareEl.textContent = traderShare + '%';
-            platformShareEl.textContent = platformShare + '%';
-            revenueSplit.style.display = 'block';
+            cachedElements.traderShare.textContent = traderShare + '%';
+            cachedElements.platformShare.textContent = platformShare + '%';
+            cachedElements.revenueSplit.style.display = 'block';
           }
           loadEarnings();
         } else if (data.is_trader_pending) {
-          statusDiv.innerHTML = '<div class="alert alert-info" style="background: var(--info-container); border: 1px solid var(--info); color: var(--on-info-container);">Application under review. We will notify you within 24 to 48 hours.</div>';
-          if (applyBtn) applyBtn.style.display = 'none';
-          if (priceForm) priceForm.style.display = 'none';
-          if (revenueSplit) revenueSplit.style.display = 'none';
+          cachedElements.eligibilityStatus.innerHTML = '<div class="alert alert-info" style="background: var(--info-container); border: 1px solid var(--info); color: var(--on-info-container);">Application under review. We will notify you within 24 to 48 hours.</div>';
+          if (cachedElements.applyBtn) cachedElements.applyBtn.style.display = 'none';
+          if (cachedElements.priceForm) cachedElements.priceForm.style.display = 'none';
+          if (cachedElements.revenueSplit) cachedElements.revenueSplit.style.display = 'none';
+          if (cachedElements.refreshEligibility) cachedElements.refreshEligibility.style.display = 'none';
         } else if (data.eligible) {
-          statusDiv.innerHTML = '<div class="alert alert-info" style="background: var(--info-container); border: 1px solid var(--info); color: var(--on-info-container);">You are eligible. Win Rate: ' + (data.current_win_rate || 0) + '% (' + (data.required_win_rate || 0) + '% req.), Trades: ' + (data.current_trades || 0) + ' (' + (data.required_trades || 0) + ' req.)</div>';
-          if (applyBtn) { applyBtn.style.display = 'inline-block'; applyBtn.onclick = applyTrader; }
-          if (priceForm) priceForm.style.display = 'none';
-          if (revenueSplit) revenueSplit.style.display = 'none';
+          cachedElements.eligibilityStatus.innerHTML = '<div class="alert alert-info" style="background: var(--info-container); border: 1px solid var(--info); color: var(--on-info-container);">You are eligible. Win Rate: ' + (data.current_win_rate || 0) + '% (' + (data.required_win_rate || 0) + '% req.), Trades: ' + (data.current_trades || 0) + ' (' + (data.required_trades || 0) + ' req.)</div>';
+          if (cachedElements.applyBtn) { cachedElements.applyBtn.style.display = 'inline-block'; cachedElements.applyBtn.onclick = applyTrader; }
+          if (cachedElements.priceForm) cachedElements.priceForm.style.display = 'none';
+          if (cachedElements.revenueSplit) cachedElements.revenueSplit.style.display = 'none';
+          if (cachedElements.refreshEligibility) cachedElements.refreshEligibility.style.display = 'inline-block';
         } else {
-          statusDiv.innerHTML = '<div class="alert alert-warning" style="background: var(--warning-container); border: 1px solid var(--warning); color: var(--on-warning-container);">Not yet eligible. Need ' + Math.max(0, (data.required_trades || 0) - (data.current_trades || 0)) + ' more trades and ' + Math.max(0, (data.required_win_rate || 0) - (data.current_win_rate || 0)) + '% higher win rate.</div>';
-          if (applyBtn) applyBtn.style.display = 'none';
-          if (priceForm) priceForm.style.display = 'none';
-          if (revenueSplit) revenueSplit.style.display = 'none';
+          cachedElements.eligibilityStatus.innerHTML = '<div class="alert alert-warning" style="background: var(--warning-container); border: 1px solid var(--warning); color: var(--on-warning-container);">Not yet eligible. Need ' + Math.max(0, (data.required_trades || 0) - (data.current_trades || 0)) + ' more trades and ' + Math.max(0, (data.required_win_rate || 0) - (data.current_win_rate || 0)) + '% higher win rate.</div>';
+          if (cachedElements.applyBtn) cachedElements.applyBtn.style.display = 'none';
+          if (cachedElements.priceForm) cachedElements.priceForm.style.display = 'none';
+          if (cachedElements.revenueSplit) cachedElements.revenueSplit.style.display = 'none';
+          if (cachedElements.refreshEligibility) cachedElements.refreshEligibility.style.display = 'inline-block';
         }
       } catch (err) {
         console.error('loadEligibility error', err);
@@ -1293,22 +1467,15 @@
         const res = await fetch('/journal/earnings');
         if (!res.ok) throw new Error('Failed to load earnings');
         const data = await res.json();
-        const totalE = document.getElementById('totalEarnings');
-        const pending = document.getElementById('pendingPayout');
-        const nextDate = document.getElementById('nextPayoutDate');
-        if (totalE) totalE.textContent = '$' + Number(data.total_earnings || 0).toFixed(2);
-        if (pending) pending.textContent = '$' + Number(data.pending_payout || 0).toFixed(2);
-        if (nextDate) nextDate.textContent = data.next_payout_date ? new Date(data.next_payout_date).toLocaleDateString() : 'N/A';
-        const walletDiv = document.getElementById('walletStatus');
-        const requestBtn = document.getElementById('requestPayoutBtn');
-        const earningsSection = document.getElementById('earningsSection');
-
-        if (!walletDiv) return;
+        if (cachedElements.totalEarnings) cachedElements.totalEarnings.textContent = '$' + Number(data.total_earnings || 0).toFixed(2);
+        if (cachedElements.pendingPayout) cachedElements.pendingPayout.textContent = '$' + Number(data.pending_payout || 0).toFixed(2);
+        if (cachedElements.nextPayoutDate) cachedElements.nextPayoutDate.textContent = data.next_payout_date ? new Date(data.next_payout_date).toLocaleDateString() : 'N/A';
+        if (!cachedElements.walletStatus) return;
 
         const currentWallet = data.wallet_address || '';
         const btnText = currentWallet ? 'Update Wallet' : 'Set Wallet';
         const truncated = currentWallet ? (currentWallet.slice(0, 6) + '...' + currentWallet.slice(-4)) : '';
-        walletDiv.innerHTML = `
+        cachedElements.walletStatus.innerHTML = `
           <div class="mb-3">
             <label for="walletInput" class="form-label small" style="color: var(--text);">Payout Wallet Address (Ethereum)</label>
             <div class="input-group">
@@ -1320,18 +1487,18 @@
           </div>
         `;
 
-        if (requestBtn) requestBtn.style.display = data.can_request ? 'inline-block' : 'none';
-        if (requestBtn && data.can_request) requestBtn.onclick = requestPayout;
+        if (cachedElements.requestPayoutBtn) cachedElements.requestPayoutBtn.style.display = data.can_request ? 'inline-block' : 'none';
+        if (cachedElements.requestPayoutBtn && data.can_request) cachedElements.requestPayoutBtn.onclick = requestPayout;
 
-        if (earningsSection) earningsSection.style.display = 'block';
+        if (cachedElements.earningsSection) cachedElements.earningsSection.style.display = 'block';
       } catch (err) {
         console.error('Earnings load error:', err);
       }
     }
 
     async function setWallet() {
-      const input = document.getElementById('walletInput');
-      const statusEl = document.getElementById('walletSetStatus');
+      const input = safeQuery('#walletInput');
+      const statusEl = safeQuery('#walletSetStatus');
       if (!input) return showErrorToast('Wallet input missing');
       const wallet = input.value.trim();
       if (!wallet) return showErrorToast('Enter a valid wallet address');
@@ -1360,48 +1527,48 @@
     }
 
     async function requestPayout() {
-      if (!confirm('Request monthly payout? Funds will be sent to your wallet.')) return;
-      try {
-        const res = await fetch('/journal/request-payout', { method: 'POST' });
-        if (res.ok) {
-          const resp = await res.json();
-          showToast(resp.message || 'Payout requested');
-          loadEarnings();
-        } else {
-          const err = await res.json().catch(() => ({}));
-          showErrorToast(err.detail || 'Payout request failed');
-        }
-      } catch (err) {
-        console.error('requestPayout error', err);
-        showErrorToast('Network error');
-      }
+      showConfirm('Request monthly payout? Funds will be sent to your wallet.', 'Request Payout', 'btn-primary', () => {
+        fetch('/journal/request-payout', { method: 'POST' }).then(res => {
+          if (res.ok) {
+            res.json().then(resp => {
+              showToast(resp.message || 'Payout requested');
+              loadEarnings();
+            });
+          } else {
+            res.json().catch(() => ({})).then(err => showErrorToast(err.detail || 'Payout request failed'));
+          }
+        }).catch(err => {
+          console.error('requestPayout error', err);
+          showErrorToast('Network error');
+        });
+      });
     }
 
     async function applyTrader() {
-      if (!confirm('Apply to list your journal in the marketplace?')) return;
-      try {
-        const res = await fetch('/journal/apply-trader', { method: 'POST' });
-        if (res.ok) {
-          const resp = await res.json();
-          showToast(resp.message || 'Applied');
-          loadEligibility();
-        } else {
-          const err = await res.json().catch(() => ({}));
-          showErrorToast(err.detail || 'Application failed');
-        }
-      } catch (err) {
-        console.error('applyTrader error', err);
-        showErrorToast('Network error');
-      }
+      showConfirm('Apply to list your journal in the marketplace? Once approved, subscribers can access your trades.', 'Apply to Marketplace', 'btn-primary', () => {
+        fetch('/journal/apply-trader', { method: 'POST' }).then(res => {
+          if (res.ok) {
+            res.json().then(resp => {
+              showToast(resp.message || 'Applied');
+              loadEligibility();
+            });
+          } else {
+            res.json().catch(() => ({})).then(err => showErrorToast(err.detail || 'Application failed'));
+          }
+        }).catch(err => {
+          console.error('applyTrader error', err);
+          showErrorToast('Network error');
+        });
+      });
     }
 
     // price form wiring will be attached after DOM ready to avoid null refs
 
-    // Initialize after DOM ready
+    // OPTIMIZATION: Init critical on DOM load, defer non-critical
     document.addEventListener('DOMContentLoaded', () => {
       // ensure journal tab is visible
       try {
-        const tabTrigger = new bootstrap.Tab(document.querySelector('#journal-tab'));
+        const tabTrigger = new bootstrap.Tab(safeQuery('#journal-tab'));
         tabTrigger.show();
       } catch (e) { /* ignore */ }
 
@@ -1421,25 +1588,23 @@
           requestPayout().catch(err => console.error('requestPayout handler error', err));
           return;
         }
-      });
+      }, { passive: true });
 
       // Attach price form submit handler safely here
-      const priceFormLocal = document.getElementById('priceForm');
-      if (priceFormLocal) {
-        priceFormLocal.addEventListener('submit', async (e) => {
+      if (cachedElements.priceForm) {
+        cachedElements.priceForm.addEventListener('submit', async (e) => {
           e.preventDefault();
-          const priceInput = document.getElementById('priceInput');
-          if (!priceInput) return showErrorToast('Price input missing');
-          const price = parseFloat(priceInput.value);
-          const minPrice = parseFloat(priceInput.min) || 1.00;
-          const maxPrice = parseFloat(priceInput.max) || 99.99;
+          if (!cachedElements.priceInput) return showErrorToast('Price input missing');
+          const price = parseFloat(cachedElements.priceInput.value);
+          const minPrice = parseFloat(cachedElements.priceInput.min) || 1.00;
+          const maxPrice = parseFloat(cachedElements.priceInput.max) || 99.99;
           if (isNaN(price)) return showErrorToast('Invalid price');
           if (price < minPrice) {
-            priceInput.value = minPrice.toFixed(2);
+            cachedElements.priceInput.value = minPrice.toFixed(2);
             return showErrorToast('Minimum price is $' + minPrice.toFixed(2));
           }
           if (price > maxPrice) {
-            priceInput.value = maxPrice.toFixed(2);
+            cachedElements.priceInput.value = maxPrice.toFixed(2);
             return showErrorToast('Maximum price is $' + maxPrice.toFixed(2));
           }
           try {
@@ -1459,26 +1624,30 @@
             console.error('price update error', err);
             showErrorToast('Network error');
           }
-        });
+        }, { passive: true });
       }
 
-      loadActiveTraders().then(() => {
-        loadTrades();
-        loadEligibility();
-      }).catch(err => {
-        console.error('Active traders load failed', err);
-        loadTrades();
-        loadEligibility();
-      });
+      // Critical init: Load trades immediately
+      loadTrades().catch(err => console.error('Initial loadTrades failed', err));
+
+      // Defer non-critical: Load traders, eligibility after idle
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(() => {
+          Promise.all([loadActiveTraders(), loadEligibility()]).catch(err => console.error('Deferred init failed', err));
+        });
+      } else {
+        setTimeout(() => {
+          Promise.all([loadActiveTraders(), loadEligibility()]).catch(err => console.error('Deferred init failed', err));
+        }, 100);
+      }
 
       // FIX: Hide chat FAB when trade modal opens (prevents overlap with delete button on mobile)
-      const tradeModalEl = document.getElementById('tradeModal');
-      if (tradeModalEl) {
-        tradeModalEl.addEventListener('show.bs.modal', () => {
+      if (cachedElements.tradeModal) {
+        cachedElements.tradeModal.addEventListener('show.bs.modal', () => {
           const chatFab = document.getElementById('chatFab');
           if (chatFab) chatFab.style.display = 'none';
         });
-        tradeModalEl.addEventListener('hidden.bs.modal', () => {
+        cachedElements.tradeModal.addEventListener('hidden.bs.modal', () => {
           const chatFab = document.getElementById('chatFab');
           if (chatFab) chatFab.style.display = 'block';
         });
@@ -1491,3 +1660,4 @@
   })();
 </script>
 {% endblock %}
+

@@ -1,0 +1,636 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="description" content="iTradex Terms of Service - Governing your use of the trading journal service." />
+  <title>Terms of Service - iTradex</title>
+  <!-- Open Graph -->
+  <meta property="og:title" content="Terms of Service - iTradex" />
+  <meta property="og:description" content="Read our terms for using iTradex." />
+  <meta property="og:image" content="og-image.png" />
+  <meta property="og:type" content="website" />
+  <!-- Structured Data for Terms -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "TermsOfService",
+    "name": "iTradex Terms of Service",
+    "description": "Governing terms for using iTradex trading journal service.",
+    "url": "https://itradex.xyz/terms",
+    "datePublished": "2025-11-11",
+    "author": {
+      "@type": "Organization",
+      "name": "iTradex Inc."
+    }
+  }
+  </script>
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="static/img/favicon-16x16.png" />
+  <!-- Canonical URL -->
+  <link rel="canonical" href="https://itradex.xyz/terms" />
+  <!-- Fonts - Preload both -->
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
+  <!-- Bootstrap Icons - Preload -->
+  <link rel="preload" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet"></noscript>
+  <style>
+    /* Best practices: CSS custom properties, semantic selectors, reduced motion support */
+    :root {
+      --brand-500: #2F6BFF;
+      --brand-600: #1F55E0;
+      --gold: #EAB308;
+      --bg: linear-gradient(135deg, #F8FAFC 0%, #E2E8F0 100%);
+      --surface: #fff;
+      --text: #0F172A;
+      --text-dark: #111827;
+      --muted: #475569;
+      --border: #E2E8F0;
+      --radius: 20px;
+      --shadow: 0 20px 40px rgba(0,0,0,0.05);
+      --shadow-lg: 0 25px 50px -12px rgba(0,0,0,0.25);
+      --shadow-color: rgba(0,0,0,0.1);
+      --accent: #06B6D4;
+      --success: #10B981;
+      --warning: #F59E0B;
+      --error: #EF4444;
+      --glass-weak: rgba(255,255,255,0.06);
+      --gradient-brand: linear-gradient(135deg, var(--brand-500), var(--brand-600));
+      --gradient-accent: linear-gradient(135deg, var(--accent), #0891b2);
+      --gradient-success: linear-gradient(135deg, var(--success), #059669);
+      --gradient-warning: linear-gradient(135deg, var(--warning), #d97706);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; background: var(--bg); }
+    body {
+      font-family: Inter, system-ui, sans-serif;
+      color: var(--text);
+      overflow-x: hidden;
+      line-height: 1.7; /* Best practice: 1.5-1.7 for readability */
+      min-height: 100vh;
+      position: relative;
+      /* Simplified, non-distracting background for legal content */
+      background: 
+        linear-gradient(135deg, #f5f8ff 0%, #e5efff 50%, #d1e3ff 100%),
+        radial-gradient(circle at 50% 50%, rgba(47,107,255,0.08) 0%, transparent 70%);
+      background-size: 100% 100%, 200% 200%;
+      background-attachment: fixed;
+    }
+
+    /* Reduced motion support */
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      * { transition: none !important; animation: none !important; }
+    }
+
+    /* Navbar: Fixed, consistent with main page - stabilized centering */
+    nav.navbar {
+      position: fixed;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      justify-content: center;
+      padding: 0.75rem 0;
+      background: linear-gradient(135deg, rgba(245,248,255,0.4), rgba(209,227,255,0.2));
+      -webkit-backdrop-filter: blur(20px) saturate(1.8);
+      backdrop-filter: blur(20px) saturate(1.8);
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 50px;
+      z-index: 100;
+      transition: all 0.3s ease;
+      box-shadow: 0 8px 32px var(--shadow-color);
+      max-width: 1200px;
+      width: 90%;
+    }
+
+    nav.navbar.scrolled { 
+      padding: 0.5rem 0; 
+      box-shadow: 0 4px 20px var(--shadow-color); 
+    }
+
+    .navbar .container { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      width: 100%;
+      padding: 0 2rem;
+    }
+    .brand { 
+      font-weight: 800; 
+      font-size: 1.3rem; 
+      display: flex; 
+      gap: 0.625rem;
+      align-items: center; 
+      text-decoration: none;
+      background: var(--gradient-brand);
+      -webkit-background-clip: text; 
+      -webkit-text-fill-color: transparent;
+    }
+
+    .nav-links { display: flex; gap: 2rem; align-items: center; }
+    .nav-link { 
+      color: var(--text); 
+      text-decoration: none; 
+      font-weight: 500; 
+      transition: all 0.2s ease;
+      position: relative;
+    }
+    .nav-link:hover { color: var(--brand-500); }
+    .nav-link.current { 
+      color: var(--brand-500); 
+      font-weight: 600;
+    }
+    .nav-link.current::after {
+      content: '';
+      position: absolute;
+      bottom: -4px;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: var(--gradient-brand);
+    }
+
+    .hamburger {
+      display: none;
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      color: var(--text);
+      cursor: pointer;
+      padding: 0.25rem;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+    .hamburger:focus { outline: 2px solid var(--brand-500); outline-offset: 2px; }
+
+    /* Page Content: Semantic, accessible */
+    .policy-wrapper {
+      padding-top: 120px; /* Offset for fixed nav */
+      padding-bottom: 4rem;
+    }
+    .policy-content {
+      max-width: 900px; /* Optimal line length: 45-75 chars */
+      margin: 0 auto;
+      padding: 2rem;
+      background: rgba(255,255,255,0.98);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      line-height: 1.7;
+      border: 1px solid var(--border);
+    }
+
+    .policy-header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .policy-content h1 {
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+      background: var(--gradient-brand);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .last-updated {
+      color: var(--muted);
+      font-size: 0.95rem;
+      font-style: italic;
+    }
+
+    /* Table of Contents: Improves scannability */
+    .toc {
+      background: rgba(47,107,255,0.05);
+      border: 1px solid rgba(47,107,255,0.1);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    .toc h2 {
+      font-size: 1.25rem;
+      margin-bottom: 1rem;
+      color: var(--brand-500);
+    }
+    .toc ul {
+      list-style: none;
+      padding: 0;
+    }
+    .toc li {
+      margin-bottom: 0.5rem;
+    }
+    .toc a {
+      color: var(--text);
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+    .toc a:hover, .toc a:focus {
+      color: var(--brand-500);
+      text-decoration: underline;
+    }
+    .toc ul ul {
+      margin-top: 0.5rem;
+      padding-left: 1rem;
+    }
+
+    .policy-content h2 {
+      font-size: 1.75rem;
+      margin-top: 2.5rem;
+      margin-bottom: 1rem;
+      color: var(--text-dark);
+      scroll-margin-top: 120px; /* Smooth scroll offset */
+    }
+    .policy-content h2:first-of-type {
+      margin-top: 0;
+    }
+
+    .policy-content h3 {
+      font-size: 1.3rem;
+      margin-top: 1.75rem;
+      margin-bottom: 0.75rem;
+      color: var(--brand-500);
+    }
+
+    .policy-content h4 {
+      font-size: 1.15rem;
+      margin-top: 1.25rem;
+      margin-bottom: 0.5rem;
+      color: var(--text-dark);
+      font-weight: 600;
+    }
+
+    .policy-content ul, .policy-content ol {
+      margin-left: 1.75rem;
+      margin-bottom: 1rem;
+    }
+    .policy-content li {
+      margin-bottom: 0.5rem;
+    }
+
+    .policy-content p {
+      margin-bottom: 1.25rem;
+      color: var(--text);
+      hyphens: auto; /* Improves readability */
+    }
+
+    .policy-content a {
+      color: var(--brand-500);
+      text-decoration: underline;
+    }
+    .policy-content a:hover, .policy-content a:focus {
+      text-decoration: none;
+      background: rgba(47,107,255,0.1);
+      padding: 0.1rem 0.2rem;
+      border-radius: 4px;
+    }
+
+    /* Sections: Semantic with IDs */
+    section {
+      margin-bottom: 2rem;
+    }
+
+    /* Footer */
+    footer {
+      background: var(--surface);
+      padding: 3rem 0;
+      border-top: 0.05rem solid var(--border);
+      text-align: center;
+    }
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .footer-link {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 1rem;
+      transition: all 0.2s ease;
+      padding: 0.75rem 1.25rem;
+      border-radius: 25px;
+    }
+    .footer-link:hover, .footer-link:focus {
+      color: var(--brand-500);
+      background: rgba(47,107,255,0.08);
+      transform: translateY(-1px);
+      outline: none;
+    }
+    footer p {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    /* Responsive: Mobile-first principles */
+    @media (max-width: 900px) {
+      .hamburger { display: block; }
+      .nav-links { 
+        display: none; 
+        flex-direction: column;
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 90%;
+        background: linear-gradient(135deg, #f5f8ff, #d1e3ff);
+        backdrop-filter: blur(20px) saturate(1.8);
+        border: 1px solid rgba(255,255,255,0.3);
+        border-top: none;
+        padding: 1rem;
+        border-radius: 0 0 50px 50px;
+        box-shadow: 0 8px 32px var(--shadow-color);
+        gap: 1rem;
+        z-index: 99;
+      }
+      .nav-links.active { display: flex; }
+      .nav-link {
+        padding: 0.75rem 0;
+        text-align: center;
+        font-size: 1.1rem;
+      }
+      .policy-content { 
+        padding: 1.5rem; 
+        margin: 0 1rem;
+      }
+      .policy-wrapper {
+        padding-top: 100px;
+      }
+      .toc {
+        padding: 1rem;
+      }
+      .footer-links {
+        gap: 1.5rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .navbar .container { padding: 0 1rem; }
+      .policy-content { padding: 1rem; }
+      .policy-content h1 { font-size: 2rem; }
+      .policy-content h2 { font-size: 1.5rem; }
+      .policy-content h3 { font-size: 1.15rem; }
+      .toc ul ul { padding-left: 0.75rem; }
+    }
+
+    /* Print styles: Best practice for legal docs */
+    @media print {
+      .navbar, .toc, footer { display: none; }
+      body { background: white; }
+      .policy-content { box-shadow: none; border: none; max-width: none; padding: 0; }
+      h1, h2, h3, h4 { page-break-after: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Navbar: Retained for consistency and navigation -->
+  <nav class="navbar" role="navigation" aria-label="Main navigation">
+    <div class="container">
+      <a class="brand" href="/" aria-label="iTradex homepage">
+        <img src="static/img/logo.png" alt="iTradex Logo" style="height: 1.3rem; width: auto;">
+        iTradex
+      </a>
+      <div class="nav-links" id="nav-links">
+        <a href="/" class="nav-link">Home</a>
+        <a href="/features" class="nav-link">Features</a>
+        <a href="/pricing" class="nav-link">Pricing</a>
+        <a href="/privacy" class="nav-link">Privacy</a>
+        <a href="/terms" class="nav-link current">Terms</a>
+        <a href="/support" class="nav-link">Support</a>
+        <a href="/contact" class="nav-link">Contact</a>
+      </div>
+      <button class="hamburger" aria-label="Toggle menu" aria-expanded="false" aria-controls="nav-links">☰</button>
+    </div>
+  </nav>
+
+  <div class="policy-wrapper">
+    <main class="policy-content" id="main-content" tabindex="-1">
+      <div class="policy-header">
+        <h1>Terms and Conditions</h1>
+        <p class="last-updated">Last updated: November 11, 2025</p>
+      </div>
+
+      <!-- Table of Contents -->
+      <nav class="toc" aria-label="Table of contents">
+        <h2>On this page</h2>
+        <ul>
+          <li><a href="#interpretation">Interpretation and Definitions</a></li>
+          <li><a href="#acknowledgment">Acknowledgment</a></li>
+          <li><a href="#accounts">User Accounts</a></li>
+          <li><a href="#content">Content</a>
+            <ul>
+              <li><a href="#post-content">Your Right to Post Content</a></li>
+              <li><a href="#restrictions">Content Restrictions</a></li>
+              <li><a href="#backups">Content Backups</a></li>
+            </ul>
+          </li>
+          <li><a href="#copyright">Copyright Policy</a></li>
+          <li><a href="#ip">Intellectual Property</a></li>
+          <li><a href="#feedback">Your Feedback to Us</a></li>
+          <li><a href="#links">Links to Other Websites</a></li>
+          <li><a href="#termination">Termination</a></li>
+          <li><a href="#liability">Limitation of Liability</a></li>
+          <li><a href="#severability">Severability</a></li>
+          <li><a href="#waiver">Waiver</a></li>
+          <li><a href="#governing">Governing Law</a></li>
+          <li><a href="#changes">Changes to These Terms and Conditions</a></li>
+          <li><a href="#contact">Contact Us</a></li>
+        </ul>
+      </nav>
+
+      <p>Please read these terms and conditions carefully before using Our Service.</p>
+
+      <section id="interpretation">
+        <h2>Interpretation and Definitions</h2>
+        <h3>Interpretation</h3>
+        <p>The words of which the initial letter is capitalized have meanings defined under the following conditions. The following definitions shall have the same meaning regardless of whether they appear in singular or in plural.</p>
+
+        <h3>Definitions</h3>
+        <p>For the purposes of these Terms and Conditions:</p>
+        <ul>
+          <li><strong>"Affiliate"</strong> means an entity that controls, is controlled by or is under common control with a party.</li>
+          <li><strong>"Account"</strong> means a unique account created for You to access our Service or parts of our Service.</li>
+          <li><strong>"Company"</strong> (referred to as either "the Company", "We", "Us" or "Our" in this Agreement) refers to iTradex Inc., United States.</li>
+          <li><strong>"Country"</strong> refers to United States.</li>
+          <li><strong>"Content"</strong> refers to content such as text, images, or other information that can be posted, uploaded, linked to or otherwise made available by You.</li>
+          <li><strong>"Device"</strong> means any device that can access the Service such as a computer, a cellphone or a digital tablet.</li>
+          <li><strong>"Feedback"</strong> means feedback, innovations or suggestions sent by You regarding the attributes, performance or features of our Service.</li>
+          <li><strong>"Service"</strong> refers to the iTradex trading journal service, accessible from https://itradex.xyz.</li>
+          <li><strong>"Terms and Conditions"</strong> mean these Terms and Conditions that form the entire agreement between You and the Company regarding the use of the Service.</li>
+          <li><strong>"Third-party Social Media Service"</strong> means any services or content provided by a third-party that may be displayed, included or made available by the Service.</li>
+          <li><strong>"Website"</strong> refers to iTradex, accessible from https://itradex.xyz.</li>
+          <li><strong>"You"</strong> means the individual accessing or using the Service, or the company, or other legal entity on behalf of which such individual is accessing or using the Service, as applicable.</li>
+        </ul>
+      </section>
+
+      <section id="acknowledgment">
+        <h2>Acknowledgment</h2>
+        <p>These are the Terms and Conditions governing the use of this Service and the agreement that operates between You and the Company. These Terms and Conditions set out the rights and obligations of all users regarding the use of the Service.</p>
+        <p>Your access to and use of the Service is conditioned on Your acceptance of and compliance with these Terms and Conditions. These Terms and Conditions apply to all visitors, users and others who access or use the Service.</p>
+        <p>By accessing or using the Service You agree to be bound by these Terms and Conditions. If You disagree with any part of these Terms and Conditions then You may not access the Service.</p>
+        <p>You represent that you are over the age of 18. The Company does not permit those under 18 to use the Service.</p>
+        <p>Your access to and use of the Service is also conditioned on Your acceptance of and compliance with the Privacy Policy of the Company. Please read Our <a href="/privacy">Privacy Policy</a> carefully before using Our Service.</p>
+      </section>
+
+      <section id="accounts">
+        <h2>User Accounts</h2>
+        <p>When You create an account with Us, You must provide Us information that is accurate, complete, and current at all times. Failure to do so constitutes a breach of the Terms, which may result in immediate termination of Your account on Our Service.</p>
+        <p>You are responsible for safeguarding the password that You use to access the Service and for any activities or actions under Your password.</p>
+        <p>You agree not to disclose Your password to any third party. You must notify Us immediately upon becoming aware of any breach of security or unauthorized use of Your account.</p>
+        <p>You may not use as a username the name of another person or entity or that is not lawfully available for use, a name or trademark that is subject to any rights of another person or entity other than You without appropriate authorization, or a name that is otherwise offensive, vulgar or obscene.</p>
+      </section>
+
+      <section id="content">
+        <h2>Content</h2>
+        <h3 id="post-content">Your Right to Post Content</h3>
+        <p>Our Service allows You to post Content. You are responsible for the Content that You post to the Service, including its legality, reliability, and appropriateness.</p>
+        <p>By posting Content to the Service, You grant Us the right and license to use, modify, publicly perform, publicly display, reproduce, and distribute such Content on and through the Service.</p>
+        <p>You retain any and all of Your rights to any Content You submit, post or display on or through the Service and You are responsible for protecting those rights.</p>
+        <p>You represent and warrant that: (i) the Content is Yours or You have the right to use it and grant Us the rights and license as provided in these Terms, and (ii) the posting of Your Content on or through the Service does not violate the privacy rights, publicity rights, copyrights, contract rights or any other rights of any person.</p>
+
+        <h3 id="restrictions">Content Restrictions</h3>
+        <p>The Company is not responsible for the content of the Service's users. You expressly understand and agree that You are solely responsible for the Content and for all activity that occurs under your account.</p>
+        <p>You may not transmit any Content that is unlawful, offensive, upsetting, intended to disgust, threatening, libelous, defamatory, obscene or otherwise objectionable.</p>
+        <p>The Company reserves the right to refuse or remove this Content. The Company can also limit or revoke the use of the Service if You post such objectionable Content.</p>
+
+        <h3 id="backups">Content Backups</h3>
+        <p>Although regular backups of Content are performed, the Company does not guarantee there will be no loss or corruption of data.</p>
+        <p>The Company will provide support and attempt to troubleshoot any known or discovered issues that may affect the backups of Content.</p>
+        <p>You agree to maintain a complete and accurate copy of any Content in a location independent of the Service.</p>
+      </section>
+
+      <section id="copyright">
+        <h2>Copyright Policy</h2>
+        <h3>Intellectual Property Infringement</h3>
+        <p>We respect the intellectual property rights of others. It is Our policy to respond to any claim that Content posted on the Service infringes a copyright or other intellectual property infringement of any person.</p>
+        <p>If You are a copyright owner, or authorized on behalf of one, and You believe that the copyrighted work has been copied in a way that constitutes copyright infringement, You must submit Your notice in writing to the attention of our copyright agent via email (<a href="mailto:copyright@itradex.xyz">copyright@itradex.xyz</a>).</p>
+      </section>
+
+      <section id="ip">
+        <h2>Intellectual Property</h2>
+        <p>The Service and its original content, features and functionality are and will remain the exclusive property of the Company and its licensors.</p>
+        <p>The Service is protected by copyright, trademark, and other laws of both the Country and foreign countries.</p>
+        <p>Our trademarks and trade dress may not be used in connection with any product or service without the prior written consent of the Company.</p>
+      </section>
+
+      <section id="feedback">
+        <h2>Your Feedback to Us</h2>
+        <p>You assign all rights, title and interest in any Feedback You provide the Company. If for any reason such assignment is ineffective, You agree to grant the Company a non-exclusive, perpetual, irrevocable, royalty free, worldwide right and license to use, reproduce, disclose, sub-license, distribute, modify and exploit such Feedback without restriction.</p>
+      </section>
+
+      <section id="links">
+        <h2>Links to Other Websites</h2>
+        <p>Our Service may contain links to third-party web sites or services that are not owned or controlled by the Company.</p>
+        <p>The Company has no control over, and assumes no responsibility for, the content, privacy policies, or practices of any third party web sites or services.</p>
+      </section>
+
+      <section id="termination">
+        <h2>Termination</h2>
+        <p>We may terminate or suspend Your Account immediately, without prior notice or liability, for any reason whatsoever, including without limitation if You breach these Terms and Conditions.</p>
+        <p>Upon termination of Your account, We will have no obligation to maintain or provide any of Your Content and may thereafter delete all Content submitted by You.</p>
+      </section>
+
+      <section id="liability">
+        <h2>Limitation of Liability</h2>
+        <p>To the maximum extent permitted by applicable law, in no event shall the Company or its suppliers be liable for any special, incidental, indirect, or consequential damages whatsoever (including, but not limited to, damages for loss of profits, loss of data or other information, for business interruption, for personal injury, loss of privacy arising out of or in any way related to the use of or inability to use the Service, third-party software and/or third-party hardware used with the Service, or otherwise in connection with any provision of this Terms), even if the Company or any supplier has been advised of the possibility of such damages and even if the remedy fails of its essential purpose.</p>
+      </section>
+
+      <section id="severability">
+        <h2>Severability</h2>
+        <p>If any provision of these Terms is held to be unenforceable or invalid, such provision will be changed and interpreted to accomplish the objectives of such provision to the greatest extent possible under applicable law and the remaining provisions will continue in full force and effect.</p>
+      </section>
+
+      <section id="waiver">
+        <h2>Waiver</h2>
+        <p>Except as provided herein, the failure to exercise a right or to require performance of an obligation under this Terms shall not effect a party's ability to exercise such right or require such performance at any time thereafter nor shall be the waiver of a breach constitute a waiver of any subsequent breach.</p>
+      </section>
+
+      <section id="governing">
+        <h2>Governing Law</h2>
+        <p>These Terms shall be governed by and interpreted in accordance with the laws of the State of Delaware without regard to its conflict of law principles.</p>
+      </section>
+
+      <section id="changes">
+        <h2>Changes to These Terms and Conditions</h2>
+        <p>We reserve the right, at Our sole discretion, to modify or replace these Terms at any time. If a revision is material We will make reasonable efforts to provide at least 30 days' notice prior to any new terms taking effect. What constitutes a material change will be determined at Our sole discretion.</p>
+        <p>By continuing to access or use Our Service after those revisions become effective, You agree to be bound by the revised terms. If You do not agree to the new terms, in whole or in part, please stop using the website and the Service.</p>
+      </section>
+
+      <section id="contact">
+        <h2>Contact Us</h2>
+        <p>If you have any questions about these Terms, please contact us:</p>
+        <ul>
+          <li>By email: <a href="mailto:contact@itradex.xyz">contact@itradex.xyz</a></li>
+        </ul>
+      </section>
+    </main>
+  </div>
+
+  <footer role="contentinfo">
+    <div class="container">
+      <div class="footer-links">
+        <a href="/privacy" class="footer-link">Privacy</a>
+        <a href="/terms" class="footer-link">Terms</a>
+        <a href="/contact" class="footer-link">Contact</a>
+        <a href="/support" class="footer-link">Support</a>
+      </div>
+      <p>© 2025 iTradex. All rights reserved. | Built with ❤️ for traders.</p>
+    </div>
+  </footer>
+
+  <script>
+    // Best practices: Event listeners, accessibility, performance
+    // Navbar scroll effect - no margin changes to prevent shifting
+    const navbar = document.querySelector('.navbar');
+    let ticking = false;
+    function updateNavbar() {
+      if (window.scrollY > 50) {
+        navbar.classList.add('scrolled');
+      } else {
+        navbar.classList.remove('scrolled');
+      }
+      ticking = false;
+    }
+    window.addEventListener('scroll', () => {
+      if (!ticking) {
+        requestAnimationFrame(updateNavbar);
+        ticking = true;
+      }
+    });
+
+    // Mobile menu toggle
+    const hamburger = document.querySelector('.hamburger');
+    const navLinks = document.getElementById('nav-links');
+    if (hamburger && navLinks) {
+      hamburger.addEventListener('click', () => {
+        const isActive = navLinks.classList.toggle('active');
+        hamburger.setAttribute('aria-expanded', isActive);
+      });
+      // Close on escape
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && navLinks.classList.contains('active')) {
+          navLinks.classList.remove('active');
+          hamburger.setAttribute('aria-expanded', 'false');
+        }
+      });
+    }
+
+    // Smooth scrolling for TOC
+    document.querySelectorAll('.toc a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          target.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start' 
+          });
+          // Focus management for accessibility
+          target.setAttribute('tabindex', '-1');
+          target.focus();
+        }
+      });
+    });
+  </script>
+</body>
+</html>

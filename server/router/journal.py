@@ -1,4 +1,3 @@
-# router/journal.py
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Body, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, nulls_last
@@ -6,6 +5,8 @@ from sqlalchemy.orm import aliased
 from typing import List, Optional
 import logging
 import re
+import json  # NEW: For JSON serialization in caching
+import hashlib  # NEW: For hashing filter params in cache key
 from pydantic import BaseModel, Field
 from datetime import datetime, date, timedelta, timezone
 
@@ -13,6 +14,10 @@ from database import get_session
 from models import models
 import auth
 from models.schemas import TradeResponse, TradeUpdate, PaginatedTrades, PriceUpdate
+
+# NEW: Import Redis
+from redis.asyncio import Redis
+from redis_client import redis_dependency, get_cache, set_cache  # Assuming same as dashboard
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -33,7 +38,8 @@ class TradeCreate(TradeUpdate):  # Reuse fields for creation
 async def create_trade(
     create_data: TradeCreate = Body(...),
     db: AsyncSession = Depends(get_session),
-    current_user: models.User = Depends(auth.get_current_user)
+    current_user: models.User = Depends(auth.get_current_user),
+    redis: Redis = Depends(redis_dependency)  # NEW: Add Redis dependency for invalidation
 ):
     """Create a new trade for the current user."""
     correlation_id = f"journal_create_{datetime.utcnow().timestamp()}"
@@ -69,9 +75,14 @@ async def create_trade(
     # FIXED: Uppercase asset_type
     if trade.asset_type:
         trade.asset_type = trade.asset_type.upper()
-    # Critical: TZ for trade_date
+    # Critical: TZ for trade_date — convert to UTC then strip tzinfo for naive DB column
     if trade.trade_date:
-        trade.trade_date = trade.trade_date.replace(tzinfo=timezone.utc)
+        value = trade.trade_date
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        else:
+            value = value.astimezone(timezone.utc)
+        trade.trade_date = value.replace(tzinfo=None)
     
     try:
         db.add(trade)
@@ -83,8 +94,18 @@ async def create_trade(
             current_user.account_balance += pnl_delta
             logger.info(f"Created trade {trade.id} for user {current_user.id}, added {pnl_delta:.2f} to balance (new: {current_user.account_balance:.2f})", extra={"corr_id": correlation_id})
         
+        # Ensure updated_at is naive UTC for consistency
+        trade.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        
         await db.commit()
         await db.refresh(trade)
+
+        # NEW: Invalidate eligibility cache after commit
+        await redis.delete(f"eligibility:{current_user.id}")
+        # NEW: Invalidate global traders cache (for dashboard)
+        await redis.delete("eligible_traders")
+        logger.info(f"Invalidated eligibility cache for user {current_user.id} and global eligible_traders after trade creation", extra={"corr_id": correlation_id})
+
         response = TradeResponse.model_validate(trade, from_attributes=True)
         logger.info(f"Created & serialized trade {trade.id}: {dict(response)}", extra={"corr_id": correlation_id})
     except Exception as e:
@@ -109,7 +130,8 @@ async def get_trades(
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=50),
     db: AsyncSession = Depends(get_session),
-    current_user: models.User = Depends(auth.get_current_user)
+    current_user: models.User = Depends(auth.get_current_user),
+    redis: Redis = Depends(redis_dependency)  # NEW: Add Redis dependency
 ):
     """Fetch paginated trades for the current user with filtering and sorting. NEW: Support trader_id for subbed access (read-only)."""
     correlation_id = f"journal_{datetime.utcnow().timestamp()}"
@@ -117,6 +139,20 @@ async def get_trades(
         'search': search, 'filter_type': filter_type, 'session': session, 'strategy': strategy,
         'asset_type': asset_type, 'date_from': date_from, 'date_to': date_to, 'sort': sort, 'page': page, 'page_size': page_size
     }, extra={"corr_id": correlation_id})
+
+    # NEW: Cache key for trades list (per user + params hash for filters)
+    params_str = f"{source}:{trader_id}:{search}:{filter_type}:{session}:{strategy}:{asset_type}:{date_from}:{date_to}:{sort}:{page}:{page_size}"
+    params_hash = hashlib.md5(params_str.encode()).hexdigest()[:8]  # Short hash
+    cache_key = f"trades:{current_user.id}:{params_hash}"
+    cached_data = await get_cache(redis, cache_key)
+    if cached_data:
+        try:
+            response_data = json.loads(cached_data)
+            response = PaginatedTrades.model_validate(response_data)
+            logger.info(f"Using cached trades for user {current_user.id}, key={cache_key}", extra={"corr_id": correlation_id})
+            return response
+        except Exception as e:
+            logger.warning(f"Cache invalid for {cache_key}: {e}; falling back to DB", extra={"corr_id": correlation_id})
 
     if source == "trader" and trader_id:
         # NEW: Check active sub to trader
@@ -216,7 +252,7 @@ async def get_trades(
 
     logger.info("Fetched %d trades, total=%d, page=%d", len(trades), total_count, page, extra={"corr_id": correlation_id})
 
-    return PaginatedTrades(
+    response = PaginatedTrades(
         trades=[TradeResponse.model_validate(t, from_attributes=True) for t in trades],
         total=total_count,
         page=page,
@@ -228,18 +264,42 @@ async def get_trades(
         trader_name=trader_name  # NEW: For frontend badge
     )
 
+    # FIXED: Use mode='json' to serialize datetimes to ISO strings for JSON compatibility
+    await set_cache(redis, cache_key, json.dumps(response.model_dump(mode='json')), ttl=300)
+    logger.info(f"Cached trades for user {current_user.id}, key={cache_key}", extra={"corr_id": correlation_id})
+
+    return response
+
 @router.get("/trades/{trade_id}", response_model=TradeResponse)
 async def get_trade(
     trade_id: int,
     db: AsyncSession = Depends(get_session),
-    current_user: models.User = Depends(auth.get_current_user)
+    current_user: models.User = Depends(auth.get_current_user),
+    redis: Redis = Depends(redis_dependency)  # NEW: Add Redis dependency
 ):
     """Fetch a single trade by ID."""
+    # NEW: Cache key for single trade
+    cache_key = f"trade:{trade_id}:{current_user.id}"
+    cached_data = await get_cache(redis, cache_key)
+    if cached_data:
+        try:
+            response_data = json.loads(cached_data)
+            response = TradeResponse.model_validate(response_data)
+            logger.info(f"Using cached trade {trade_id} for user {current_user.id}")
+            return response
+        except Exception as e:
+            logger.warning(f"Cache invalid for {cache_key}: {e}; falling back to DB")
+
     trade = await db.get(models.Trade, trade_id)
     if not trade or trade.owner_id != current_user.id:
         raise HTTPException(status_code=404, detail="Trade not found")
     response = TradeResponse.model_validate(trade, from_attributes=True)
     logger.info(f"Serialized trade {trade_id}: {dict(response)}")  # Debug: Log full response fields
+
+    # FIXED: Use mode='json' to serialize datetimes to ISO strings for JSON compatibility
+    await set_cache(redis, cache_key, json.dumps(response.model_dump(mode='json')), ttl=60)
+    logger.info(f"Cached single trade {trade_id} for user {current_user.id}")
+
     return response
 
 # High [Model Update]: Enhanced P/L calc with asset_type, fees; always recalc; null-skip + logging
@@ -248,7 +308,8 @@ async def update_trade(
     trade_id: int,
     update_data: TradeUpdate = Body(...),
     db: AsyncSession = Depends(get_session),
-    current_user: models.User = Depends(auth.get_current_user)
+    current_user: models.User = Depends(auth.get_current_user),
+    redis: Redis = Depends(redis_dependency)  # NEW: Add Redis for invalidation
 ):
     trade = await db.get(models.Trade, trade_id)
     if not trade or trade.owner_id != current_user.id:
@@ -272,9 +333,13 @@ async def update_trade(
         # FIXED: Uppercase asset_type for enum
         if key == 'asset_type' and value:
             value = value.upper()
-        # Critical: TZ for trade_date
+        # Critical: TZ for trade_date — convert to UTC then strip tzinfo for naive DB column
         if key == 'trade_date' and value:
-            value = value.replace(tzinfo=timezone.utc)
+            if value.tzinfo is None:
+                value = value.replace(tzinfo=timezone.utc)
+            else:
+                value = value.astimezone(timezone.utc)
+            value = value.replace(tzinfo=None)
         setattr(trade, key, value)
     
     if skipped_fields:
@@ -311,11 +376,27 @@ async def update_trade(
             user.account_balance += pnl_delta
             logger.info(f"Updated user {current_user.id} balance by {pnl_delta:.2f} (new: {user.account_balance:.2f})")
         
+        # Ensure updated_at is naive UTC for consistency
+        trade.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        
         await db.commit()
         await db.refresh(trade)
         await db.refresh(user)  # Refresh for response if needed
         response = TradeResponse.model_validate(trade, from_attributes=True)
         logger.info(f"Updated & serialized trade {trade_id}: {dict(response)}")  # Debug: Log post-save fields
+
+        # NEW: Invalidate related caches (single trade + all user trades lists + eligibility)
+        await redis.delete(f"trade:{trade_id}:{current_user.id}")  # Single
+        # Invalidate all paginated caches for user (pattern delete; assumes Redis supports it)
+        keys_pattern = f"trades:{current_user.id}:*"
+        deleted_keys = await redis.execute_command('KEYS', keys_pattern)
+        if deleted_keys:
+            await redis.delete(*deleted_keys)
+        # NEW: Invalidate eligibility
+        await redis.delete(f"eligibility:{current_user.id}")
+        # NEW: Invalidate global traders cache (for dashboard)
+        await redis.delete("eligible_traders")
+        logger.info(f"Invalidated caches for updated trade {trade_id} (deleted {len(deleted_keys) if deleted_keys else 0} keys + eligibility + global eligible_traders)")
     except Exception as e:
         logger.error("Update failed for trade %d: %s", trade_id, str(e))
         await db.rollback()
@@ -327,7 +408,8 @@ async def update_trade(
 async def delete_trade(
     trade_id: int,
     db: AsyncSession = Depends(get_session),
-    current_user: models.User = Depends(auth.get_current_user)
+    current_user: models.User = Depends(auth.get_current_user),
+    redis: Redis = Depends(redis_dependency)  # NEW: Add Redis for invalidation
 ):
     """Delete a trade and reverse its P/L impact on the user's balance."""
     trade = await db.get(models.Trade, trade_id)
@@ -344,6 +426,19 @@ async def delete_trade(
         
         await db.delete(trade)
         await db.commit()
+
+        # NEW: Invalidate related caches (single trade + all user trades lists + eligibility)
+        await redis.delete(f"trade:{trade_id}:{current_user.id}")  # Single (even if deleted)
+        keys_pattern = f"trades:{current_user.id}:*"
+        deleted_keys = await redis.execute_command('KEYS', keys_pattern)
+        if deleted_keys:
+            await redis.delete(*deleted_keys)
+        # NEW: Invalidate eligibility
+        await redis.delete(f"eligibility:{current_user.id}")
+        # NEW: Invalidate global traders cache (for dashboard)
+        await redis.delete("eligible_traders")
+        logger.info(f"Invalidated caches for deleted trade {trade_id} (deleted {len(deleted_keys) if deleted_keys else 0} keys + eligibility + global eligible_traders)")
+
         logger.info(f"Deleted trade {trade_id}")
     except Exception as e:
         logger.error("Delete failed for trade %d: %s", trade_id, str(e))
@@ -356,9 +451,16 @@ async def delete_trade(
 @router.get("/subscriptions/active")
 async def get_active_subscriptions(
     db: AsyncSession = Depends(get_session),
-    current_user: models.User = Depends(auth.get_current_user)
+    current_user: models.User = Depends(auth.get_current_user),
+    redis: Redis = Depends(redis_dependency)  # NEW: Add Redis dependency
 ):
     """Return list of active trader subscriptions for frontend dropdown."""
+    # NEW: Cache per user (TTL 10 min)
+    cache_key = f"subs_active:{current_user.id}"
+    cached_data = await get_cache(redis, cache_key)
+    if cached_data:
+        return json.loads(cached_data)
+
     result = await db.execute(
         select(models.Subscription.trader_id, models.User.full_name.label("trader_name"))
         .join(models.User, models.User.id == models.Subscription.trader_id)
@@ -368,17 +470,27 @@ async def get_active_subscriptions(
         )
     )
     subs = result.all()
-    return [{"trader_id": r.trader_id, "trader_name": r.trader_name} for r in subs]
+    response = [{"trader_id": r.trader_id, "trader_name": r.trader_name} for r in subs]
+
+    await set_cache(redis, cache_key, json.dumps(response), ttl=600)  # 10 min
+    return response
 
 # NEW: Marketplace Eligibility Check
 @router.get("/eligibility")
 async def check_eligibility(
     db: AsyncSession = Depends(get_session),
-    current_user: models.User = Depends(auth.get_current_user)
+    current_user: models.User = Depends(auth.get_current_user),
+    redis: Redis = Depends(redis_dependency)  # NEW: Add Redis dependency
 ):
     """Check if the current user is eligible to become a marketplace trader."""
     if not current_user:
         raise HTTPException(status_code=401, detail="Unauthorized")
+
+    # NEW: Cache per user (TTL 10 min; stats change infrequently)
+    cache_key = f"eligibility:{current_user.id}"
+    cached_data = await get_cache(redis, cache_key)
+    if cached_data:
+        return json.loads(cached_data)
 
     # Fetch config
     result_config = await db.execute(select(models.EligibilityConfig).where(models.EligibilityConfig.id == 1))
@@ -400,7 +512,7 @@ async def check_eligibility(
 
     eligible = total_trades >= min_trades and win_rate >= min_win_rate
 
-    return {
+    response = {
         "eligible": eligible,
         "current_trades": total_trades,
         "current_win_rate": win_rate,
@@ -412,11 +524,15 @@ async def check_eligibility(
         "trader_share_percent": trader_share_percent  # NEW: Revenue split
     }
 
+    await set_cache(redis, cache_key, json.dumps(response), ttl=600)  # 10 min
+    return response
+
 # NEW: Apply to Become Trader (Pending Review)
 @router.post("/apply-trader")
 async def apply_to_become_trader(
     db: AsyncSession = Depends(get_session),
-    current_user: models.User = Depends(auth.get_current_user)
+    current_user: models.User = Depends(auth.get_current_user),
+    redis: Redis = Depends(redis_dependency)  # NEW: Add Redis for invalidation
 ):
     """Apply to become a marketplace trader if eligible. Sets pending for admin review."""
     if not current_user:
@@ -453,6 +569,11 @@ async def apply_to_become_trader(
     await db.commit()
     await db.refresh(current_user)
 
+    # NEW: Invalidate eligibility cache
+    await redis.delete(f"eligibility:{current_user.id}")
+    # NEW: Invalidate global traders cache (for dashboard)
+    await redis.delete("eligible_traders")
+
     # TODO: Email admin notification here (e.g., via your email service)
     logger.info(f"New trader application from user {current_user.id} ({current_user.email}) - pending review")
 
@@ -469,6 +590,7 @@ async def update_marketplace_price(
     update_data: PriceUpdate,
     db: AsyncSession = Depends(get_session),
     current_user: models.User = Depends(auth.get_current_user),
+    redis: Redis = Depends(redis_dependency)  # NEW: Add Redis for invalidation
 ):
     """Update the user's marketplace subscription price if they are a trader."""
     logger.info("Received price update request: %s", update_data.model_dump())
@@ -501,6 +623,11 @@ async def update_marketplace_price(
     await db.commit()
     await db.refresh(current_user)
 
+    # NEW: Invalidate eligibility cache (price affects display)
+    await redis.delete(f"eligibility:{current_user.id}")
+    # NEW: Invalidate global traders cache (for dashboard)
+    await redis.delete("eligible_traders")
+
     return {
         "success": True,
         "message": f"Marketplace price updated to ${price:.2f}/month.",
@@ -511,11 +638,18 @@ async def update_marketplace_price(
 @router.get("/earnings")
 async def get_earnings(
     db: AsyncSession = Depends(get_session),
-    current_user: models.User = Depends(auth.get_current_user)
+    current_user: models.User = Depends(auth.get_current_user),
+    redis: Redis = Depends(redis_dependency)  # NEW: Add Redis dependency
 ):
     """Get marketplace earnings summary for the trader."""
     if not current_user.is_trader:
         raise HTTPException(status_code=403, detail="Access denied: Not a marketplace trader")
+
+    # NEW: Cache per user (TTL 10 min)
+    cache_key = f"earnings:{current_user.id}"
+    cached_data = await get_cache(redis, cache_key)
+    if cached_data:
+        return json.loads(cached_data)
 
     total_earnings = current_user.marketplace_earnings or 0.0
     pending_payout = current_user.monthly_earnings or 0.0
@@ -540,7 +674,7 @@ async def get_earnings(
     config = result_config.scalar_one_or_none()
     trader_share_percent = config.trader_share_percent or 70.0 if config else 70.0
 
-    return {
+    response = {
         "total_earnings": total_earnings,
         "pending_payout": pending_payout,
         "payout_threshold": threshold,
@@ -552,13 +686,17 @@ async def get_earnings(
         "trader_share_percent": trader_share_percent  # NEW: Include split in earnings response
     }
 
+    await set_cache(redis, cache_key, json.dumps(response), ttl=600)  # 10 min
+    return response
+
 
 
 # NEW: Request Monthly Payout
 @router.post("/request-payout")
 async def request_payout(
     db: AsyncSession = Depends(get_session),
-    current_user: models.User = Depends(auth.get_current_user)
+    current_user: models.User = Depends(auth.get_current_user),
+    redis: Redis = Depends(redis_dependency)  # NEW: Add Redis for invalidation
 ):
     """Request monthly payout if eligible."""
     if not current_user.is_trader:
@@ -583,6 +721,9 @@ async def request_payout(
     current_user.last_payout_date = today
     current_user.updated_at = datetime.utcnow()
     await db.commit()
+
+    # NEW: Invalidate earnings cache
+    await redis.delete(f"earnings:{current_user.id}")
 
     logger.info(f"Monthly payout processed for trader {current_user.id}: ${payout_amount:.2f} to {current_user.wallet_address}")
 

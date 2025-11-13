@@ -452,8 +452,9 @@
       <div class="upload-header">
         <h4 class="fw-bold d-flex align-items-center gap-2"><i class="bi bi-plus-circle"></i> Log a Trade</h4>
         <div class="d-flex align-items-center gap-2">
-          {% set base_plan = current_user.plan.split('_')[0] %}
-          <span class="badge plan-badge bg-secondary">Plan: {{ base_plan.title() }}</span>
+          <span class="badge plan-badge bg-secondary" id="planBadge">
+            Plan: <span id="planNameSpan">Loading...</span>
+          </span>
           <span id="uploadCountBadge" class="badge bg-info">Loading...</span>
         </div>
       </div>
@@ -530,8 +531,7 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
-        {% set base_plan = current_user.plan.split('_')[0] %}
-        <p id="upgradeMessage">You've reached your monthly upload limit on the <span id="planNameSpan">{{ base_plan.title() }}</span> plan. Upgrade to Pro for unlimited uploads and AI insights!</p>
+        <p id="upgradeMessage">You've reached your monthly upload limit on the <span id="planNameSpanUpgrade">Loading...</span> plan. Upgrade to Pro for unlimited uploads and AI insights!</p>
         <ul class="list-unstyled mb-3">
           <li><i class="bi bi-check-circle text-success me-2"></i>Unlimited uploads & AI analyses</li>
           <li><i class="bi bi-check-circle text-success me-2"></i>Advanced analytics</li>
@@ -570,10 +570,43 @@
   let batchLimit = 5;    // FIXED: Updated fallback from 3 to 5
   let tpCostUpload = 1;  // Default TP cost
   let tpBalance = 0;     // TP balance
-  {% set base_plan = current_user.plan.split('_')[0] %}
-  const currentPlan = '{{ base_plan }}';
+  let currentPlan = 'starter';  // Default fallback
   
-  // Fetch dynamic limits on load
+  // FIXED: Updated fallbacks to match backend defaults
+  const fallbacks = {
+    'starter': { monthly: 3, batch: 5, tp: 1 },
+    'pro': { monthly: 20, batch: 10, tp: 0 },
+    'elite': { monthly: 50, batch: 20, tp: 0 }
+  };
+  
+  // Fetch platform plan on load
+  async function fetchPlatformPlan() {
+    try {
+      const res = await fetch('/upload/platform-plan', { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        currentPlan = data.platform_plan;
+        // Update displays
+        const planTitle = currentPlan.charAt(0).toUpperCase() + currentPlan.slice(1);
+        document.getElementById('planNameSpan').textContent = planTitle;
+        document.getElementById('planNameSpanUpgrade').textContent = planTitle;
+        document.getElementById('upgradeMessage').innerHTML = `You've reached your monthly upload limit on the <span id="planNameSpanUpgrade">${planTitle}</span> plan. Upgrade to Pro for unlimited uploads and AI insights!`;
+      } else {
+        console.warn('Failed to fetch platform plan; using starter');
+        currentPlan = 'starter';
+        const planTitle = 'Starter';
+        document.getElementById('planNameSpan').textContent = planTitle;
+        document.getElementById('planNameSpanUpgrade').textContent = planTitle;
+      }
+    } catch (err) {
+      console.error('Error fetching platform plan:', err);
+      currentPlan = 'starter';
+      const planTitle = 'Starter';
+      document.getElementById('planNameSpan').textContent = planTitle;
+      document.getElementById('planNameSpanUpgrade').textContent = planTitle;
+    }
+  }
+  
   async function fetchUploadLimits() {
     try {
       const res = await fetch(`/upload/limits?plan=${currentPlan}`, { credentials: 'include' });
@@ -585,12 +618,6 @@
         console.log(`Loaded limits for ${currentPlan}: Monthly ${monthlyLimit}, Batch ${batchLimit}, TP cost ${tpCostUpload}`);
       } else {
         console.warn('Failed to fetch limits; using fallbacks');
-        // FIXED: Fallback to updated hardcodes if DB query fails
-        const fallbacks = {
-          'starter': { monthly: 3, batch: 5, tp: 1 },
-          'pro': { monthly: 29, batch: 10, tp: 0 },
-          'elite': { monthly: 1000, batch: 10, tp: 0 }
-        };
         const fb = fallbacks[currentPlan] || fallbacks.starter;
         monthlyLimit = fb.monthly;
         batchLimit = fb.batch;
@@ -598,12 +625,6 @@
       }
     } catch (err) {
       console.error('Error fetching limits:', err);
-      // FIXED: Same fallback as above
-      const fallbacks = {
-        'starter': { monthly: 3, batch: 5, tp: 1 },
-        'pro': { monthly: 29, batch: 10, tp: 0 },
-        'elite': { monthly: 1000, batch: 10, tp: 0 }
-      };
       const fb = fallbacks[currentPlan] || fallbacks.starter;
       monthlyLimit = fb.monthly;
       batchLimit = fb.batch;
@@ -696,6 +717,7 @@
       date: {type: 'datetime-local'},
       asset: {type: 'text'},
       notes: {type: 'textarea'},
+      calcNote: {type: 'textarea'},
       entryExit: {type: 'text'},
       slTp: {type: 'text'}
     };
@@ -717,7 +739,8 @@
       riskAmt: 'risk_amount',
       rewardAmt: 'reward_amount',
       rr: 'r_r_ratio',
-      notes: 'notes'
+      notes: 'notes',
+      calcNote: 'calculator_note'
     };
     return keys[field];
   }
@@ -756,6 +779,8 @@
         return data.r_r_ratio ? `${data.r_r_ratio.toFixed(2)}:1` : 'N/A';
       case 'notes':
         return data.notes || 'N/A';
+      case 'calcNote':
+        return data.calculator_note || 'N/A';
       default:
         return 'N/A';
     }
@@ -848,7 +873,6 @@ Each upload costs <strong>${tpCostUpload} TP</strong> (Balance: <strong>${tpBala
         <a href="/plans" class="text-warning">Upgrade to Pro</a> for more uploads.
       `;
       uploadLimitInfo.classList.remove('d-none');
-      document.getElementById('upgradeMessage').innerHTML = `You've reached your monthly upload limit on the ${currentPlan.charAt(0).toUpperCase() + currentPlan.slice(1)} plan (${monthlyLimit} uploads). Upgrade to Pro for more uploads and AI insights!`;
       if (!upgradeModalInstance) {
         upgradeModalInstance = new bootstrap.Modal(upgradeModalEl);
       }
@@ -1074,6 +1098,30 @@ Each upload costs <strong>${tpCostUpload} TP</strong> (Balance: <strong>${tpBala
     const sessionValue = getDisplayValue('session', data);
     const assetValue = getDisplayValue('asset', data);
     const assetTypeValue = getDisplayValue('assetType', data);
+    const calcNoteValue = getDisplayValue('calcNote', data);
+    const marginValue = data.margin_required ? `$${data.margin_required.toFixed(2)}` : 'N/A';
+    const notionalValue = data.notional_value ? `$${data.notional_value.toFixed(2)}` : 'N/A';
+
+    let cryptoCalcRows = '';
+    if (data.asset_type === 'crypto' && data.auto_calculated) {
+      cryptoCalcRows = `
+        <tr>
+          <td class="fw-semibold">Margin Required</td>
+          <td>${marginValue}</td>
+        </tr>
+        <tr>
+          <td class="fw-semibold">Notional Value</td>
+          <td>${notionalValue}</td>
+        </tr>
+        <tr>
+          <td class="fw-semibold">Calculator Note</td>
+          <td class="editable-cell position-relative" id="calcNoteCell_${index}">
+            <span class="value-span pe-2" data-field="calcNote">${calcNoteValue}</span>
+            <i class="bi bi-pencil edit-icon position-absolute end-0 top-50 translate-middle-y" data-field="calcNote" data-trade-index="${index}" style="cursor:pointer; color:var(--muted); font-size:0.875rem;"></i>
+          </td>
+        </tr>
+      `;
+    }
 
     const div = document.createElement('div');
     div.innerHTML = `
@@ -1180,6 +1228,7 @@ Each upload costs <strong>${tpCostUpload} TP</strong> (Balance: <strong>${tpBala
                 <i class="bi bi-pencil edit-icon position-absolute end-0 top-50 translate-middle-y" data-field="rr" data-trade-index="${index}" style="cursor:pointer; color:var(--muted); font-size:0.875rem;"></i>
               </td>
             </tr>
+            ${cryptoCalcRows}
             <tr>
               <td class="fw-semibold">Notes</td>
               <td class="editable-cell position-relative" style="min-width:250px;" id="notesCell_${index}">
@@ -1399,6 +1448,11 @@ Each upload costs <strong>${tpCostUpload} TP</strong> (Balance: <strong>${tpBala
         extractedData[index].notes = notesVal;
         displayVal = getDisplayValue('notes', extractedData[index]);
         break;
+      case 'calcNote':
+        const calcNoteVal = rawNewVal.trim();
+        extractedData[index].calculator_note = calcNoteVal;
+        displayVal = getDisplayValue('calcNote', extractedData[index]);
+        break;
     }
 
     if (success) {
@@ -1525,6 +1579,7 @@ Each upload costs <strong>${tpCostUpload} TP</strong> (Balance: <strong>${tpBala
     return `${sl.toFixed(4)} ${slDist} / ${tp.toFixed(4)} ${tpDist}`;
   }
   
+  // FIXED: Add Accept header to ensure JSON responses, even for errors
   // Save: Call backend /save_batch
   document.getElementById('saveTradeBtn').addEventListener('click', async () => {
     if (!extractedData || extractedData.length === 0) return;
@@ -1544,7 +1599,10 @@ Each upload costs <strong>${tpCostUpload} TP</strong> (Balance: <strong>${tpBala
     try {
       const res = await fetch('/upload/save_batch', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'  // FIXED: Ensure JSON error responses
+        },
         body: JSON.stringify(allData),
         credentials: 'include'
       });
@@ -1599,8 +1657,9 @@ Each upload costs <strong>${tpCostUpload} TP</strong> (Balance: <strong>${tpBala
     strategySelect.value = 'Strategy: From profile';
   });
   
-  // Initial load
+  // Initial load: Fetch plan first, then limits
   async function init() {
+    await fetchPlatformPlan();
     await fetchUploadLimits();
     await fetchMonthlyUploads();
     tpBalance = await fetchTPBalance();

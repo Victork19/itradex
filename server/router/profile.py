@@ -1,4 +1,4 @@
-# Updated profile.py (full file with additions: has_password flag and computed_daily_limit)
+# Updated profile.py (full file with additions: has_password flag and computed_daily_limit, plus caching)
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete, desc
@@ -8,6 +8,10 @@ from pydantic import BaseModel, validator
 from datetime import datetime, date, timedelta
 import json  # For JSON handling if needed
 from collections import Counter
+
+# NEW: Redis imports
+from redis.asyncio import Redis
+from redis_client import redis_dependency, get_cache, set_cache, delete_cache
 
 from database import get_session
 from models import models
@@ -127,11 +131,22 @@ async def _compute_profile_stats(db: AsyncSession, user_id: int):
 @router.get("", response_model=Dict[str, Any])
 async def get_profile(
     db: AsyncSession = Depends(get_session),
-    current_user: models.User = Depends(auth.get_current_user)
+    current_user: models.User = Depends(auth.get_current_user),
+    redis: Redis = Depends(redis_dependency)  # NEW: Redis dependency for caching
 ):
     """Fetch the current user's profile data."""
     correlation_id = f"profile_{datetime.utcnow().timestamp()}"
     logger.info("Fetching profile: user=%s", current_user.id, extra={"corr_id": correlation_id})
+
+    # NEW: Cache key for full profile data
+    cache_key = f"api:profile:{current_user.id}"
+    cached = await get_cache(redis, cache_key)
+    if cached:
+        logger.info(f"Cache hit for profile {current_user.id}", extra={"corr_id": correlation_id})
+        try:
+            return json.loads(cached)
+        except json.JSONDecodeError:
+            logger.warning(f"Invalid cached data for {cache_key}, recomputing", extra={"corr_id": correlation_id})
 
     try:
         stats = await _compute_profile_stats(db, current_user.id)
@@ -159,7 +174,7 @@ async def get_profile(
                     return default
             return val
         
-        return {
+        response_data = {
             "id": current_user.id,
             "username": current_user.username,
             "full_name": current_user.full_name,
@@ -186,6 +201,12 @@ async def get_profile(
             "created_at": created_at_str,  # FIXED: ISO string
             **stats
         }
+
+        # NEW: Cache the response data (5 min TTL)
+        await set_cache(redis, cache_key, json.dumps(response_data), ttl=300)
+        logger.info(f"Cached profile data for user {current_user.id}", extra={"corr_id": correlation_id})
+
+        return response_data
     except Exception as e:
         logger.error("Failed to fetch profile: %s", e, extra={"corr_id": correlation_id})
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to fetch profile")
@@ -194,11 +215,14 @@ async def get_profile(
 async def update_profile(
     profile_data: ProfileUpdateRequest,
     db: AsyncSession = Depends(get_session),
-    current_user: models.User = Depends(auth.get_current_user)
+    current_user: models.User = Depends(auth.get_current_user),
+    redis: Redis = Depends(redis_dependency)  # NEW: Redis dependency for cache invalidation/update
 ):
     """Update the current user's profile data."""
     correlation_id = f"profile_update_{datetime.utcnow().timestamp()}"
     logger.info("Updating profile: user=%s, data=%s", current_user.id, profile_data.dict(exclude_unset=True), extra={"corr_id": correlation_id})
+
+    cache_key = f"api:profile:{current_user.id}"
 
     try:
         # UPDATED: field_map now directly uses frontend keys; added JSON for preferred_timeframes
@@ -303,7 +327,11 @@ async def update_profile(
             "created_at": created_at_str,  # FIXED: ISO string
             **stats
         }
-        logger.info("Profile updated successfully: user=%s", current_user.id, extra={"corr_id": correlation_id})
+
+        # NEW: Update cache with fresh data (5 min TTL)
+        await set_cache(redis, cache_key, json.dumps(response_data), ttl=300)
+        logger.info(f"Updated and cached profile data for user {current_user.id}", extra={"corr_id": correlation_id})
+        
         return response_data
     except ValueError as ve:
         logger.warning(f"Validation error in profile update: {ve}", extra={"corr_id": correlation_id})
@@ -317,12 +345,15 @@ async def update_profile(
 async def onboard_profile(
     onboard_data: OnboardRequest,
     db: AsyncSession = Depends(get_session),
-    current_user: models.User = Depends(auth.get_current_user)
+    current_user: models.User = Depends(auth.get_current_user),
+    redis: Redis = Depends(redis_dependency)  # NEW: Redis for cache invalidation
 ):
     """Save onboarding data to user profile."""
     correlation_id = f"onboard_{datetime.utcnow().timestamp()}"
     logger.info("Onboarding profile: user=%s", current_user.id, extra={"corr_id": correlation_id})
     logger.info(f"Received onboard data: {onboard_data.dict()}", extra={"corr_id": correlation_id})
+
+    cache_key = f"api:profile:{current_user.id}"
 
     try:
         # Validate accountBalance
@@ -361,6 +392,11 @@ async def onboard_profile(
         )
         await db.commit()
         await db.refresh(current_user)  # Refresh to ensure latest data
+
+        # NEW: Invalidate profile cache after onboarding
+        await delete_cache(redis, cache_key)
+        logger.info(f"Invalidated profile cache for user {current_user.id} after onboarding", extra={"corr_id": correlation_id})
+
         logger.info(f"Updated user profile after onboarding: {current_user.id}", extra={"corr_id": correlation_id})
         return {"success": True, "message": "Profile onboarded successfully"}
     except ValueError as ve:
@@ -405,9 +441,19 @@ async def delete_account(
 @router.get("/subscriptions/current")
 async def get_current_subscription_endpoint(
     db: AsyncSession = Depends(get_session),
-    current_user: models.User = Depends(auth.get_current_user)
+    current_user: models.User = Depends(auth.get_current_user),
+    redis: Redis = Depends(redis_dependency)  # NEW: Redis for caching
 ):
     """Get the current user's subscription details."""
+    cache_key = f"api:subscription:{current_user.id}"
+    cached = await get_cache(redis, cache_key)
+    if cached:
+        logger.info(f"Cache hit for subscription {current_user.id}")
+        try:
+            return json.loads(cached)
+        except json.JSONDecodeError:
+            logger.warning(f"Invalid cached subscription data for {cache_key}, recomputing")
+
     try:
         # Inline logic from subscriptions.py get_current_subscription
         # Get the latest subscription
@@ -421,26 +467,30 @@ async def get_current_subscription_endpoint(
         sub = result.scalars().first()
 
         if not sub or sub.status not in ["active", "pending"]:
-            return {
+            response_data = {
                 "status": "free",
                 "plan": "starter"
             }
+        else:
+            # Parse plan_type e.g., 'pro_monthly' -> plan='pro', interval='monthly'
+            plan_parts = sub.plan_type.split("_") if "_" in sub.plan_type else [sub.plan_type, "monthly"]
+            plan = plan_parts[0]
+            interval = plan_parts[1] if len(plan_parts) > 1 else "monthly"
 
-        # Parse plan_type e.g., 'pro_monthly' -> plan='pro', interval='monthly'
-        plan_parts = sub.plan_type.split("_") if "_" in sub.plan_type else [sub.plan_type, "monthly"]
-        plan = plan_parts[0]
-        interval = plan_parts[1] if len(plan_parts) > 1 else "monthly"
+            status = "active" if sub.status == "active" else sub.status
 
-        status = "active" if sub.status == "active" else sub.status
+            response_data = {
+                "status": status,
+                "plan": plan,
+                "interval": interval,
+                "amount": float(sub.amount_usd),
+                "next_billing": sub.next_billing_date.isoformat() if sub.next_billing_date else None,
+                "subscription_id": sub.id
+            }
 
-        return {
-            "status": status,
-            "plan": plan,
-            "interval": interval,
-            "amount": float(sub.amount_usd),
-            "next_billing": sub.next_billing_date.isoformat() if sub.next_billing_date else None,
-            "subscription_id": sub.id
-        }
+        # NEW: Cache the response (30 min TTL, subscriptions change infrequently)
+        await set_cache(redis, cache_key, json.dumps(response_data), ttl=1800)
+        return response_data
     except Exception as e:
         logger.error(f"Failed to fetch subscription: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch subscription")
@@ -450,8 +500,10 @@ async def cancel_subscription_endpoint(
     sub_id: int,
     db: AsyncSession = Depends(get_session),
     current_user: models.User = Depends(auth.get_current_user),
+    redis: Redis = Depends(redis_dependency)  # NEW: Redis for cache invalidation
 ):
     """Cancel the user's subscription."""
+    cache_key = f"api:subscription:{current_user.id}"
     try:
         sub = await db.get(models.Subscription, sub_id)
         if not sub or sub.user_id != current_user.id:
@@ -462,6 +514,10 @@ async def cancel_subscription_endpoint(
         sub.status = "cancelled"
         sub.updated_at = datetime.utcnow()
         await db.commit()
+
+        # NEW: Invalidate subscription cache
+        await delete_cache(redis, cache_key)
+        logger.info(f"Invalidated subscription cache for user {current_user.id}")
 
         return {"success": True, "message": "Subscription cancelled successfully"}
     except HTTPException:

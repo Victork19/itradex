@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>iTradex — {% block title %}Page{% endblock %}</title>
+  <title>iTradeX — {% block title %}Page{% endblock %}</title>
 
   <link href="static/img/favicon-16x16.png" rel="icon">
 
@@ -15,6 +15,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
+    /* [All existing styles unchanged - omitted for brevity] */
     :root {
       --brand: #2F6BFF;
       --brand-dark: #1F55E0;
@@ -912,6 +913,7 @@
 </head>
 <body>
 
+<!-- [All existing HTML body content unchanged - navbar, offcanvas, etc. - omitted for brevity] -->
 <!-- Unified Navbar -->
 <nav class="navbar sticky-top" style="background:var(--surface);border-bottom:1px solid var(--border);box-shadow:0 4px 12px rgba(15,23,42,0.08);transition:all 0.3s;">
   <div class="container-fluid px-3 d-flex justify-content-between align-items-center">
@@ -975,8 +977,25 @@
         <li class="nav-item"><a class="nav-link {% if request.url.path == '/upload' %}active{% endif %}" href="/upload">Upload</a></li>
         <li class="nav-item"><a class="nav-link {% if request.url.path == '/insights' %}active{% endif %}" href="/insights">Insights</a></li>
         <li class="nav-item"><a class="nav-link {% if request.url.path == '/profile' %}active{% endif %}" href="/profile">Profile</a></li>
-        <li class="nav-item"><a class="nav-link" href="#" onclick="loadNotificationsMobile()"><i class="bi bi-bell me-1"></i>Notifications <span id="mobileNotifDot" class="notif-dot" style="display: none;"></span></a></li>
+        <li class="nav-item"><a class="nav-link" href="#" onclick="openMobileNotifications()"><i class="bi bi-bell me-1"></i>Notifications <span id="mobileNotifDot" class="notif-dot" style="display: none;"></span></a></li>
       </ul>
+    </div>
+  </div>
+
+  <!-- Mobile Notifications Offcanvas -->
+  <div class="offcanvas offcanvas-end d-lg-none" tabindex="-1" id="notificationsOffcanvas" aria-labelledby="notificationsOffcanvasLabel">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title" id="notificationsOffcanvasLabel">Notifications</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body d-flex flex-column">
+      <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+        <span class="fw-bold">Notifications</span>
+        <button class="btn btn-sm btn-outline-secondary" onclick="markAllRead()">Mark All Read</button>
+      </div>
+      <div id="mobileNotificationsList" class="flex-grow-1" style="overflow-y: auto;">
+        <div class="text-center text-muted py-3">Loading notifications...</div>
+      </div>
     </div>
   </div>
 </nav>
@@ -1014,12 +1033,13 @@
   </div>
   <div class="offcanvas-body d-flex flex-column">
     <div class="chat-messages" id="chatMessages">
+      <!-- Hardcoded welcome will be replaced/cleared by JS if history exists -->
       <div class="quick-suggestions">
         <button class="suggestion-btn" onclick="sendSuggestion('Analyze my latest trades')">Analyze trades</button>
         <button class="suggestion-btn" onclick="sendSuggestion('Risk management tips')">Risk tips</button>
         <button class="suggestion-btn" onclick="sendSuggestion('Market outlook')">Market outlook</button>
       </div>
-      <div class="message assistant">
+      <div class="welcome-message message assistant" id="welcomeMessage" style="display: none;">
         <div class="message-content">
           Welcome back! I'm your dedicated AI coach, trained on trading psychology and market patterns. Ask me anything to sharpen your edge— from trade reviews to strategy tweaks.
         </div>
@@ -1100,13 +1120,50 @@
     if (userInitialsHeroEl) userInitialsHeroEl.textContent = initials;
   }
 
-  function addChatMessage(role, content) {
+  // NEW: Load and render chat history
+  async function loadChatHistory() {
+    if (!chatMessagesEl) return;
+    try {
+      const res = await fetch('/ai/history', { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to load history');
+      const data = await res.json();
+      const messages = data.messages || [];
+      
+      // Clear any existing content except suggestions
+      const suggestions = chatMessagesEl.querySelector('.quick-suggestions');
+      chatMessagesEl.innerHTML = '';
+      if (suggestions) chatMessagesEl.appendChild(suggestions);
+      
+      if (messages.length === 0) {
+        // Show welcome only if no history
+        const welcomeEl = document.getElementById('welcomeMessage');
+        if (welcomeEl) {
+          welcomeEl.style.display = 'block';
+          chatMessagesEl.appendChild(welcomeEl);
+        }
+      } else {
+        // Render history messages
+        messages.forEach(msg => {
+          addChatMessage(msg.role, msg.content, new Date(msg.created_at || Date.now())); // Assume created_at in backend response; adjust if needed
+        });
+      }
+      chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+    } catch (err) {
+      console.error('History load error:', err);
+      // Fallback to welcome
+      const welcomeEl = document.getElementById('welcomeMessage');
+      if (welcomeEl) welcomeEl.style.display = 'block';
+    }
+  }
+
+  function addChatMessage(role, content, timestamp = null) {
     if (!chatMessagesEl) return;
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${role}`;
+    const timeStr = timestamp ? new Date(timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
     messageDiv.innerHTML = `
       <div class="message-content">${content}</div>
-      <div class="message-time">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+      <div class="message-time">${timeStr}</div>
     `;
     chatMessagesEl.appendChild(messageDiv);
     chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
@@ -1203,6 +1260,9 @@
     });
 
     chatVoiceBtn.addEventListener('click', handleVoiceToggle);
+
+    // NEW: Load history immediately after init
+    loadChatHistory();
 
     async function handleVoiceToggle() {
       if (isRecording) {
@@ -1445,12 +1505,18 @@
     new bootstrap.Toast(toastEl).show();
   }
 
+  function showErrorToast(msg) {
+    const toastEl = document.getElementById('errorToast');
+    toastEl.querySelector('.toast-body').innerHTML = `<i class="bi bi-x-circle-fill me-2"></i>${msg}`;
+    new bootstrap.Toast(toastEl).show();
+  }
+
   const chatEl = document.getElementById('chatOffcanvas');
   const chatFab = document.getElementById('chatFab');
   if (chatEl && chatFab) {
     chatEl.addEventListener('show.bs.offcanvas', () => {
       chatFab.style.display = 'none';
-      initChat();
+      initChat();  // This now includes loadChatHistory()
     });
     chatEl.addEventListener('hidden.bs.offcanvas', () => {
       chatFab.style.display = 'block';
@@ -1505,11 +1571,67 @@
     }
   }
 
+  async function loadMobileNotifications() {
+    try {
+      const res = await fetch('/api/notifications?unread_only=false', { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to load notifications');
+      const data = await res.json();
+      
+      const listEl = document.getElementById('mobileNotificationsList');
+      if (data.notifications.length === 0) {
+        listEl.innerHTML = '<div class="text-center text-muted py-3">No notifications yet.</div>';
+        return;
+      }
+      
+      listEl.innerHTML = data.notifications.map(notif => `
+        <div class="py-3 px-0 border-bottom notification-item">
+          <div class="d-flex align-items-start gap-3">
+            <i class="bi bi-info-circle fs-4 text-info mt-1 flex-shrink-0"></i>
+            <div class="flex-grow-1">
+              <strong class="d-block mb-1">${notif.title}</strong>
+              <p class="mb-1 small text-muted">${notif.message}</p>
+              <small class="text-muted">${new Date(notif.created_at).toLocaleString()}</small>
+            </div>
+            ${!notif.is_read ? '<span class="badge bg-primary rounded-pill ms-auto">New</span>' : ''}
+            ${!notif.is_read ? '<button class="btn btn-sm btn-outline-primary ms-2" onclick="markAsReadMobile(${notif.id}, this)">Mark Read</button>' : ''}
+          </div>
+        </div>
+      `).join('');
+    } catch (err) {
+      console.error('Mobile notifications load error:', err);
+      document.getElementById('mobileNotificationsList').innerHTML = '<div class="text-center text-danger py-3">Failed to load notifications.</div>';
+    }
+  }
+
   async function markAsRead(notifId, element) {
     try {
-      await fetch(`/api/notifications/${notifId}/read`, { method: 'POST', credentials: 'include' });
-      element.querySelector('.badge')?.remove();
+      const res = await fetch(`/api/notifications/${notifId}/read`, { method: 'POST', credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to mark as read');
+      const badge = element.querySelector('.badge');
+      if (badge) badge.remove();
       element.classList.add('text-muted');
+      unreadCount--;
+      if (unreadCount === 0) {
+        document.getElementById('notifDot').style.display = 'none';
+        document.getElementById('mobileNotifDot').style.display = 'none';
+      }
+      // Reload mobile list if open
+      if (document.getElementById('notificationsOffcanvas').classList.contains('show')) {
+        loadMobileNotifications();
+      }
+    } catch (err) {
+      console.error('Mark read error:', err);
+      showErrorToast('Failed to mark notification as read. Please try again.');
+    }
+  }
+
+  async function markAsReadMobile(notifId, button) {
+    try {
+      const res = await fetch(`/api/notifications/${notifId}/read`, { method: 'POST', credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to mark as read');
+      button.parentNode.querySelector('.badge')?.remove();
+      button.style.display = 'none';
+      button.parentNode.classList.add('text-muted');
       unreadCount--;
       if (unreadCount === 0) {
         document.getElementById('notifDot').style.display = 'none';
@@ -1517,24 +1639,41 @@
       }
     } catch (err) {
       console.error('Mark read error:', err);
+      showErrorToast('Failed to mark notification as read. Please try again.');
     }
   }
 
   async function markAllRead() {
     try {
-      await fetch('/api/notifications/mark_all_read', { method: 'POST', credentials: 'include' });
+      const res = await fetch('/api/notifications/mark_all_read', { 
+        method: 'POST', 
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || 'Failed to mark all as read');
+      }
       unreadCount = 0;
       document.getElementById('notifDot').style.display = 'none';
       document.getElementById('mobileNotifDot').style.display = 'none';
       loadNotifications();
+      if (document.getElementById('notificationsOffcanvas').classList.contains('show')) {
+        loadMobileNotifications();
+      }
+      showToast('All notifications marked as read');
     } catch (err) {
       console.error('Mark all read error:', err);
+      showErrorToast(err.message || 'Failed to mark all as read. Please try again.');
     }
   }
 
-  function loadNotificationsMobile() {
-    loadNotifications();
-    showToast('Notifications loaded. Check desktop for full view.');
+  function openMobileNotifications() {
+    loadMobileNotifications();
+    const offcanvas = new bootstrap.Offcanvas(document.getElementById('notificationsOffcanvas'));
+    offcanvas.show();
   }
 
   loadNotifications();

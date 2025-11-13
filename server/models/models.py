@@ -1,11 +1,18 @@
 # Updated models/models.py
 from sqlalchemy import Column,Index, Integer, String, Text, JSON, Float, ForeignKey, DateTime, Boolean, Date, Enum as SQLEnum
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, foreign
 from sqlalchemy.sql import func
 from datetime import datetime
 from database import Base
 from enum import Enum
 from sqlalchemy import UniqueConstraint  # NEW: For unique constraints on Referral
+
+# Tier bonus mapping (can be used in utils)
+REFERRAL_TIER_BONUSES = {
+    'rookie': 1.0,
+    'pro_trader': 1.2,
+    'elite_alpha': 1.5,
+}
 
 # Enums for trade attributes (unchanged)
 class TradeDirection(Enum):
@@ -51,13 +58,15 @@ class User(Base):
     password_hash = Column(String, nullable=True)
     referral_code = Column(String, unique=True, index=True)
     referred_by = Column(Integer, ForeignKey("users.id"), nullable=True)
-    is_admin = Column(Integer, default=0)
+    is_admin = Column(Boolean, default=False)
+    verified = Column(Boolean, default=False)
+    verified_at = Column(DateTime, nullable=True)
 
     
 
     plan = Column(String, default='starter', nullable=False)  # e.g., 'starter', 'pro', 'elite'
     # UPDATED: Centralize to trade_points (replaces insights_credits; migrate on upgrade)
-    trade_points = Column(Integer, default=3, nullable=False)  # Unified TP balance (starts at 3 for free tier)
+    trade_points = Column(Integer, default=0, nullable=False)  # Unified TP balance (starts at 3 for free tier)
     ai_chats_used = Column(Integer, default=0, nullable=False)  # Tracks text/voice chats (reset monthly via cron)
     # NEW: Referral tier (gamification)
     referral_tier = Column(String, default='rookie', nullable=False)  # e.g., 'rookie', 'pro_trader', 'elite_alpha'
@@ -68,6 +77,7 @@ class User(Base):
     strategy = Column(String, nullable=True)
     strategy_desc = Column(Text, nullable=True)
     preferred_strategies = Column(Text, nullable=True)  # e.g., "Momentum, Breakouts, Scalping" (FIXED: Added field)
+    ai_messages = relationship("AiChatMessage", back_populates="user", cascade="all, delete-orphan")
 
     # NEW: For marketplace
     is_trader_pending = Column(Boolean, default=False)
@@ -333,7 +343,7 @@ class BetaInvite(Base):
 
     # Relationships (optional, for easier querying)
     owner = relationship("User", foreign_keys=[owner_id], back_populates="beta_invites_owned")
-    used_by = relationship("User", foreign_keys=[used_by_id])
+    used_by = relationship("User", foreign_keys=[used_by_id], overlaps="beta_invites_used")
 
     __table_args__ = (
         Index('idx_beta_invites_owner', 'owner_id'),  # Explicit for owner_id
@@ -357,9 +367,53 @@ class BetaReferralTpConfig(Base):
     pro_tp = Column(Integer, default=20, nullable=False)
     elite_tp = Column(Integer, default=45, nullable=False)
 
-# Tier bonus mapping (can be used in utils)
-REFERRAL_TIER_BONUSES = {
-    'rookie': 1.0,
-    'pro_trader': 1.2,
-    'elite_alpha': 1.5,
-}
+class AiChatMessage(Base):
+    __tablename__ = "ai_chat_messages"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    role = Column(String(20), nullable=False)  # 'user' or 'assistant'
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="ai_messages")
+
+class Waitlist(Base):
+    __tablename__ = "waitlist"
+
+    id = Column(Integer, primary_key=True, index=True)
+    twitter = Column(String(50), unique=True, index=True, nullable=False)  # Twitter username (unique)
+    email = Column(String(255), unique=True, index=True, nullable=False)  # Unique email
+    wallet = Column(String(255), nullable=True)  # Optional wallet address
+    referral_code = Column(String(8), unique=True, index=True, nullable=False)  # Generated unique code
+    referred_by = Column(String(8), nullable=True)  # Referring waitlist's referral_code
+    verified = Column(Boolean, default=False, nullable=False)  # Email verification status
+    login_token = Column(String(100), nullable=True)  # Temporary login token for waitlist dashboard
+    token_expires = Column(DateTime, nullable=True)  # Expiry for login token
+    access_code = Column(String(10), unique=True, index=True, nullable=True)  # Generated later for main product access
+    access_granted_at = Column(DateTime, nullable=True)  # Timestamp when access code is generated/sent
+    position = Column(Integer, nullable=True)  # Computed leaderboard position (optional, for caching)
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
+
+    # FIXED: Self-referential one-to-many (referrals) with many-to-one backref (referrer)
+    # Define the one-to-many side (a waitlist can have multiple referrals)
+    referrals = relationship(
+        "Waitlist",
+        primaryjoin="Waitlist.referred_by == foreign(Waitlist.referral_code)",
+        back_populates="referrer",
+        viewonly=True  # Read-only for leaderboard counts
+    )
+
+    # Define the many-to-one side explicitly (a waitlist has one referrer)
+    referrer = relationship(
+        "Waitlist",
+        primaryjoin="foreign(Waitlist.referred_by) == Waitlist.referral_code",
+        remote_side=[referral_code],  # Key: This column is the "remote" side (the parent's code)
+        back_populates="referrals",
+        viewonly=True
+    )
+
+    __table_args__ = (
+        Index('idx_waitlist_email_lower', func.lower(email)),  # For case-insensitive lookups
+        Index('idx_waitlist_referred_by', referred_by),
+    )

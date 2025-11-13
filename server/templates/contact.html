@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="description" content="Contact iTradex - Get in touch for support or inquiries." />
+  <title>Contact Us - iTradex</title>
+  <!-- Open Graph -->
+  <meta property="og:title" content="Contact Us - iTradex" />
+  <meta property="og:description" content="Have questions about iTradex? Fill out our contact form or email us directly." />
+  <meta property="og:image" content="og-image.png" />
+  <meta property="og:type" content="website" />
+  <!-- Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "ContactPage",
+    "name": "Contact iTradex",
+    "description": "Get in touch with iTradex for support, inquiries, or partnerships.",
+    "url": "https://itradex.xyz/contact",
+    "contactPoint": {
+      "@type": "ContactPoint",
+      "contactType": "customer service",
+      "email": "support@itradex.xyz",
+      "availableLanguage": "English"
+    },
+    "author": {
+      "@type": "Organization",
+      "name": "iTradex Inc."
+    }
+  }
+  </script>
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="static/img/favicon-16x16.png" />
+  <!-- Canonical URL -->
+  <link rel="canonical" href="https://itradex.xyz/contact" />
+  <!-- Fonts - Preload both -->
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
+  <!-- Bootstrap Icons - Preload -->
+  <link rel="preload" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet"></noscript>
+  <style>
+    :root {
+      --brand-500: #2F6BFF;
+      --brand-600: #1F55E0;
+      --gold: #EAB308;
+      --bg: linear-gradient(135deg, #F8FAFC 0%, #E2E8F0 100%);
+      --surface: #fff;
+      --text: #0F172A;
+      --text-dark: #111827;
+      --muted: #475569;
+      --border: #E2E8F0;
+      --radius: 20px;
+      --shadow: 0 20px 40px rgba(0,0,0,0.05);
+      --shadow-lg: 0 25px 50px -12px rgba(0,0,0,0.25);
+      --shadow-color: rgba(0,0,0,0.1);
+      --accent: #06B6D4;
+      --success: #10B981;
+      --warning: #F59E0B;
+      --error: #EF4444;
+      --glass-weak: rgba(255,255,255,0.06);
+      --gradient-brand: linear-gradient(135deg, var(--brand-500), var(--brand-600));
+      --gradient-accent: linear-gradient(135deg, var(--accent), #0891b2);
+      --gradient-success: linear-gradient(135deg, var(--success), #059669);
+      --gradient-warning: linear-gradient(135deg, var(--warning), #d97706);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; background: var(--bg); }
+    body {
+      font-family: Inter, system-ui, sans-serif;
+      color: var(--text);
+      overflow-x: hidden;
+      line-height: 1.7;
+      min-height: 100vh;
+      position: relative;
+      background: 
+        linear-gradient(135deg, #f5f8ff 0%, #e5efff 50%, #d1e3ff 100%),
+        radial-gradient(circle at 50% 50%, rgba(47,107,255,0.08) 0%, transparent 70%);
+      background-size: 100% 100%, 200% 200%;
+      background-attachment: fixed;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      * { transition: none !important; animation: none !important; }
+    }
+
+    /* Navbar */
+    nav.navbar {
+      position: fixed;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      justify-content: center;
+      padding: 0.75rem 0;
+      background: linear-gradient(135deg, rgba(245,248,255,0.4), rgba(209,227,255,0.2));
+      -webkit-backdrop-filter: blur(20px) saturate(1.8);
+      backdrop-filter: blur(20px) saturate(1.8);
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 50px;
+      z-index: 100;
+      transition: all 0.3s ease;
+      box-shadow: 0 8px 32px var(--shadow-color);
+      max-width: 1200px;
+      width: 90%;
+    }
+
+    nav.navbar.scrolled { 
+      padding: 0.5rem 0; 
+      box-shadow: 0 4px 20px var(--shadow-color); 
+    }
+
+    .navbar .container { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      width: 100%;
+      padding: 0 2rem;
+    }
+    .brand { 
+      font-weight: 800; 
+      font-size: 1.3rem; 
+      display: flex; 
+      gap: 0.625rem;
+      align-items: center; 
+      text-decoration: none;
+      background: var(--gradient-brand);
+      -webkit-background-clip: text; 
+      -webkit-text-fill-color: transparent;
+    }
+
+    .nav-links { display: flex; gap: 2rem; align-items: center; }
+    .nav-link { 
+      color: var(--text); 
+      text-decoration: none; 
+      font-weight: 500; 
+      transition: all 0.2s ease;
+      position: relative;
+    }
+    .nav-link:hover { color: var(--brand-500); }
+    .nav-link.current { 
+      color: var(--brand-500); 
+      font-weight: 600;
+    }
+    .nav-link.current::after {
+      content: '';
+      position: absolute;
+      bottom: -4px;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: var(--gradient-brand);
+    }
+
+    .hamburger {
+      display: none;
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      color: var(--text);
+      cursor: pointer;
+      padding: 0.25rem;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+    .hamburger:focus { outline: 2px solid var(--brand-500); outline-offset: 2px; }
+
+    /* Contact Styles */
+    .contact-wrapper {
+      padding-top: 120px;
+      padding-bottom: 4rem;
+    }
+    .section { 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      min-height: auto; 
+      position: relative; 
+      padding: 0 5%; 
+    }
+    .container { 
+      max-width: 1200px; 
+      margin: 0 auto; 
+      width: 100%; 
+    }
+
+    .hero-content { 
+      padding: 0 0 60px;
+      display: flex; 
+      flex-direction: column; 
+      align-items: center; 
+      justify-content: center; 
+      gap: 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+      width: 100%;
+      text-align: center;
+    }
+
+    .hero h1 {
+      font-weight: 800; 
+      font-size: clamp(2.5rem, 6vw, 3.5rem);
+      margin-bottom: 1rem;
+      background: var(--gradient-brand);
+      -webkit-background-clip: text; 
+      -webkit-text-fill-color: transparent; 
+      line-height: 1.05;
+    }
+
+    .hero p {
+      font-size: 1.1rem;
+      color: var(--muted);
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .contact-form {
+      max-width: 600px;
+      margin: 0 auto 3rem;
+      padding: 2rem;
+      background: rgba(255,255,255,0.95);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .form-group input, .form-group textarea {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 1rem;
+      font-family: inherit;
+      transition: border-color 0.2s ease;
+    }
+    .form-group input:focus, .form-group textarea:focus {
+      outline: none;
+      border-color: var(--brand-500);
+      box-shadow: 0 0 0 3px rgba(47,107,255,0.1);
+    }
+    .form-group textarea {
+      resize: vertical;
+      min-height: 120px;
+    }
+
+    .btn-submit {
+      background: var(--gradient-brand);
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      width: 100%;
+      transition: all 0.2s ease;
+      font-size: 1rem;
+    }
+    .btn-submit:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 5px 15px rgba(47,107,255,0.3);
+    }
+    .btn-submit:focus {
+      outline: 2px solid var(--brand-500);
+      outline-offset: 2px;
+    }
+
+    .contact-info {
+      text-align: center;
+      margin: 2rem auto;
+      max-width: 600px;
+      padding: 2rem;
+      background: rgba(255,255,255,0.95);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+    }
+    .contact-info h2 {
+      color: var(--brand-500);
+      margin-bottom: 1rem;
+      font-size: 1.5rem;
+    }
+    .contact-info p {
+      margin-bottom: 0.5rem;
+      font-size: 1.1rem;
+    }
+    .contact-info a {
+      color: var(--brand-500);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .contact-info a:hover {
+      text-decoration: underline;
+    }
+
+    /* Footer */
+    footer {
+      background: var(--surface);
+      padding: 3rem 0;
+      border-top: 0.05rem solid var(--border);
+      text-align: center;
+    }
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .footer-link {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 1rem;
+      transition: all 0.2s ease;
+      padding: 0.75rem 1.25rem;
+      border-radius: 25px;
+    }
+    .footer-link:hover {
+      color: var(--brand-500);
+      background: rgba(47,107,255,0.08);
+      transform: translateY(-1px);
+    }
+    footer p {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .hamburger { display: block; }
+      .nav-links { 
+        display: none; 
+        flex-direction: column;
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 90%;
+        background: linear-gradient(135deg, #f5f8ff, #d1e3ff);
+        backdrop-filter: blur(20px) saturate(1.8);
+        border: 1px solid rgba(255,255,255,0.3);
+        border-top: none;
+        padding: 1rem;
+        border-radius: 0 0 50px 50px;
+        box-shadow: 0 8px 32px var(--shadow-color);
+        gap: 1rem;
+        z-index: 99;
+      }
+      .nav-links.active { display: flex; }
+      .nav-link {
+        padding: 0.75rem 0;
+        text-align: center;
+        font-size: 1.1rem;
+      }
+      .contact-wrapper {
+        padding-top: 100px;
+      }
+      .hero-content { padding: 0 0 40px; gap: 1.5rem; }
+      .contact-form, .contact-info { padding: 1.5rem; margin: 0 1rem; }
+    }
+
+    @media (max-width: 480px) {
+      .navbar .container { padding: 0 1rem; }
+      .hero h1 { font-size: 2.25rem; }
+      .contact-form, .contact-info { padding: 1rem; }
+      .form-group { margin-bottom: 1rem; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar" role="navigation" aria-label="Main navigation">
+    <div class="container">
+      <a class="brand" href="/" aria-label="iTradex homepage">
+        <img src="static/img/logo.png" alt="iTradex Logo" style="height: 1.3rem; width: auto;">
+        iTradex
+      </a>
+      <div class="nav-links" id="nav-links">
+        <a href="/" class="nav-link">Home</a>
+        <a href="/features" class="nav-link">Features</a>
+        <a href="/pricing" class="nav-link">Pricing</a>
+        <a href="/privacy" class="nav-link">Privacy</a>
+        <a href="/terms" class="nav-link">Terms</a>
+        <a href="/support" class="nav-link">Support</a>
+        <a href="/contact" class="nav-link current">Contact</a>
+      </div>
+      <button class="hamburger" aria-label="Toggle menu" aria-expanded="false" aria-controls="nav-links">☰</button>
+    </div>
+  </nav>
+
+  <div class="contact-wrapper">
+    <section class="section hero" aria-labelledby="contact-heading">
+      <div class="container">
+        <div class="hero-content">
+          <h1 id="contact-heading">Contact Us</h1>
+          <p>Have questions about iTradex? We'd love to hear from you. Fill out the form below or reach out directly.</p>
+        </div>
+      </div>
+    </section>
+
+    <main id="main-content" tabindex="-1">
+      <form class="contact-form" action="/submit-contact" method="post" novalidate aria-labelledby="contact-heading">
+        <div class="form-group">
+          <label for="name">Name <span aria-hidden="true" style="color: var(--error);">*</span></label>
+          <input type="text" id="name" name="name" required aria-required="true" aria-describedby="name-error">
+          <div id="name-error" class="error-message" aria-live="polite"></div>
+        </div>
+        <div class="form-group">
+          <label for="email">Email <span aria-hidden="true" style="color: var(--error);">*</span></label>
+          <input type="email" id="email" name="email" required aria-required="true" aria-describedby="email-error">
+          <div id="email-error" class="error-message" aria-live="polite"></div>
+        </div>
+        <div class="form-group">
+          <label for="subject">Subject <span aria-hidden="true" style="color: var(--error);">*</span></label>
+          <input type="text" id="subject" name="subject" required aria-required="true" aria-describedby="subject-error">
+          <div id="subject-error" class="error-message" aria-live="polite"></div>
+        </div>
+        <div class="form-group">
+          <label for="message">Message <span aria-hidden="true" style="color: var(--error);">*</span></label>
+          <textarea id="message" name="message" rows="5" required aria-required="true" aria-describedby="message-error"></textarea>
+          <div id="message-error" class="error-message" aria-live="polite"></div>
+        </div>
+        <button type="submit" class="btn-submit">Send Message</button>
+      </form>
+
+      <div class="contact-info" role="complementary" aria-label="Alternative contact methods">
+        <h2>Or Email Us Directly</h2>
+        <p><a href="mailto:contact@itradex.xyz">contact@itradex.xyz</a> – For general inquiries and support</p>
+        <p><a href="mailto:contact@itradex.xyz">contact@itradex.xyz</a> – For beta access or partnerships</p>
+      </div>
+    </main>
+  </div>
+
+  <footer role="contentinfo">
+    <div class="container">
+      <div class="footer-links">
+        <a href="/privacy" class="footer-link">Privacy</a>
+        <a href="/terms" class="footer-link">Terms</a>
+        <a href="/contact" class="footer-link">Contact</a>
+        <a href="/support" class="footer-link">Support</a>
+      </div>
+      <p>© 2025 iTradex. All rights reserved. | Built with ❤️ for traders.</p>
+    </div>
+  </footer>
+
+  <script>
+    // Navbar scroll effect
+    const navbar = document.querySelector('.navbar');
+    let ticking = false;
+    function updateNavbar() {
+      if (window.scrollY > 50) {
+        navbar.classList.add('scrolled');
+      } else {
+        navbar.classList.remove('scrolled');
+      }
+      ticking = false;
+    }
+    window.addEventListener('scroll', () => {
+      if (!ticking) {
+        requestAnimationFrame(updateNavbar);
+        ticking = true;
+      }
+    });
+
+    // Mobile menu toggle
+    const hamburger = document.querySelector('.hamburger');
+    const navLinks = document.getElementById('nav-links');
+    if (hamburger && navLinks) {
+      hamburger.addEventListener('click', () => {
+        const isActive = navLinks.classList.toggle('active');
+        hamburger.setAttribute('aria-expanded', isActive);
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && navLinks.classList.contains('active')) {
+          navLinks.classList.remove('active');
+          hamburger.setAttribute('aria-expanded', 'false');
+        }
+      });
+    }
+
+    // Basic form validation and submission handling
+    const form = document.querySelector('.contact-form');
+    const errorMessages = document.querySelectorAll('.error-message');
+    form.addEventListener('submit', (e) => {
+      let isValid = true;
+      errorMessages.forEach(msg => msg.textContent = '');
+
+      // Simple client-side validation
+      const name = document.getElementById('name').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const subject = document.getElementById('subject').value.trim();
+      const message = document.getElementById('message').value.trim();
+
+      if (!name) {
+        document.getElementById('name-error').textContent = 'Name is required.';
+        isValid = false;
+      }
+      if (!email || !/\S+@\S+\.\S+/.test(email)) {
+        document.getElementById('email-error').textContent = 'Valid email is required.';
+        isValid = false;
+      }
+      if (!subject) {
+        document.getElementById('subject-error').textContent = 'Subject is required.';
+        isValid = false;
+      }
+      if (!message || message.length < 10) {
+        document.getElementById('message-error').textContent = 'Message must be at least 10 characters.';
+        isValid = false;
+      }
+
+      if (!isValid) {
+        e.preventDefault();
+        // Focus first error
+        const firstError = document.querySelector('.error-message:not([aria-hidden="true"])');
+        if (firstError) firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else {
+        // Simulate submission (replace with actual backend)
+        e.preventDefault();
+        alert('Thank you! Your message has been sent. We\'ll respond within 24-48 hours.');
+        form.reset();
+      }
+    });
+
+    // Focus management for accessibility
+    document.querySelectorAll('.form-group input, .form-group textarea').forEach(input => {
+      input.addEventListener('focus', () => {
+        input.parentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    });
+  </script>
+</body>
+</html>

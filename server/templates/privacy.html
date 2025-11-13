@@ -1,0 +1,670 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="description" content="iTradex Privacy Policy - How we collect, use, and protect your data." />
+  <title>Privacy Policy - iTradex</title>
+  <!-- Open Graph -->
+  <meta property="og:title" content="Privacy Policy - iTradex" />
+  <meta property="og:description" content="Learn how iTradex handles your personal data." />
+  <meta property="og:image" content="og-image.png" />
+  <meta property="og:type" content="website" />
+  <!-- Structured Data for Privacy Policy -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "PrivacyPolicy",
+    "name": "iTradex Privacy Policy",
+    "description": "How iTradex collects, uses, and protects your personal data.",
+    "url": "https://itradex.xyz/privacy",
+    "datePublished": "2025-11-11",
+    "author": {
+      "@type": "Organization",
+      "name": "iTradex Inc."
+    }
+  }
+  </script>
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="static/img/favicon-16x16.png" />
+  <!-- Canonical URL -->
+  <link rel="canonical" href="https://itradex.xyz/privacy" />
+  <!-- Fonts - Preload both -->
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
+  <!-- Bootstrap Icons - Preload -->
+  <link rel="preload" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet"></noscript>
+  <style>
+    /* Best practices: CSS custom properties, semantic selectors, reduced motion support */
+    :root {
+      --brand-500: #2F6BFF;
+      --brand-600: #1F55E0;
+      --gold: #EAB308;
+      --bg: linear-gradient(135deg, #F8FAFC 0%, #E2E8F0 100%);
+      --surface: #fff;
+      --text: #0F172A;
+      --text-dark: #111827;
+      --muted: #475569;
+      --border: #E2E8F0;
+      --radius: 20px;
+      --shadow: 0 20px 40px rgba(0,0,0,0.05);
+      --shadow-lg: 0 25px 50px -12px rgba(0,0,0,0.25);
+      --shadow-color: rgba(0,0,0,0.1);
+      --accent: #06B6D4;
+      --success: #10B981;
+      --warning: #F59E0B;
+      --error: #EF4444;
+      --glass-weak: rgba(255,255,255,0.06);
+      --gradient-brand: linear-gradient(135deg, var(--brand-500), var(--brand-600));
+      --gradient-accent: linear-gradient(135deg, var(--accent), #0891b2);
+      --gradient-success: linear-gradient(135deg, var(--success), #059669);
+      --gradient-warning: linear-gradient(135deg, var(--warning), #d97706);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; background: var(--bg); }
+    body {
+      font-family: Inter, system-ui, sans-serif;
+      color: var(--text);
+      overflow-x: hidden;
+      line-height: 1.7; /* Best practice: 1.5-1.7 for readability */
+      min-height: 100vh;
+      position: relative;
+      /* Simplified, non-distracting background for legal content */
+      background: 
+        linear-gradient(135deg, #f5f8ff 0%, #e5efff 50%, #d1e3ff 100%),
+        radial-gradient(circle at 50% 50%, rgba(47,107,255,0.08) 0%, transparent 70%);
+      background-size: 100% 100%, 200% 200%;
+      background-attachment: fixed;
+    }
+
+    /* Reduced motion support */
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      * { transition: none !important; animation: none !important; }
+    }
+
+    /* Navbar: Fixed, consistent with main page - stabilized centering */
+    nav.navbar {
+      position: fixed;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      justify-content: center;
+      padding: 0.75rem 0;
+      background: linear-gradient(135deg, rgba(245,248,255,0.4), rgba(209,227,255,0.2));
+      -webkit-backdrop-filter: blur(20px) saturate(1.8);
+      backdrop-filter: blur(20px) saturate(1.8);
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 50px;
+      z-index: 100;
+      transition: all 0.3s ease;
+      box-shadow: 0 8px 32px var(--shadow-color);
+      max-width: 1200px;
+      width: 90%;
+    }
+
+    nav.navbar.scrolled { 
+      padding: 0.5rem 0; 
+      box-shadow: 0 4px 20px var(--shadow-color); 
+    }
+
+    .navbar .container { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      width: 100%;
+      padding: 0 2rem;
+    }
+    .brand { 
+      font-weight: 800; 
+      font-size: 1.3rem; 
+      display: flex; 
+      gap: 0.625rem;
+      align-items: center; 
+      text-decoration: none;
+      background: var(--gradient-brand);
+      -webkit-background-clip: text; 
+      -webkit-text-fill-color: transparent;
+    }
+
+    .nav-links { display: flex; gap: 2rem; align-items: center; }
+    .nav-link { 
+      color: var(--text); 
+      text-decoration: none; 
+      font-weight: 500; 
+      transition: all 0.2s ease;
+      position: relative;
+    }
+    .nav-link:hover { color: var(--brand-500); }
+    .nav-link.current { 
+      color: var(--brand-500); 
+      font-weight: 600;
+    }
+    .nav-link.current::after {
+      content: '';
+      position: absolute;
+      bottom: -4px;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: var(--gradient-brand);
+    }
+
+    .hamburger {
+      display: none;
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      color: var(--text);
+      cursor: pointer;
+      padding: 0.25rem;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+    .hamburger:focus { outline: 2px solid var(--brand-500); outline-offset: 2px; }
+
+    /* Page Content: Semantic, accessible */
+    .policy-wrapper {
+      padding-top: 120px; /* Offset for fixed nav */
+      padding-bottom: 4rem;
+    }
+    .policy-content {
+      max-width: 900px; /* Optimal line length: 45-75 chars */
+      margin: 0 auto;
+      padding: 2rem;
+      background: rgba(255,255,255,0.98);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      line-height: 1.7;
+      border: 1px solid var(--border);
+    }
+
+    .policy-header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .policy-content h1 {
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+      background: var(--gradient-brand);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .last-updated {
+      color: var(--muted);
+      font-size: 0.95rem;
+      font-style: italic;
+    }
+
+    /* Table of Contents: Improves scannability */
+    .toc {
+      background: rgba(47,107,255,0.05);
+      border: 1px solid rgba(47,107,255,0.1);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    .toc h2 {
+      font-size: 1.25rem;
+      margin-bottom: 1rem;
+      color: var(--brand-500);
+    }
+    .toc ul {
+      list-style: none;
+      padding: 0;
+    }
+    .toc li {
+      margin-bottom: 0.5rem;
+    }
+    .toc a {
+      color: var(--text);
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+    .toc a:hover, .toc a:focus {
+      color: var(--brand-500);
+      text-decoration: underline;
+    }
+    .toc ul ul {
+      margin-top: 0.5rem;
+      padding-left: 1rem;
+    }
+
+    .policy-content h2 {
+      font-size: 1.75rem;
+      margin-top: 2.5rem;
+      margin-bottom: 1rem;
+      color: var(--text-dark);
+      scroll-margin-top: 120px; /* Smooth scroll offset */
+    }
+    .policy-content h2:first-of-type {
+      margin-top: 0;
+    }
+
+    .policy-content h3 {
+      font-size: 1.3rem;
+      margin-top: 1.75rem;
+      margin-bottom: 0.75rem;
+      color: var(--brand-500);
+    }
+
+    .policy-content h4 {
+      font-size: 1.15rem;
+      margin-top: 1.25rem;
+      margin-bottom: 0.5rem;
+      color: var(--text-dark);
+      font-weight: 600;
+    }
+
+    .policy-content ul, .policy-content ol {
+      margin-left: 1.75rem;
+      margin-bottom: 1rem;
+    }
+    .policy-content li {
+      margin-bottom: 0.5rem;
+    }
+
+    .policy-content p {
+      margin-bottom: 1.25rem;
+      color: var(--text);
+      hyphens: auto; /* Improves readability */
+    }
+
+    .policy-content a {
+      color: var(--brand-500);
+      text-decoration: underline;
+    }
+    .policy-content a:hover, .policy-content a:focus {
+      text-decoration: none;
+      background: rgba(47,107,255,0.1);
+      padding: 0.1rem 0.2rem;
+      border-radius: 4px;
+    }
+
+    /* Sections: Semantic with IDs */
+    section {
+      margin-bottom: 2rem;
+    }
+
+    /* Footer */
+    footer {
+      background: var(--surface);
+      padding: 3rem 0;
+      border-top: 0.05rem solid var(--border);
+      text-align: center;
+    }
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .footer-link {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 1rem;
+      transition: all 0.2s ease;
+      padding: 0.75rem 1.25rem;
+      border-radius: 25px;
+    }
+    .footer-link:hover, .footer-link:focus {
+      color: var(--brand-500);
+      background: rgba(47,107,255,0.08);
+      transform: translateY(-1px);
+      outline: none;
+    }
+    footer p {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    /* Responsive: Mobile-first principles */
+    @media (max-width: 900px) {
+      .hamburger { display: block; }
+      .nav-links { 
+        display: none; 
+        flex-direction: column;
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 90%;
+        background: linear-gradient(135deg, #f5f8ff, #d1e3ff);
+        backdrop-filter: blur(20px) saturate(1.8);
+        border: 1px solid rgba(255,255,255,0.3);
+        border-top: none;
+        padding: 1rem;
+        border-radius: 0 0 50px 50px;
+        box-shadow: 0 8px 32px var(--shadow-color);
+        gap: 1rem;
+        z-index: 99;
+      }
+      .nav-links.active { display: flex; }
+      .nav-link {
+        padding: 0.75rem 0;
+        text-align: center;
+        font-size: 1.1rem;
+      }
+      .policy-content { 
+        padding: 1.5rem; 
+        margin: 0 1rem;
+      }
+      .policy-wrapper {
+        padding-top: 100px;
+      }
+      .toc {
+        padding: 1rem;
+      }
+      .footer-links {
+        gap: 1.5rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .navbar .container { padding: 0 1rem; }
+      .policy-content { padding: 1rem; }
+      .policy-content h1 { font-size: 2rem; }
+      .policy-content h2 { font-size: 1.5rem; }
+      .policy-content h3 { font-size: 1.15rem; }
+      .toc ul ul { padding-left: 0.75rem; }
+    }
+
+    /* Print styles: Best practice for legal docs */
+    @media print {
+      .navbar, .toc, footer { display: none; }
+      body { background: white; }
+      .policy-content { box-shadow: none; border: none; max-width: none; padding: 0; }
+      h1, h2, h3, h4 { page-break-after: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Navbar: Retained for consistency and navigation -->
+  <nav class="navbar" role="navigation" aria-label="Main navigation">
+    <div class="container">
+      <a class="brand" href="/" aria-label="iTradex homepage">
+        <img src="static/img/logo.png" alt="iTradex Logo" style="height: 1.3rem; width: auto;">
+        iTradex
+      </a>
+      <div class="nav-links" id="nav-links">
+        <a href="/" class="nav-link">Home</a>
+        <a href="/features" class="nav-link">Features</a>
+        <a href="/pricing" class="nav-link">Pricing</a>
+        <a href="/privacy" class="nav-link current">Privacy</a>
+        <a href="/terms" class="nav-link">Terms</a>
+        <a href="/support" class="nav-link">Support</a>
+        <a href="/contact" class="nav-link">Contact</a>
+      </div>
+      <button class="hamburger" aria-label="Toggle menu" aria-expanded="false" aria-controls="nav-links">☰</button>
+    </div>
+  </nav>
+
+  <div class="policy-wrapper">
+    <main class="policy-content" id="main-content" tabindex="-1">
+      <div class="policy-header">
+        <h1>Privacy Policy</h1>
+        <p class="last-updated">Last updated: November 11, 2025</p>
+      </div>
+
+      <!-- Table of Contents -->
+      <nav class="toc" aria-label="Table of contents">
+        <h2>On this page</h2>
+        <ul>
+          <li><a href="#interpretation">Interpretation and Definitions</a></li>
+          <li><a href="#collecting">Collecting and Using Your Personal Data</a>
+            <ul>
+              <li><a href="#types">Types of Data Collected</a></li>
+              <li><a href="#tracking">Tracking Technologies and Cookies</a></li>
+              <li><a href="#use">Use of Your Personal Data</a></li>
+            </ul>
+          </li>
+          <li><a href="#retention">Retention of Your Personal Data</a></li>
+          <li><a href="#transfer">Transfer of Your Personal Data</a></li>
+          <li><a href="#delete">Delete Your Personal Data</a></li>
+          <li><a href="#disclosure">Disclosure of Your Personal Data</a></li>
+          <li><a href="#security">Security of Your Personal Data</a></li>
+          <li><a href="#children">Children's Privacy</a></li>
+          <li><a href="#links">Links to Other Websites</a></li>
+          <li><a href="#changes">Changes to this Privacy Policy</a></li>
+          <li><a href="#contact">Contact Us</a></li>
+        </ul>
+      </nav>
+
+      <p>This Privacy Policy describes Our policies and procedures on the collection, use and disclosure of Your information when You use the Service and tells You about Your privacy rights and how the law protects You.</p>
+      <p>We use Your Personal data to provide and improve the Service. By using the Service, You agree to the collection and use of information in accordance with this Privacy Policy.</p>
+
+      <section id="interpretation">
+        <h2>Interpretation and Definitions</h2>
+        <h3>Interpretation</h3>
+        <p>The words of which the initial letter is capitalized have meanings defined under the following conditions. The following definitions shall have the same meaning regardless of whether they appear in singular or in plural.</p>
+
+        <h3>Definitions</h3>
+        <p>For the purposes of this Privacy Policy:</p>
+        <ul>
+          <li><strong>"Account"</strong> means a unique account created for You to access our Service or parts of our Service.</li>
+          <li><strong>"Company"</strong> (referred to as either "the Company", "We", "Us" or "Our" in this Agreement) refers to iTradex Inc., United States.</li>
+          <li><strong>"Country"</strong> refers to United States.</li>
+          <li><strong>"Cookies"</strong> are small files that are placed on Your computer, mobile device or any other device by a website, containing the details of Your browsing history on that website among its many uses.</li>
+          <li><strong>"Data Controller"</strong>, for the purposes of the GDPR (General Data Protection Regulation), refers to the Company as the legal person which alone or jointly with others determines the purposes and means of the processing of Personal Data.</li>
+          <li><strong>"Device"</strong> means any device that can access the Service such as a computer, a cellphone or a digital tablet.</li>
+          <li><strong>"Do Not Track"</strong> (DNT) is a concept that has been promoted by US regulatory authorities, in particular the U.S. Federal Trade Commission (FTC), for the Internet industry to develop and implement a mechanism for allowing internet users to control the tracking of their online activities across websites.</li>
+          <li><strong>"Personal Data"</strong> is any information that relates to an identified or identifiable individual.</li>
+          <li><strong>"Service"</strong> refers to the iTradex trading journal service, accessible from https://itradex.xyz.</li>
+          <li><strong>"Service Provider"</strong> means any natural or legal person who processes the data on behalf of the Company. It refers to third-party companies or individuals employed by the Company to facilitate the Service, to provide the Service on behalf of the Company, to perform services related to the Service or to assist the Company in analyzing how the Service is used.</li>
+          <li><strong>"Usage Data"</strong> refers to data collected automatically, either generated by the use of the Service or from the Service infrastructure itself (for example, the duration of a page visit).</li>
+          <li><strong>"Website"</strong> refers to iTradex, accessible from https://itradex.xyz.</li>
+          <li><strong>"You"</strong> means the individual accessing or using the Service, or the company, or other legal entity on behalf of which such individual is accessing or using the Service, as applicable.</li>
+        </ul>
+      </section>
+
+      <section id="collecting">
+        <h2>Collecting and Using Your Personal Data</h2>
+        <h3 id="types">Types of Data Collected</h3>
+        <h4>Personal Data</h4>
+        <p>While using Our Service, We may ask You to provide Us with certain personally identifiable information that can be used to contact or identify You. Personally identifiable information may include, but is not limited to:</p>
+        <ul>
+          <li>Email address</li>
+          <li>First name and last name</li>
+          <li>Phone number</li>
+          <li>Address, State, Province, ZIP/Postal code, City</li>
+          <li>Usage Data</li>
+        </ul>
+
+        <h4>Usage Data</h4>
+        <p>Usage Data is collected automatically when using the Service.</p>
+        <p>Usage Data may include information such as Your Device's Internet Protocol address (e.g. IP address), browser type, browser version, the pages of our Service that You visit, the time and date of Your visit, the time spent on those pages, unique device identifiers and other diagnostic data.</p>
+        <p>When You access the Service by or through a mobile device, We may collect certain information automatically, including, but not limited to, the type of mobile device You use, Your mobile device unique ID, the IP address of Your mobile device, Your mobile operating system, the type of mobile Internet browser You use, unique device identifiers and other diagnostic data.</p>
+        <p>We may also collect information that Your browser sends whenever You visit our Service or when You access the Service by or through a mobile device.</p>
+
+        <h3 id="tracking">Tracking Technologies and Cookies</h3>
+        <p>We use Cookies and similar tracking technologies to track the activity on Our Service and store certain information. Tracking technologies used are beacons, tags, and scripts to collect and track information and to improve and analyze Our Service. The technologies We use may include:</p>
+        <ul>
+          <li><strong>Cookies or Browser Cookies.</strong> A cookie is a small file placed on Your Device. You can instruct Your browser to refuse all Cookies or to indicate when a Cookie is being sent. However, if You do not accept Cookies, You may not be able to use some parts of our Service.</li>
+          <li><strong>Web Beacons.</strong> Certain sections of our Service and our emails may contain small electronic files known as web beacons that permit the Company to count users who have visited those pages or opened an email.</li>
+        </ul>
+        <p>Cookies can be "Persistent" or "Session" Cookies. Persistent Cookies remain on Your personal computer or mobile device when You go offline, while Session Cookies are deleted as soon as You close Your web browser.</p>
+        <p>We use both Session and Persistent Cookies for the purposes set out below:</p>
+        <ul>
+          <li><strong>Necessary / Essential Cookies</strong><br>Type: Session Cookies<br>Administered by: Us<br>Purpose: These Cookies are essential to provide You with services available through the Website and to enable You to use some of its features.</li>
+          <li><strong>Cookies Policy / Notice Acceptance Cookies</strong><br>Type: Persistent Cookies<br>Administered by: Us<br>Purpose: These Cookies identify if users have accepted the use of cookies on the Website.</li>
+          <li><strong>Functionality Cookies</strong><br>Type: Persistent Cookies<br>Administered by: Us<br>Purpose: These Cookies allow us to remember choices You make when You use the Website.</li>
+          <li><strong>Tracking and Performance Cookies</strong><br>Type: Persistent Cookies<br>Administered by: Third-Parties<br>Purpose: These Cookies are used to track information about traffic to the Website and how users use the Website.</li>
+        </ul>
+        <p>For more information about the cookies we use, please visit our <a href="/cookies">Cookies Policy</a>.</p>
+
+        <h3 id="use">Use of Your Personal Data</h3>
+        <p>The Company may use Personal Data for the following purposes:</p>
+        <ul>
+          <li><strong>To provide and maintain our Service</strong>, including to monitor the usage of our Service.</li>
+          <li><strong>To manage Your Account:</strong> to manage Your registration as a user of the Service.</li>
+          <li><strong>For the performance of a contract:</strong> the development, compliance and undertaking of the purchase contract for the products, items or services You have purchased.</li>
+          <li><strong>To contact You:</strong> To contact You by email, telephone calls, SMS, or other equivalent forms of electronic communication.</li>
+          <li><strong>To provide You</strong> with news, special offers and general information about other goods, services and events.</li>
+          <li><strong>To manage Your requests:</strong> To attend and manage Your requests to Us.</li>
+          <li><strong>For business transfers:</strong> We may use Your information to evaluate or conduct a merger, divestiture, restructuring.</li>
+          <li><strong>For other purposes</strong>: We may use Your information for other purposes, such as data analysis, identifying usage trends.</li>
+        </ul>
+
+        <p>We may share Your personal information in the following situations:</p>
+        <ul>
+          <li><strong>With Service Providers:</strong> We may share Your personal information with Service Providers to monitor and analyze the use of our Service.</li>
+          <li><strong>For business transfers:</strong> We may share or transfer Your personal information in connection with, or during negotiations of, any merger.</li>
+          <li><strong>With Affiliates:</strong> We may share Your information with Our affiliates.</li>
+          <li><strong>With business partners:</strong> We may share Your information with Our business partners.</li>
+          <li><strong>With other users:</strong> when You share personal information or otherwise interact in the public areas with other users.</li>
+          <li><strong>With Your consent</strong>: We may disclose Your personal information for any other purpose with Your consent.</li>
+        </ul>
+      </section>
+
+      <section id="retention">
+        <h2>Retention of Your Personal Data</h2>
+        <p>The Company will retain Your Personal Data only for as long as is necessary for the purposes set out in this Privacy Policy. We will retain and use Your Personal Data to the extent necessary to comply with our legal obligations, resolve disputes, and enforce our legal agreements and policies.</p>
+        <p>The Company will also retain Usage Data for internal analysis purposes. Usage Data is generally retained for a shorter period of time, except when this data is used to strengthen the security or to improve the functionality of Our Service, or We are legally obligated to retain this data for longer time periods.</p>
+      </section>
+
+      <section id="transfer">
+        <h2>Transfer of Your Personal Data</h2>
+        <p>Your information, including Personal Data, is processed at the Company's operating offices and in any other places where the parties involved in the processing are located. It means that this information may be transferred to — and maintained on — computers located outside of Your state, province, country or other governmental jurisdiction where the data protection laws may differ than those from Your jurisdiction.</p>
+        <p>Your consent to this Privacy Policy followed by Your submission of such information represents Your agreement to that transfer.</p>
+        <p>The Company will take all steps reasonably necessary to ensure that Your data is treated securely and in accordance with this Privacy Policy and no transfer of Your Personal Data will take place to an organization or a country unless there are appropriate controls in place including the security of Your data and other personal information.</p>
+      </section>
+
+      <section id="delete">
+        <h2>Delete Your Personal Data</h2>
+        <p>You have the right to delete or request that we assist in deleting the Personal Data that We have collected about You.</p>
+        <p>Our Service may give You the option to delete certain information about You from within the Service.</p>
+        <p>You may delete Your Personal Data by:</p>
+        <ul>
+          <li>Logging into Your Account and removing Personal Data</li>
+          <li>Disabling or deleting a cookie</li>
+          <li>Turning off location services</li>
+        </ul>
+        <p>You may also contact Us to request access to, correct, or delete any personal data that You have provided to Us.</p>
+        <p>Please note, however, that We may need to retain certain information when we have a legal obligation or legitimate business interest to do so.</p>
+      </section>
+
+      <section id="disclosure">
+        <h2>Disclosure of Your Personal Data</h2>
+        <h3>Business Transactions</h3>
+        <p>If the Company is involved in a merger, acquisition or asset sale, Your Personal Data may be transferred. We will provide a notice before Your Personal Data is transferred and becomes subject to a different Privacy Policy.</p>
+
+        <h3>Law enforcement</h3>
+        <p>Under certain circumstances, the Company may be required to disclose Your Personal Data if required to do so by law or in response to valid requests by public authorities (e.g. a court or a government agency).</p>
+
+        <h3>Legal Requirements</h3>
+        <p>The Company may disclose Your Personal Data in the good faith belief that such action is necessary to:</p>
+        <ul>
+          <li>Comply with a legal obligation</li>
+          <li>Protect and defend the rights or property of the Company</li>
+          <li>Prevent or investigate possible wrongdoing in connection with the Service</li>
+          <li>Protect the personal safety of users of the Service or the public</li>
+          <li>Protect against legal liability</li>
+        </ul>
+      </section>
+
+      <section id="security">
+        <h2>Security of Your Personal Data</h2>
+        <p>The security of Your Personal Data is important to Us, but remember that no method of transmission over the Internet, or method of electronic storage is 100% secure. While We strive to use commercially acceptable means to protect Your Personal Data, We cannot guarantee its absolute security.</p>
+      </section>
+
+      <section id="children">
+        <h2>Children's Privacy</h2>
+        <p>Our Service does not address anyone under the age of 13. We do not knowingly collect personally identifiable information from anyone under the age of 13. If You are a parent or guardian and You are aware that Your child has provided Us with Personal Data, please contact Us. If We become aware that We have collected Personal Data from anyone under the age of 13 without verification of parental consent, We take steps to remove that information from Our servers.</p>
+        <p>If We need to rely on consent as a legal basis for processing Your information and Your country requires consent from a parent, we may require Your parent's consent before We collect and use that information.</p>
+      </section>
+
+      <section id="links">
+        <h2>Links to Other Websites</h2>
+        <p>Our Service may contain links to other websites that are not operated by Us. If You click on a third party link, You will be directed to that third party's site. We strongly advise You to review the Privacy Policy of every site You visit.</p>
+        <p>We have no control over and assume no responsibility for the content, privacy policies or practices of any third party sites or services.</p>
+      </section>
+
+      <section id="changes">
+        <h2>Changes to this Privacy Policy</h2>
+        <p>We may update Our Privacy Policy from time to time. We will notify You of any changes by posting the new Privacy Policy on this page.</p>
+        <p>We will let You know via email and/or a prominent notice on Our Service, prior to the change becoming effective and update the "effective date" at the top of this Privacy Policy.</p>
+        <p>You are advised to review this Privacy Policy periodically for any changes. Changes to this Privacy Policy are effective when they are posted on this page.</p>
+      </section>
+
+      <section id="contact">
+        <h2>Contact Us</h2>
+        <p>If you have any questions about this Privacy Policy, please contact us:</p>
+        <ul>
+          <li>By email: <a href="mailto:contact@itradex.xyz">contact@itradex.xyz</a></li>
+        </ul>
+      </section>
+    </main>
+  </div>
+
+  <footer role="contentinfo">
+    <div class="container">
+      <div class="footer-links">
+        <a href="/privacy" class="footer-link">Privacy</a>
+        <a href="/terms" class="footer-link">Terms</a>
+        <a href="/contact" class="footer-link">Contact</a>
+        <a href="/support" class="footer-link">Support</a>
+      </div>
+      <p>© 2025 iTradex. All rights reserved. | Built with ❤️ for traders.</p>
+    </div>
+  </footer>
+
+  <script>
+    // Best practices: Event listeners, accessibility, performance
+    // Navbar scroll effect - no margin changes to prevent shifting
+    const navbar = document.querySelector('.navbar');
+    let ticking = false;
+    function updateNavbar() {
+      if (window.scrollY > 50) {
+        navbar.classList.add('scrolled');
+      } else {
+        navbar.classList.remove('scrolled');
+      }
+      ticking = false;
+    }
+    window.addEventListener('scroll', () => {
+      if (!ticking) {
+        requestAnimationFrame(updateNavbar);
+        ticking = true;
+      }
+    });
+
+    // Mobile menu toggle
+    const hamburger = document.querySelector('.hamburger');
+    const navLinks = document.getElementById('nav-links');
+    if (hamburger && navLinks) {
+      hamburger.addEventListener('click', () => {
+        const isActive = navLinks.classList.toggle('active');
+        hamburger.setAttribute('aria-expanded', isActive);
+      });
+      // Close on escape
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && navLinks.classList.contains('active')) {
+          navLinks.classList.remove('active');
+          hamburger.setAttribute('aria-expanded', 'false');
+        }
+      });
+    }
+
+    // Smooth scrolling for TOC
+    document.querySelectorAll('.toc a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          target.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start' 
+          });
+          // Focus management for accessibility
+          target.setAttribute('tabindex', '-1');
+          target.focus();
+        }
+      });
+    });
+  </script>
+</body>
+</html>

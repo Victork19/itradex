@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Join the Waitlist - iTradeX</title>
+    <link rel="icon" type="image/png" href="static/img/favicon-16x16.png" />
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* Premium Theme: Elevated, Modern, Crypto-Inspired */
+        :root {
+            --surface: #ffffff; 
+            --surface-variant: #f8fafc; 
+            --border: #e2e8f0; 
+            --text: #0f172a; 
+            --text-muted: #64748b; 
+            --brand-500: #3b82f6; 
+            --brand-600: #2563eb; 
+            --gold: #f59e0b; 
+            --gold-light: #fef3c7; 
+            --accent: #10b981; 
+            --error: #ef4444; 
+            --radius: 16px; 
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            --gradient-primary: linear-gradient(135deg, var(--brand-500) 0%, var(--brand-600) 100%);
+            --gradient-gold: linear-gradient(135deg, var(--gold) 0%, #d97706 100%);
+        }
+        [data-theme="dark"] { 
+            --surface: #0f172a; 
+            --surface-variant: #1e293b; 
+            --border: #334155; 
+            --text: #f1f5f9; 
+            --text-muted: #94a3b8; 
+            --brand-500: #60a5fa; 
+            --brand-600: #3b82f6; 
+            --gold: #fbbf24; 
+            --gold-light: #713f12; 
+            --accent: #34d399; 
+            --error: #f87171; 
+        }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, var(--surface-variant) 0%, #f1f5f9 100%);
+            min-height: 100vh;
+            color: var(--text);
+        }
+        [data-theme="dark"] body {
+            background: linear-gradient(135deg, var(--surface-variant) 0%, #1e293b 100%);
+        }
+        .waitlist-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem 1rem;
+        }
+        .waitlist-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            backdrop-filter: blur(20px);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .waitlist-card:hover {
+            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+            transform: translateY(-2px);
+        }
+        .waitlist-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--gradient-primary);
+            z-index: 1;
+        }
+        .step-header {
+            text-align: center;
+            margin-bottom: 2rem;
+            position: relative;
+            z-index: 2;
+        }
+        .step-icon {
+            width: 64px;
+            height: 64px;
+            background: var(--gradient-primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1rem;
+            box-shadow: 0 8px 16px rgba(59, 130, 246, 0.2);
+            color: white;
+            font-size: 1.5rem;
+        }
+        .step-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--brand-500), var(--brand-600));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .step-subtitle {
+            color: var(--text-muted);
+            font-size: 1rem;
+            font-weight: 400;
+            line-height: 1.5;
+        }
+        .form-floating {
+            margin-bottom: 1.5rem;
+        }
+        .form-floating > .form-control {
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1rem 1rem 0.5rem;
+            background: rgba(255, 255, 255, 0.8);
+            transition: all 0.2s ease;
+            height: auto;
+            min-height: 56px;
+            color: var(--text);
+        }
+        [data-theme="dark"] .form-floating > .form-control {
+            background: rgba(15, 23, 42, 0.8);
+            color: var(--text);
+        }
+        .form-floating > .form-control:focus {
+            border-color: var(--brand-500);
+            box-shadow: 0 0 0 0.25rem rgba(59, 130, 246, 0.1);
+            background: rgba(255, 255, 255, 0.95);
+            color: var(--text);
+        }
+        [data-theme="dark"] .form-floating > .form-control:focus {
+            background: rgba(15, 23, 42, 0.95);
+            color: var(--text);
+        }
+        .form-floating > label {
+            color: var(--text-muted);
+            padding: 1rem 1rem 0.5rem;
+            font-weight: 500;
+        }
+        .form-label {
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+        .form-control::placeholder {
+            color: var(--text-muted);
+            opacity: 1;
+        }
+        .btn-primary {
+            background: var(--gradient-primary);
+            border: none;
+            border-radius: var(--radius);
+            padding: 0.875rem 2rem;
+            font-weight: 600;
+            font-size: 1rem;
+            box-shadow: 0 4px 14px 0 rgb(59, 130, 246 / 0.4);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 25px 0 rgb(59, 130, 246 / 0.3);
+            background: linear-gradient(135deg, var(--brand-600), var(--brand-500));
+        }
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+        .btn-secondary {
+            background: var(--surface-variant);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: var(--radius);
+            padding: 0.875rem 2rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        .btn-secondary:hover {
+            background: var(--border);
+            transform: translateY(-1px);
+        }
+        .progress-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 0;
+            background: linear-gradient(90deg, var(--brand-500), var(--accent));
+            border-radius: var(--radius);
+            transition: width 0.3s ease;
+            z-index: 1;
+        }
+        .input-group-text {
+            background: var(--surface-variant);
+            border: 1px solid var(--border);
+            border-right: none;
+            border-radius: var(--radius) 0 0 var(--radius);
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .input-group .form-control {
+            border-left: none;
+            border-radius: 0 var(--radius) var(--radius) 0;
+            color: var(--text);
+            background: rgba(255, 255, 255, 0.8);
+        }
+        [data-theme="dark"] .input-group .form-control {
+            background: rgba(15, 23, 42, 0.8);
+            color: var(--text);
+        }
+        .input-group .form-control:focus {
+            background: rgba(255, 255, 255, 0.95);
+        }
+        [data-theme="dark"] .input-group .form-control:focus {
+            background: rgba(15, 23, 42, 0.95);
+        }
+        .link-howto {
+            color: var(--brand-500);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s ease;
+        }
+        .link-howto:hover {
+            color: var(--brand-600);
+            text-decoration: underline;
+        }
+        .footer-text {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+        .footer-text a {
+            color: var(--brand-500);
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .footer-text a:hover {
+            text-decoration: underline;
+        }
+        /* Step Transitions */
+        .panel {
+            transition: opacity 0.4s ease, transform 0.4s ease;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        .panel.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .panel.hidden {
+            display: none;
+        }
+        /* Progress Bar for Steps */
+        .step-progress {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 2rem;
+            position: relative;
+        }
+        .step-progress::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--border);
+            z-index: 0;
+        }
+        .step-indicator {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            z-index: 1;
+            transition: all 0.3s ease;
+        }
+        .step-indicator.active {
+            background: var(--gradient-primary);
+            color: white;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+        .step-indicator.completed {
+            background: var(--accent);
+            color: white;
+        }
+        /* Alert System Enhancements */
+        #itradex_runtime_alert {
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            backdrop-filter: blur(20px);
+            font-family: inherit;
+            font-weight: 500;
+        }
+        /* Input Error */
+        .input-error {
+            border-color: var(--error) !important;
+            animation: shake 0.5s ease-in-out;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-4px); }
+            75% { transform: translateX(4px); }
+        }
+        /* Mobile Optimizations */
+        @media (max-width: 576px) {
+            .waitlist-card {
+                margin: 0 1rem;
+                border-radius: 12px;
+            }
+            .step-title {
+                font-size: 1.5rem;
+            }
+            .btn-primary {
+                padding: 1rem;
+            }
+        }
+        /* Dark Mode Toggle (Optional Enhancement) */
+        .theme-toggle {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 50%;
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 1000;
+            transition: all 0.2s ease;
+        }
+        .theme-toggle:hover {
+            box-shadow: var(--shadow-md);
+        }
+        /* NEW: Subtle divider for recover link */
+        .recover-divider {
+            border-top: 1px solid var(--border);
+            margin: 1.5rem 0;
+            padding-top: 1rem;
+        }
+    </style>
+</head>
+<body data-theme="light">
+    <!-- Theme Toggle (Premium Touch) -->
+    <button class="theme-toggle bi bi-moon-fill" onclick="toggleTheme()" style="display: none;"></button>
+
+    <div class="waitlist-container">
+        <div class="row justify-content-center w-100">
+            <div class="col-12 col-md-8 col-lg-6 col-xl-5">
+                <!-- Progress Indicators -->
+                <div class="step-progress mb-4">
+                    <div class="step-indicator active" data-step="1">1</div>
+                    <div class="step-indicator" data-step="2">2</div>
+                    <div class="step-indicator" data-step="3">3</div>
+                </div>
+
+                <!-- Step 1: Follow + Retweet -->
+                <div class="card waitlist-card p-4 p-md-5 panel active" id="step1">
+                    <div class="step-header">
+                        <h1 class="step-title">Join the iTradeX Waitlist</h1>
+                        <p class="step-subtitle">
+                            Secure your spot by following us on X and quoting our pinned post with <strong>#iTradeXWaitlist</strong>.
+                        </p>
+                        <!-- NEW: Recover Link in Step 1 (earlier visibility) -->
+                        <div class="recover-divider">
+                            <p class="text-center mb-0">
+                                <small class="text-muted">
+                                    Already on the waitlist? <a href="/waitlist/recover" class="link-howto">Recover your dashboard token</a>
+                                </small>
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="position-relative">
+                        <a href="https://twitter.com/intent/follow?screen_name=itradexdotxyz" id="btnFollowRetweet" class="btn btn-primary w-100 mb-3">
+                            <i class="bi bi-plus-circle me-2"></i>Follow @itradexdotxyz on X
+                        </a>
+
+                        <div class="form-floating mb-3">
+                            <input type="url" class="form-control" id="retweetLink" placeholder="Paste quote tweet link here">
+                            <label for="retweetLink">Quote Tweet Link</label>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="verifyHandle" class="form-label mb-1">Your X Username</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-at"></i></span>
+                                <input type="text" class="form-control" id="verifyHandle" placeholder="Enter your X username">
+                            </div>
+                        </div>
+
+                        <div class="position-relative mb-3">
+                            <button class="btn btn-primary w-100" id="btnVerifyActions">
+                                <i class="bi bi-check-circle me-2"></i>Verify Actions
+                            </button>
+                            <div class="progress-overlay" id="verifyProgress"></div>
+                        </div>
+
+                        <p class="text-center small">
+                            <a href="#" class="link-howto" id="howToQuote">
+                                <i class="bi bi-question-circle me-1"></i>How to quote a post?
+                            </a>
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Step 2: Email + Wallet + Referral -->
+                <div class="card waitlist-card p-4 p-md-5 panel hidden" id="step2">
+                    <div class="step-header">
+                        <div class="step-icon">
+                            <i class="bi bi-envelope-check"></i>
+                        </div>
+                        <h1 class="step-title">Complete Your Entry</h1>
+                        <p class="step-subtitle">Provide your details to lock in your waitlist position.</p>
+                    </div>
+
+                    <div class="form-floating mb-3">
+                        <input type="email" class="form-control" id="email" placeholder="you@email.com">
+                        <label for="email">Email Address</label>
+                    </div>
+
+                    <div class="form-floating mb-3">
+                        <input type="text" class="form-control" id="wallet" placeholder="0x...">
+                        <label for="wallet">Wallet Address (Optional)</label>
+                    </div>
+
+                    <div style="display: none;">
+                        <input type="text" name="extra_field" value="">
+                    </div>
+
+                    <div class="form-floating mb-4">
+                        <input type="text" class="form-control" id="referralCode" placeholder="Enter code if referred">
+                        <label for="referralCode">Referral Code (Optional)</label>
+                    </div>
+
+                    <!-- Recover Link for Existing Users (kept for Step 2 context) -->
+                    <p class="text-center mb-4">
+                        <small class="text-muted">
+                            Already on the waitlist? <a href="/waitlist/recover" class="link-howto">Recover your dashboard token</a>
+                        </small>
+                    </p>
+
+                    <button class="btn btn-primary w-100" id="btnJoinWaitlist">
+                        <i class="bi bi-arrow-right-circle me-2"></i>Secure My Spot
+                    </button>
+                </div>
+
+                <!-- Step 3: Verify Code -->
+                <div class="card waitlist-card p-4 p-md-5 panel hidden" id="step3">
+                    <div class="step-header">
+                        <div class="step-icon">
+                            <i class="bi bi-shield-check"></i>
+                        </div>
+                        <h1 class="step-title">Verify Your Email</h1>
+                        <p class="step-subtitle">We've sent a verification code to <span id="verifyEmailText" class="fw-semibold text-brand-500"></span>.</p>
+                    </div>
+
+                    <div class="form-floating mb-3">
+                        <input type="text" class="form-control text-center fw-semibold" id="verificationCode" maxlength="12" placeholder="Enter your code">
+                        <label for="verificationCode">Verification Code</label>
+                    </div>
+
+                    <button class="btn btn-primary w-100 mb-3" id="btnVerify">
+                        <i class="bi bi-check-lg me-2"></i>Verify & Join
+                    </button>
+
+                    <p class="text-center small text-muted mb-0">
+                        Didn't receive the code? <a href="#" class="link-howto" id="btnResend">Resend Code</a>
+                        <span id="resendTimer" class="ms-1"></span>
+                    </p>
+                </div>
+
+                <!-- Footer -->
+                <div class="text-center mt-4 p-3">
+                    <small class="footer-text">
+                        By joining, you agree to our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Theme Toggle Function (Premium Feature)
+        function toggleTheme() {
+            const body = document.body;
+            const currentTheme = body.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            body.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            const toggleBtn = document.querySelector('.theme-toggle');
+            toggleBtn.className = newTheme === 'light' ? 'bi bi-moon-fill' : 'bi bi-sun-fill';
+        }
+        // Load saved theme
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.body.setAttribute('data-theme', savedTheme);
+        const toggleBtn = document.querySelector('.theme-toggle');
+        if (toggleBtn) {
+            toggleBtn.style.display = 'flex';
+            toggleBtn.className = savedTheme === 'light' ? 'bi bi-moon-fill' : 'bi bi-sun-fill';
+            toggleBtn.onclick = toggleTheme;
+        }
+
+        (function () {
+            document.addEventListener('DOMContentLoaded', () => {
+                // Element lookups (enhanced)
+                const elements = {
+                    btnFollowRetweet: document.getElementById('btnFollowRetweet'),
+                    btnVerifyActions: document.getElementById('btnVerifyActions'),
+                    verifyHandle: document.getElementById('verifyHandle'),
+                    retweetLink: document.getElementById('retweetLink'),
+                    verifyProgress: document.getElementById('verifyProgress'),
+                    referralCode: document.getElementById('referralCode'),
+                    email: document.getElementById('email'),
+                    wallet: document.getElementById('wallet'),
+                    btnJoinWaitlist: document.getElementById('btnJoinWaitlist'),
+                    btnVerify: document.getElementById('btnVerify'),
+                    verificationCode: document.getElementById('verificationCode'),
+                    verifyEmailText: document.getElementById('verifyEmailText'),
+                    btnResend: document.getElementById('btnResend'),
+                    resendTimer: document.getElementById('resendTimer'),
+                    howToQuote: document.getElementById('howToQuote')
+                };
+
+                // Step Management
+                const steps = document.querySelectorAll('.panel');
+                let currentStep = 1;
+                function showStep(stepNum) {
+                    steps.forEach((step, index) => {
+                        step.classList.toggle('active', index + 1 === stepNum);
+                        step.classList.toggle('hidden', index + 1 !== stepNum);
+                    });
+                    updateProgress(stepNum);
+                }
+                function updateProgress(stepNum) {
+                    document.querySelectorAll('.step-indicator').forEach((indicator, index) => {
+                        if (index + 1 < stepNum) indicator.classList.add('completed');
+                        else if (index + 1 === stepNum) {
+                            indicator.classList.add('active');
+                            indicator.classList.remove('completed');
+                        } else {
+                            indicator.classList.remove('active', 'completed');
+                        }
+                    });
+                }
+
+                // Mobile Detection
+                function isMobileUA() {
+                    return /Mobi|Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+                }
+
+                // Enhanced Alert System
+                function getAlert() {
+                    let alert = document.getElementById('itradex_runtime_alert');
+                    if (alert) return alert;
+
+                    alert = document.createElement('div');
+                    alert.id = 'itradex_runtime_alert';
+                    Object.assign(alert.style, {
+                        position: 'fixed',
+                        top: '20px',
+                        left: '50%',
+                        transform: 'translateX(-50%) scale(0.95)',
+                        opacity: '0',
+                        transition: 'transform 250ms cubic-bezier(0.4, 0, 0.2, 1), opacity 250ms ease',
+                        maxWidth: 'min(90vw, 400px)',
+                        width: '90vw',
+                        zIndex: '2147483647',
+                        background: 'var(--surface)',
+                        borderRadius: 'var(--radius)',
+                        boxShadow: 'var(--shadow-lg)',
+                        padding: '1rem 1.25rem',
+                        display: 'none',
+                        pointerEvents: 'none',
+                        whiteSpace: 'pre-line',
+                        textAlign: 'center',
+                        fontFamily: 'inherit',
+                        fontSize: '0.95rem',
+                        fontWeight: '500',
+                        border: '1px solid var(--border)',
+                        color: 'var(--text)',
+                    });
+
+                    const icon = document.createElement('i');
+                    icon.id = 'alert-icon';
+                    icon.className = 'bi me-2';
+                    icon.style.fontSize = '1.2rem';
+
+                    const text = document.createElement('div');
+                    text.id = 'itradex_runtime_alert_text';
+                    text.setAttribute('role', 'status');
+                    text.setAttribute('aria-live', 'polite');
+                    text.style.margin = '0';
+
+                    alert.appendChild(icon);
+                    alert.appendChild(text);
+                    document.body.appendChild(alert);
+                    return alert;
+                }
+
+                function showAlert(message, type = 'success', duration = 3000) {
+                    const alert = getAlert();
+                    const text = document.getElementById('itradex_runtime_alert_text');
+                    const icon = document.getElementById('alert-icon');
+                    if (!alert || !text || !icon) return;
+
+                    text.textContent = message;
+                    icon.className = type === 'success' ? 'bi bi-check-circle-fill me-2 text-success' : 'bi bi-exclamation-triangle-fill me-2 text-danger';
+
+                    alert.style.display = 'flex';
+                    alert.style.alignItems = 'center';
+                    void alert.offsetHeight;
+                    alert.style.pointerEvents = 'auto';
+                    alert.style.transform = 'translateX(-50%) scale(1)';
+                    alert.style.opacity = '1';
+
+                    if (alert._hideTimer) clearTimeout(alert._hideTimer);
+                    alert._hideTimer = setTimeout(() => {
+                        alert.style.transform = 'translateX(-50%) scale(0.95)';
+                        alert.style.opacity = '0';
+                        alert.style.pointerEvents = 'none';
+                        setTimeout(() => { alert.style.display = 'none'; }, 250);
+                    }, duration);
+                }
+
+                function showThreat(message, duration = 4000) {
+                    showAlert(message, 'error', duration);
+                    const alert = getAlert();
+                    if (alert.animate) {
+                        alert.animate([
+                            { transform: 'translateX(-50%) scale(1) translateX(0)' },
+                            { transform: 'translateX(-50%) scale(1) translateX(-6px)' },
+                            { transform: 'translateX(-50%) scale(1) translateX(6px)' },
+                            { transform: 'translateX(-50%) scale(1) translateX(0)' }
+                        ], { duration: 500, iterations: 1 });
+                    }
+                }
+
+                window.showAlert = showAlert;
+                window.showThreat = showThreat;
+
+                // Follow Detection
+                let followClicked = !!localStorage.getItem('itradex_follow_clicked');
+                if (elements.btnFollowRetweet) {
+                    elements.btnFollowRetweet.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        localStorage.setItem('itradex_follow_clicked', '1');
+                        followClicked = true;
+                        const url = elements.btnFollowRetweet.getAttribute('href') || 'https://x.com/itradexdotxyz';
+                        if (isMobileUA()) {
+                            window.location.href = url;
+                        } else {
+                            window.open(url, '_blank', 'noopener,noreferrer');
+                        }
+                    });
+                }
+
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'visible') {
+                        followClicked = !!localStorage.getItem('itradex_follow_clicked');
+                    }
+                });
+
+                // How-to-Quote (Enhanced for beginners)
+                if (elements.howToQuote) {
+                    elements.howToQuote.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        showAlert(
+                            `How to Quote a Post on X (formerly Twitter):\n\n1. Go to our pinned post on @itradexdotxyz.\n2. Tap the Repost icon (two arrows forming a square) below the post.\n3. Select "Quote" from the options (not just Repost).\n4. In the composer, add #iTradeXWaitlist to your caption or text.\n5. Tap "Post" to share it.\n6. Open your new quote post, tap the three dots (⋯), and select "Copy link" to get the URL.\n7. Paste that link here to verify.\n\nTip: Quoting creates a new post that embeds the original – that's why your username will show in the link!`,
+                            'success',
+                            10000
+                        );
+                    });
+                }
+
+                // Validation Helpers
+                function isValidRetweet(link) {
+                    if (!link || typeof link !== 'string') return false;
+                    return /^(https?:\/\/)?((www|mobile|m)\.)?(twitter|x)\.com\/[A-Za-z0-9_]+\/status\/\d+\/?(\S*)?$/i.test(link.trim());
+                }
+                function extractUsernameFromRetweet(link) {
+                    if (!link || typeof link !== 'string') return null;
+                    const m = link.match(/^(?:https?:\/\/)?(?:www\.|mobile\.|m\.)?(?:twitter|x)\.com\/([A-Za-z0-9_]+)\/status\/\d+/i);
+                    return m ? m[1] : null;
+                }
+
+                // Verify Handle UI
+                if (elements.verifyHandle && elements.btnVerifyActions && elements.retweetLink) {
+                    elements.verifyHandle.addEventListener('input', () => {
+                        const value = elements.verifyHandle.value.trim();
+                        elements.btnVerifyActions.classList.toggle('btn-primary', !!value);
+                        elements.btnVerifyActions.classList.toggle('btn-secondary', !value);
+                        if (value && !elements.retweetLink.value.trim()) {
+                            elements.retweetLink.classList.add('input-error');
+                            setTimeout(() => elements.retweetLink.classList.remove('input-error'), 600);
+                        }
+                    });
+                }
+
+                // Verify Actions
+                if (elements.btnVerifyActions) {
+                    elements.btnVerifyActions.addEventListener('click', async () => {
+                        const username = elements.verifyHandle?.value.trim().replace(/^@/, '') || '';
+                        const retweetLink = elements.retweetLink?.value.trim() || '';
+
+                        if (!username) return showAlert('Please enter your X username', 'error');
+                        if (!retweetLink || !isValidRetweet(retweetLink)) {
+                            elements.retweetLink?.classList.add('input-error');
+                            setTimeout(() => elements.retweetLink?.classList.remove('input-error'), 600);
+                            return showThreat('Please paste a valid quote tweet link.');
+                        }
+
+                        const retweetUsername = extractUsernameFromRetweet(retweetLink);
+                        if (!retweetUsername || retweetUsername.toLowerCase() !== username.toLowerCase()) {
+                            return showThreat('Make sure you actually quoted the tweet.');
+                        }
+
+                        if (!followClicked) {
+                            elements.btnFollowRetweet?.classList.add('input-error');
+                            setTimeout(() => elements.btnFollowRetweet?.classList.remove('input-error'), 500);
+                            return showThreat("We couldn't detect the follow action. Please tap Follow and return here.");
+                        }
+
+                        // Backend uniqueness check (uncommented and fixed path)
+                        try {
+                            const res = await fetch("/waitlist/check_username", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ username })
+                            });
+                            const data = await res.json();
+                            if (!data.available) return showThreat('This X username is already on the waitlist.');
+                        } catch (err) {
+                            console.error(err);
+                            return showAlert('Error checking username availability.', 'error');
+                        }
+
+                        // Progress Animation
+                        let totalSeconds = Math.floor(Math.random() * 3) + 4;
+                        let elapsed = 0;
+                        elements.btnVerifyActions.disabled = true;
+                        const interval = 100;
+                        const totalSteps = totalSeconds * 1000 / interval;
+
+                        const countdown = setInterval(() => {
+                            elapsed++;
+                            const percent = Math.min((elapsed / totalSteps) * 100, 100);
+                            elements.verifyProgress.style.width = percent + '%';
+                            elements.btnVerifyActions.innerHTML = `<i class="bi bi-hourglass-split me-2"></i>Verifying... ${Math.ceil((totalSteps - elapsed) / 10)}s`;
+
+                            if (elapsed >= totalSteps) {
+                                clearInterval(countdown);
+                                elements.verifyProgress.style.width = '0%';
+                                elements.btnVerifyActions.innerHTML = `<i class="bi bi-check-circle-fill me-2"></i>Verified!`;
+                                elements.btnVerifyActions.classList.add('btn-success');
+                                showAlert('Actions verified successfully! 🎉', 'success', 2000);
+                                localStorage.setItem('waitlistUsername', username);
+                                localStorage.setItem('waitlistRetweet', retweetLink);
+                                showStep(2);
+                            }
+                        }, interval);
+                    });
+                }
+
+                // Join Waitlist - UPDATED: Enhanced error handling for 409 and other status codes
+                if (elements.btnJoinWaitlist) {
+                    elements.btnJoinWaitlist.addEventListener('click', async () => {
+                        const email = elements.email?.value.trim() || '';
+                        const wallet = elements.wallet?.value.trim() || '';
+                        const username = localStorage.getItem('waitlistUsername');  // From Step 1
+                        const retweet = localStorage.getItem('waitlistRetweet');
+                        const referralCode = elements.referralCode?.value.trim() || '';
+
+                        // NEW: Guard against missing username (fixes 422)
+                        if (!username || username.trim() === '') {
+                            showThreat('Please complete Step 1: Verify your X actions first.');
+                            showStep(1);  // Redirect back to Step 1
+                            elements.verifyHandle?.focus();
+                            return;
+                        }
+
+                        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                            elements.email?.classList.add('input-error');
+                            setTimeout(() => elements.email?.classList.remove('input-error'), 600);
+                            return showAlert('Please enter a valid email address.', 'error');
+                        }
+
+                        if (referralCode) {
+                            try {
+                                const refRes = await fetch("/waitlist/check_referral", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ code: referralCode })
+                                });
+                                const refData = await refRes.json();
+                                if (!refData.valid) return showAlert('Invalid referral code. Please check and try again.', 'error');
+                            } catch (err) {
+                                console.error(err);
+                                return showAlert('Error validating referral code.', 'error');
+                            }
+                        }
+
+                        try {
+                            elements.btnJoinWaitlist.disabled = true;
+                            elements.btnJoinWaitlist.innerHTML = `<i class="bi bi-send me-2"></i>Securing...`;
+                            const res = await fetch("/waitlist/", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ username, retweet, email, wallet, referred_by: referralCode })
+                            });
+
+                            if (!res.ok) {
+                                let err;
+                                try {
+                                    err = await res.json();
+                                } catch {
+                                    err = { detail: await res.text() };
+                                }
+                                let msg;
+                                if (err && err.detail) {
+                                    if (Array.isArray(err.detail)) {
+                                        msg = err.detail.map(e => e.msg || String(e)).join(', ');
+                                    } else {
+                                        msg = err.detail;
+                                    }
+                                } else {
+                                    msg = 'An error occurred during signup.';
+                                }
+                                showThreat(msg);
+                                return;
+                            }
+
+                            const data = await res.json();
+                            if (data.success) {
+                                localStorage.setItem('referralCode', data.referral_code);
+                                localStorage.setItem('loginToken', data.login_token);
+                                elements.verifyEmailText.textContent = email;
+                                showStep(3);
+                                showAlert('Verification code sent! Check your inbox (and spam folder).', 'success', 4000);
+                                if (typeof startCooldown === 'function') startCooldown();
+                            } else {
+                                showAlert(data.error || 'Signup failed. Please try again.', 'error');
+                            }
+                        } catch (err) {
+                            console.error(err);
+                            showAlert('Submission error. Please try again.', 'error');
+                        } finally {
+                            elements.btnJoinWaitlist.disabled = false;
+                            elements.btnJoinWaitlist.innerHTML = `<i class="bi bi-arrow-right-circle me-2"></i>Secure My Spot`;
+                        }
+                    });
+                }
+
+                // Resend & Verify
+                let resendCooldown = 0;
+                let resendAttempts = 0;
+                const maxResends = 3;
+                let timerInterval;
+
+                function startCooldown() {
+                    if (resendAttempts === 1) resendCooldown = 30;
+                    else if (resendAttempts === 2) resendCooldown = 120;
+                    else if (resendAttempts === 3) resendCooldown = 300;
+                    else return;
+
+                    elements.btnResend?.classList.add('disabled', 'opacity-50');
+                    clearInterval(timerInterval);
+                    timerInterval = setInterval(() => {
+                        if (resendCooldown <= 0) {
+                            clearInterval(timerInterval);
+                            elements.resendTimer.textContent = '';
+                            elements.btnResend?.classList.remove('disabled', 'opacity-50');
+                        } else {
+                            elements.resendTimer.textContent = ` (resend in ${resendCooldown}s)`;
+                            resendCooldown--;
+                        }
+                    }, 1000);
+                }
+
+                if (elements.btnResend) {
+                    elements.btnResend.addEventListener('click', async (e) => {
+                        e.preventDefault();
+                        if (resendCooldown > 0 || elements.btnResend.classList.contains('disabled')) return;
+                        if (resendAttempts >= maxResends) return showAlert(`Maximum ${maxResends} resends reached. Contact support.`, 'error');
+
+                        const email = elements.verifyEmailText.textContent;
+                        try {
+                            elements.btnResend.innerHTML = `<i class="bi bi-arrow-clockwise me-1"></i>Resending...`;
+                            const res = await fetch('/waitlist/resend_code', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ email })
+                            });
+                            const data = await res.json();
+                            if (data.success) {
+                                resendAttempts++;
+                                showAlert(`New code sent! (Attempt ${resendAttempts}/${maxResends})`, 'success', 3000);
+                                startCooldown();
+                            } else {
+                                showAlert(data.error || 'Failed to resend. Try again later.', 'error');
+                            }
+                        } catch (err) {
+                            console.error(err);
+                            showAlert('Resend error. Please try again.', 'error');
+                        } finally {
+                            elements.btnResend.innerHTML = `Resend Code`;
+                        }
+                    });
+                }
+
+                if (elements.btnVerify) {
+                    elements.btnVerify.addEventListener('click', async () => {
+                        const code = elements.verificationCode?.value.trim() || '';
+                        const email = elements.verifyEmailText.textContent;
+                        if (!code || code.length < 6) {
+                            elements.verificationCode?.classList.add('input-error');
+                            setTimeout(() => elements.verificationCode?.classList.remove('input-error'), 600);
+                            return showAlert('Please enter the full verification code.', 'error');
+                        }
+
+                        try {
+                            elements.btnVerify.disabled = true;
+                            elements.btnVerify.innerHTML = `<i class="bi bi-lock-fill me-2"></i>Verifying...`;
+                            const res = await fetch('/waitlist/verify_code', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ email, code })
+                            });
+                            const data = await res.json();
+                            if (data.success) {
+                                showAlert('Welcome to the iTradeX waitlist! 🚀', 'success', 3000);
+                                // Redirect to success page (adjust params as needed from backend response)
+                                setTimeout(() => { 
+                                    const referralCode = localStorage.getItem('referralCode') || 'unknown';
+                                    const username = localStorage.getItem('waitlistUsername') || 'unknown';
+                                    const token = localStorage.getItem('loginToken') || 'unknown';
+                                    window.location.href = `/waitlist/success?code=${referralCode}&twitter=${username}&token=${token}`; 
+                                }, 2000);
+                            } else {
+                                showAlert(data.error || 'Invalid code. Please check and try again.', 'error');
+                                elements.verificationCode.value = '';
+                            }
+                        } catch (err) {
+                            console.error(err);
+                            showAlert('Verification failed. Please try again.', 'error');
+                        } finally {
+                            elements.btnVerify.disabled = false;
+                            elements.btnVerify.innerHTML = `<i class="bi bi-check-lg me-2"></i>Verify & Join`;
+                        }
+                    });
+                }
+
+                // Auto-focus on load
+                setTimeout(() => elements.retweetLink?.focus(), 500);
+            });
+        })();
+    </script>
+</body>
+</html>

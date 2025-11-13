@@ -1,0 +1,560 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>iTrade Journal - Smarter Trading Starts Here</title>
+
+  <!-- Fonts and Bootstrap -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
+
+  <style>
+    :root {
+      --brand-500:#2F6BFF;
+      --brand-600:#1F55E0;
+      --bg:#F8FAFC;
+      --surface:#fff;
+      --text:#0F172A;
+      --muted:#64748B;
+      --border:#E6EEF8;
+      --radius:16px;
+      --shadow:0 10px 30px rgba(15,23,42,0.08);
+      --accent:#06B6D4;
+      --success:#22C55E;
+      --warning:#FACC15;
+    }
+
+    body {font-family:Inter,system-ui,sans-serif; background:var(--bg); color:var(--text); margin:0;}
+
+    nav.navbar {padding:20px 0; background:transparent; border-bottom:0;}
+    .brand {font-weight:700; color:var(--brand-500); font-size:1.25rem; display:flex; align-items:center; gap:10px; text-decoration:none;}
+    .btn-primary {background:var(--brand-500); border:none; border-radius:10px; height:46px; font-weight:600; transition:.2s;}
+    .btn-primary:hover {background:var(--brand-600);}
+    .btn-outline {border:1px solid var(--border); background:var(--surface); border-radius:10px; height:46px; font-weight:600; transition:.2s;}
+
+    header.hero {padding:60px 20px; text-align:center;}
+    header.hero h1 {font-weight:700; font-size:2.2rem; margin-bottom:14px;}
+    header.hero p {color:var(--muted); max-width:520px; margin:0 auto 28px;}
+
+    main {display:flex; justify-content:center; padding:40px 20px;}
+    .card-wrap {display:grid; grid-template-columns:1fr 380px; gap:32px; align-items:flex-start; max-width:960px; width:100%;}
+
+    .fade-slide {
+      opacity:0;
+      transform:translateY(10px);
+      animation: fadeSlide 0.6s forwards;
+    }
+    .fade-slide:nth-child(1) {--delay:0s;}
+    .fade-slide:nth-child(2) {--delay:0.15s;}
+    .fade-slide:nth-child(3) {--delay:0.3s;}
+    .fade-slide {animation-delay:var(--delay,0s);}
+    @keyframes fadeSlide {to{opacity:1;transform:translateY(0);}}
+
+    .panel {
+      background:linear-gradient(180deg, rgba(47,107,255,0.08), transparent 45%);
+      border-radius:16px;
+      padding:32px;
+      border:1px solid var(--border);
+      box-shadow:var(--shadow);
+      transition:transform .25s ease, box-shadow .25s ease;
+    }
+    .panel:hover {
+      transform:translateY(-4px);
+      box-shadow:0 14px 38px rgba(0,0,0,0.1);
+    }
+
+    .card-radius {
+      background:var(--surface);
+      border-radius:var(--radius);
+      padding:28px;
+      border:1px solid var(--border);
+      box-shadow:var(--shadow);
+      transition:transform .2s ease, box-shadow .2s ease;
+    }
+    .card-radius:hover {
+      transform:translateY(-4px);
+      box-shadow:0 12px 32px rgba(0,0,0,0.08);
+    }
+
+    .auth-card {display:flex; flex-direction:column; gap:16px;}
+    .tabs {display:flex; gap:10px; justify-content:center; margin-bottom:12px;}
+    .tabs .btn {border-radius:12px; padding:.5rem 1rem; font-weight:600; font-size:.95rem; transition:.2s;}
+    .tabs .btn.active {background:rgba(47,107,255,0.12); color:var(--brand-500); border:1px solid rgba(47,107,255,0.15);}
+    .form-control {border-radius:10px; height:46px; border:1px solid var(--border); padding:.625rem .75rem;}
+    .form-control:focus {border-color:var(--brand-500); box-shadow:0 0 0 2px rgba(47,107,255,0.18);}
+
+    .features {display:flex; flex-direction:column; gap:16px;}
+    .feature {display:flex; gap:14px; align-items:flex-start; opacity:0; transform:translateY(12px); animation:slideUp .6s forwards;}
+    .feature:nth-child(1){animation-delay:.1s}
+    .feature:nth-child(2){animation-delay:.25s}
+    .feature:nth-child(3){animation-delay:.4s}
+    .feature .dot {width:14px; height:14px; border-radius:4px; background:var(--brand-500); margin-top:6px; flex-shrink:0;}
+    .feature .title {font-weight:600; font-size:.98rem;}
+    .feature .desc {color:var(--muted); font-size:.925rem;}
+    @keyframes slideUp{to{opacity:1; transform:translateY(0);}}
+
+    .google-btn {
+      display:flex; align-items:center; justify-content:center; gap:10px;
+      height:46px; border-radius:10px; border:1px solid var(--border);
+      background:var(--surface); cursor:pointer; transition:.2s; font-weight:500;
+    }
+    .google-btn img {height:18px;}
+    .google-btn:hover {transform:translateY(-2px); box-shadow:0 6px 20px rgba(47,107,255,0.2);}
+
+    .small-muted { color: var(--muted); font-size: 0.875rem; }
+
+    .welcome-card {
+      background:var(--surface);
+      border-radius:var(--radius);
+      padding:32px;
+      border:1px solid var(--border);
+      box-shadow:var(--shadow);
+      text-align:center;
+    }
+
+    @media(max-width:900px){.card-wrap{grid-template-columns:1fr;}}
+  </style>
+</head>
+<body>
+  <div class="page-container">
+
+<nav class="navbar container fade-slide">
+  <a class="brand" href="/"><i class="bi bi-graph-up-arrow fs-3"></i> iTrade</a>
+  <div style="margin-left:auto; display:flex; gap:12px; align-items:center;">
+    <a href="/plans.html" class="btn btn-outline">Plans</a>
+  </div>
+</nav>
+
+<main class="container">
+  <div class="card-wrap">
+
+    <div>
+      <header class="hero fade-slide">
+        <h1>Your trades. Your edge.</h1>
+        <p>Journal smarter, track performance, and let AI spot what you miss. Built for traders who want more than noise.</p>
+      </header>
+
+      <section class="features">
+        <div class="feature">
+          <div class="dot"></div>
+          <div>
+            <div class="title">Track trades</div>
+            <div class="desc">Clean journaling with zero clutter. See every entry, exit, and outcome clearly.</div>
+          </div>
+        </div>
+        <div class="feature">
+          <div class="dot"></div>
+          <div>
+            <div class="title">AI insights</div>
+            <div class="desc">Machine analysis that tells you where you win, where you bleed, and what to fix.</div>
+          </div>
+        </div>
+        <div class="feature">
+          <div class="dot"></div>
+          <div>
+            <div class="title">Referral rewards</div>
+            <div class="desc">Invite friends, earn free AI analyses, and move up the waitlist.</div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    {% if is_logged_in %}
+      {% if needs_onboarding %}
+        <!-- Onboarding Wizard -->
+        <div class="fade-slide">
+          <div class="onboarding-modal" id="onboardingModal">
+            <div class="onboarding-content">
+              <div class="trading-bg" style="background-image: url('data:image/svg+xml;base64,...'); background-size: cover;"></div>
+              <div class="onboarding-header">
+                <h2>Quick Setup</h2>
+                <p>Tune your AI co-pilot. This takes 2 minutes.</p>
+                <div class="progress-bar">
+                  <div class="progress-fill" id="progressFill" style="width: 33%;"></div>
+                </div>
+              </div>
+
+              <!-- Step 1: Psychology Zone -->
+              <div class="step-content active" data-step="1">
+                <h3 class="fw-bold mb-3">What's your trading style?</h3>
+                <p class="text-muted mb-4">Select your psychology zone to help AI flag emotional biases.</p>
+                <div class="psychology-card">
+                  <div class="psych-zone-option" data-zone="aggressive">
+                    <i class="bi bi-lightning-charge text-warning"></i>
+                    <div class="title">Aggressive Hunter</div>
+                    <div class="desc">High-volume Twin, tolerates volatility</div>
+                  </div>
+                  <div class="psych-zone-option" data-zone="cautious">
+                    <i class="bi bi-shield-check text-success"></i>
+                    <div class="title">Cautious Scalper</div>
+                    <div class="desc">Tight entries, low risk per trade</div>
+                  </div>
+                </div>
+                <div class="psychology-card">
+                  <div class="psych-zone-option" data-zone="trend">
+                    <i class="bi bi-graph-up text-info"></i>
+                    <div class="title">Trend Follower</div>
+                    <div class="desc">Ride the waves, hold through pullbacks</div>
+                  </div>
+                  <div class="psych-zone-option" data-zone="reversal">
+                    <i class="bi bi-arrow-counterclockwise text-danger"></i>
+                    <div class="title">Reversal Spotter</div>
+                    <div class="desc">Catch turns, quick profits on fades</div>
+                  </div>
+                </div>
+                <textarea class="form-control" placeholder="Optional notes (e.g., 'I get FOMO in London session')" rows="2"></textarea>
+                <div class="onboarding-actions">
+                  <button class="btn btn-secondary-sm" onclick="nextStep(2)">Skip</button>
+                  <button class="btn btn-primary" onclick="nextStep(2)" disabled id="nextBtn1">Next</button>
+                </div>
+              </div>
+
+              <!-- Step 2: Strategy -->
+              <div class="step-content" data-step="2">
+                <h3 class="fw-bold mb-3">Your go-to strategy</h3>
+                <p class="text-muted mb-4">We'll refine based on your trades—AI can auto-detect too.</p>
+                <div class="strategy-inputs">
+                  <div class="strategy-dropdown">
+                    <input type="text" class="form-control" id="strategyInput" placeholder="Select or describe (e.g., Scalping, EMA Crossover)" readonly>
+                    <div class="strategy-options" id="strategyOptions">
+                      <div class="strategy-option" data-strat="scalping">Scalping</div>
+                      <div class="strategy-option" data-strat="swing">Swing Trading</div>
+                      <div class="strategy-option" data-strat="breakout">Breakout</div>
+                      <div class="strategy-option" data-strat="rsi">RSI Divergence</div>
+                      <div class="strategy-option" data-strat="custom">Custom...</div>
+                    </div>
+                  </div>
+                  <input type="text" class="form-control" id="strategyParams" placeholder="Key parameters (e.g., timeframes: 5m/1h)">
+                  <label class="form-check-label small-muted">
+                    <input type="checkbox" class="form-check-input" checked> Enable AI auto-detection from screenshots
+                  </label>
+                </div>
+                <div class="onboarding-actions">
+                  <button class="btn btn-secondary-sm" onclick="prevStep(1)">Back</button>
+                  <button class="btn btn-primary" onclick="nextStep(3)" disabled id="nextBtn2">Next</button>
+                </div>
+              </div>
+
+              <!-- Step 3: Risk Management -->
+              <div class="step-content" data-step="3">
+                <h3 class="fw-bold mb-3">Risk rules</h3>
+                <p class="text-muted mb-4">Set your guardrails. Preview applies to a $10k account.</p>
+                <div class="risk-sliders">
+                  <div class="risk-item">
+                    <label>Max risk per trade</label>
+                    <div class="slider-container">
+                      <input type="range" class="form-range" id="riskPerTrade" min="0.5" max="5" value="1" step="0.5">
+                      <span class="slider-value" id="riskPerTradeVal">1%</span>
+                    </div>
+                  </div>
+                  <div class="risk-item">
+                    <label>Daily loss limit</label>
+                    <div class="slider-container">
+                      <input type="range" class="form-range" id="dailyLoss" min="2" max="10" value="5" step="1">
+                      <span class="slider-value" id="dailyLossVal">5%</span>
+                    </div>
+                  </div>
+                  <div class="risk-item">
+                    <label>Position sizing method</label>
+                    <select class="form-select">
+                      <option>Kelly Criterion</option>
+                      <option>Fixed %</option>
+                      <option>ATR-based</option>
+                    </select>
+                  </div>
+                  <div class="checkbox-group">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" id="stopLoss" checked>
+                      <label class="form-check-label" for="stopLoss">Always use stop-loss</label>
+                    </div>
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" id="noRevenge">
+                      <label class="form-check-label" for="noRevenge">No revenge trading after losses</label>
+                    </div>
+                  </div>
+                </div>
+                <div class="table-responsive mt-3">
+                  <table class="table table-sm small">
+                    <thead><tr><th>Rule</th><th>Application ($10k)</th></tr></thead>
+                    <tbody>
+                      <tr><td>Per trade risk</td><td id="previewRisk">$100</td></tr>
+                      <tr><td>Daily limit</td><td id="previewDaily">$500</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="onboarding-actions">
+                  <button class="btn btn-secondary-sm" onclick="prevStep(2)">Back</button>
+                  <button class="btn btn-primary" onclick="completeOnboarding()">Complete Setup</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <script>
+          // Onboarding JS
+          let currentStep = 1;
+          const totalSteps = 3;
+
+          function updateProgress() {
+            const progress = (currentStep / totalSteps) * 100;
+            document.getElementById('progressFill').style.width = progress + '%';
+          }
+
+          function nextStep(step) {
+            document.querySelectorAll('.step-content').forEach(s => s.classList.remove('active'));
+            document.querySelector(`[data-step="${step}"]`).classList.add('active');
+            currentStep = step;
+            updateProgress();
+            if (step === 2) checkStrategySelected();
+          }
+
+          function prevStep(step) {
+            nextStep(step);
+          }
+
+          function completeOnboarding() {
+            const psychZone = document.querySelector('.psych-zone-option.selected')?.dataset.zone || '';
+            const strategy = document.getElementById('strategyInput').value;
+            const riskPerTrade = document.getElementById('riskPerTrade').value;
+            fetch('/profile/onboard', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ psychZone, strategy, riskPerTrade })
+            }).then(res => res.json()).then(data => {
+              if (data.success) {
+                window.location.href = '/dashboard';
+              }
+            });
+          }
+
+          document.querySelectorAll('.psych-zone-option').forEach(opt => {
+            opt.addEventListener('click', () => {
+              document.querySelectorAll('.psych-zone-option').forEach(o => o.classList.remove('selected'));
+              opt.classList.add('selected');
+              document.getElementById('nextBtn1').disabled = false;
+            });
+          });
+
+          const strategyInput = document.getElementById('strategyInput');
+          const strategyOptions = document.getElementById('strategyOptions');
+          strategyInput.addEventListener('click', () => strategyOptions.style.display = 'block');
+          document.querySelectorAll('.strategy-option').forEach(opt => {
+            opt.addEventListener('click', () => {
+              strategyInput.value = opt.dataset.strat;
+              strategyInput.removeAttribute('readonly');
+              strategyOptions.style.display = 'none';
+              document.getElementById('nextBtn2').disabled = false;
+            });
+          });
+          document.addEventListener('click', (e) => {
+            if (!strategyInput.contains(e.target) && !strategyOptions.contains(e.target)) {
+              strategyOptions.style.display = 'none';
+            }
+          });
+
+          function checkStrategySelected() {
+            document.getElementById('nextBtn2').disabled = !strategyInput.value;
+          }
+
+          ['riskPerTrade', 'dailyLoss'].forEach(id => {
+            const slider = document.getElementById(id);
+            const valSpan = document.getElementById(id + 'Val');
+            const previewId = id === 'riskPerTrade' ? 'previewRisk' : 'previewDaily';
+            slider.addEventListener('input', () => {
+              valSpan.textContent = slider.value + '%';
+              const preview = (10000 * (slider.value / 100)).toFixed(0);
+              document.getElementById(previewId).textContent = '$' + preview;
+            });
+          });
+
+          updateProgress();
+        </script>
+      {% else %}
+        <div class="fade-slide">
+          <div class="welcome-card">
+            <h2 class="fw-bold mb-3">Welcome back, {{ current_user.full_name }}!</h2>
+            <p class="text-muted mb-4">Your account is ready. Start journaling your trades and unlock AI-powered insights.</p>
+            <a href="/dashboard" class="btn btn-primary">Go to Dashboard</a>
+            {% if success %}
+              <div class="alert alert-success mt-3">Account created successfully!</div>
+            {% endif %}
+            {% if login_success %}
+              <div class="alert alert-success mt-3">Logged in successfully!</div>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+    {% else %}
+      <div class="fade-slide">
+        <div class="panel">
+          <h2 class="fw-bold mb-3">Get started</h2>
+
+          {% if success %}
+            <div class="alert alert-success mb-3">Account created successfully! Please log in to continue.</div>
+          {% endif %}
+          {% if login_success %}
+            <div class="alert alert-success mb-3">Logged in successfully!</div>
+          {% endif %}
+
+          <div class="card-radius mb-3">
+            <div class="small-muted mb-1">
+              Referral rewards
+            </div>
+            <div style="font-weight:700; font-size:16px">
+              Invite friends, earn limited access to premium features
+            </div>
+            <div class="small-muted mt-1">
+              Each successful referral grants both you and your friend 1 free AI analysis.
+            </div>
+          </div>
+
+          <div class="auth-card">
+            <div class="tabs">
+              <button id="tabSignup" class="btn {% if tab != 'login' %}active{% endif %}" type="button">Create account</button>
+              <button id="tabLogin" class="btn {% if tab == 'login' %}active{% endif %}" type="button">Log in</button>
+            </div>
+
+            <div id="forms">
+              <form id="signupForm" autocomplete="off" action="/users/signup" method="post" class="{% if tab == 'login' %}d-none{% endif %}">
+                <input name="full_name" class="form-control mb-2" placeholder="Name" required />
+                <input name="email" type="email" class="form-control mb-2" placeholder="Email" required />
+                <input name="username" type="text" class="form-control mb-2" placeholder="Username" required />
+                <input name="password" type="password" class="form-control mb-2" placeholder="Password" required minlength="8" />
+                <input name="password_confirm" type="password" class="form-control mb-2" placeholder="Confirm Password" required minlength="8" />
+                
+                {% if ref_code %}
+                  <div class="mb-2">
+                    <label class="form-label small-muted">
+                      Referral code
+                      (from invite)
+                    </label>
+                    <input name="referral_code" type="text" class="form-control" value="{{ ref_code }}" readonly />
+                    <div class="small-muted mt-1">This code was auto-filled from your link.</div>
+                  </div>
+                {% else %}
+                  <input 
+                    name="referral_code" 
+                    type="text" 
+                    class="form-control mb-2" 
+                    placeholder="Referral code (optional)"
+                  />
+                {% endif %}
+                
+                <button type="submit" id="btnCreate" class="btn btn-primary w-100 mb-2">Create account</button>
+                <div class="google-btn" id="btnGoogleSignup" role="button">
+                  <img src="https://www.svgrepo.com/show/355037/google.svg" alt="Google"> Sign up with Google
+                </div>
+                <div style="text-align:center; margin-top:16px;">
+                  <a href="/plans.html" class="small-muted" style="text-decoration:underline;">See Plans & Pricing</a>
+                </div>
+              </form>
+
+              <form id="loginForm" class="{% if tab != 'login' %}d-none{% endif %}" autocomplete="off" action="/users/login" method="post">
+                <input name="username" type="text" class="form-control mb-2" placeholder="Username" required />
+                <input name="password" type="password" class="form-control mb-2" placeholder="Password" required />
+                <div class="form-check mb-2">
+                  <input class="form-check-input" name="remember_me" type="checkbox" value="true" id="rememberMe">
+                  <label class="form-check-label" for="rememberMe">Remember me</label>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 mb-2">Log in</button>
+                <div class="google-btn" id="btnGoogleLogin" role="button">
+                  <img src="https://www.svgrepo.com/show/355037/google.svg" alt="Google"> Log in with Google
+                </div>
+                <div style="text-align:center; margin-top:16px;">
+                  <a href="/plans.html" class="small-muted" style="text-decoration:underline;">See Plans & Pricing</a>
+                </div>
+              </form>
+            </div>
+
+            {% if error %}
+              <div class="alert alert-danger mt-3">{{ error }}</div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+  </div>
+</main>
+
+<footer class="fade-slide"><div class="container small-muted">© iTrade Journal</div></footer>  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // Tab switching
+    const tabSignup = document.getElementById('tabSignup');
+    const tabLogin = document.getElementById('tabLogin');
+    const signupForm = document.getElementById('signupForm');
+    const loginForm = document.getElementById('loginForm');
+
+    if (tabSignup && tabLogin && signupForm && loginForm) {
+      tabSignup.addEventListener('click', () => {
+        tabSignup.classList.add('active');
+        tabLogin.classList.remove('active');
+        signupForm.classList.remove('d-none');
+        loginForm.classList.add('d-none');
+      });
+
+      tabLogin.addEventListener('click', () => {
+        tabLogin.classList.add('active');
+        tabSignup.classList.remove('active');
+        loginForm.classList.remove('d-none');
+        signupForm.classList.add('d-none');
+      });
+    }
+
+    // Google Sign Up → Prompt (beta or direct)
+    const btnGoogleSignup = document.getElementById('btnGoogleSignup');
+    if (btnGoogleSignup) {
+      btnGoogleSignup.addEventListener('click', () => {
+        window.location.href = '/users/google/prompt';
+      });
+    }
+
+    // Google Login → Direct
+    const btnGoogleLogin = document.getElementById('btnGoogleLogin');
+    if (btnGoogleLogin) {
+      btnGoogleLogin.addEventListener('click', () => {
+        window.location.href = '/users/google/login';
+      });
+    }
+
+    // Password match validation
+    if (signupForm) {
+      const passwordInput = signupForm.querySelector('input[name="password"]');
+      const confirmInput = signupForm.querySelector('input[name="password_confirm"]');
+      const submitBtn = signupForm.querySelector('button[type="submit"]');
+      let passwordErrorDiv = null;
+
+      function validatePasswords() {
+        const password = passwordInput.value;
+        const confirm = confirmInput.value;
+
+        if (confirm && password !== confirm) {
+          if (!passwordErrorDiv) {
+            passwordErrorDiv = document.createElement('div');
+            passwordErrorDiv.className = 'alert alert-danger small mt-2';
+            passwordErrorDiv.textContent = 'Passwords do not match.';
+            confirmInput.parentNode.appendChild(passwordErrorDiv);
+          }
+          submitBtn.disabled = true;
+        } else {
+          if (passwordErrorDiv) {
+            passwordErrorDiv.remove();
+            passwordErrorDiv = null;
+          }
+          if (password && confirm && password.length >= 8 && confirm.length >= 8) {
+            submitBtn.disabled = false;
+          }
+        }
+      }
+
+      passwordInput.addEventListener('input', validatePasswords);
+      confirmInput.addEventListener('input', validatePasswords);
+    }
+  </script>
+</body>
+</html>
+

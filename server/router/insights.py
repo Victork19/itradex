@@ -1,3 +1,4 @@
+# Updated insights.py (or your main file) - key changes: import the spend function and remove the inline definition
 import io
 import json
 import logging
@@ -6,6 +7,7 @@ from typing import Dict, Any, List, Optional, Tuple
 from collections import defaultdict
 
 import asyncio
+import hashlib  # NEW: For cache key hashing with prompt
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
@@ -14,11 +16,21 @@ from sqlalchemy import select, desc, func, update, case
 from sqlalchemy.exc import SQLAlchemyError
 from pydantic import BaseModel
 
+# NEW: Import Redis
+from redis.asyncio import Redis
+from redis_client import redis_dependency, get_cache, set_cache
+
 # Local imports (adjust as needed)
 import models.models as models
 import auth
 from database import get_session
-from config import settings
+
+
+# NEW: Import the spend function from app_utils
+from app_utils.points import spend_trade_points
+from config import get_settings
+
+settings = get_settings()
 
 # Templates setup
 templates = Jinja2Templates(directory="templates")  # Assume templates dir
@@ -99,8 +111,15 @@ def normalize_plan(plan: str) -> str:
         return plan.split('_')[0]
     return plan
 
-async def get_insights_limit(db: AsyncSession, plan: str) -> Dict[str, Any]:
+async def get_insights_limit(db: AsyncSession, plan: str, redis: Optional[Redis] = None) -> Dict[str, Any]:
     """Get monthly insights limit and TP cost for the plan, initializing defaults if needed."""
+    # NEW: Cache per plan (TTL 1 hour, as config rare changes)
+    cache_key = f"insights_limit:{plan}"
+    if redis:
+        cached_data = await get_cache(redis, cache_key)
+        if cached_data:
+            return json.loads(cached_data)
+
     try:
         result = await db.execute(
             select(models.InsightsLimits.monthly_limit, models.InsightsLimits.tp_cost_insight)
@@ -108,26 +127,46 @@ async def get_insights_limit(db: AsyncSession, plan: str) -> Dict[str, Any]:
         )
         row = result.fetchone()
         if row:
-            return {
+            limit_dict = {
                 "monthly_limit": row[0] or 3,
                 "tp_cost": row[1] or 1  # FIXED: Default to 1 for insights (costs TP for starter)
             }
+        else:
+            # FIXED: Hardcoded fallback updated to match DB defaults (starter: monthly=3, tp_insight=1 to enable expenditure)
+            if plan == 'starter':
+                limit_dict = {"monthly_limit": 3, "tp_cost": 1}  # FIXED: Set to 1 (insights cost TP)
+            elif plan == 'pro':
+                limit_dict = {"monthly_limit": 1000, "tp_cost": 0}  # Unlimited, no TP cost
+            elif plan == 'elite':
+                limit_dict = {"monthly_limit": 1000, "tp_cost": 0}
+            else:
+                limit_dict = {"monthly_limit": 3, "tp_cost": 1}  # FIXED: Default to 1
     except Exception as e:
         logger.warning("Failed to fetch insights limits from DB: %s; using hardcoded", e)
-    
-    # FIXED: Hardcoded fallback updated to match DB defaults (starter: monthly=3, tp_insight=1 to enable expenditure)
-    if plan == 'starter':
-        return {"monthly_limit": 3, "tp_cost": 1}  # FIXED: Set to 1 (insights cost TP)
-    elif plan == 'pro':
-        return {"monthly_limit": 1000, "tp_cost": 0}  # Unlimited, no TP cost
-    elif plan == 'elite':
-        return {"monthly_limit": 1000, "tp_cost": 0}
-    else:
-        return {"monthly_limit": 3, "tp_cost": 1}  # FIXED: Default to 1
+        if plan == 'starter':
+            limit_dict = {"monthly_limit": 3, "tp_cost": 1}  # FIXED: Set to 1 (insights cost TP)
+        elif plan == 'pro':
+            limit_dict = {"monthly_limit": 1000, "tp_cost": 0}  # Unlimited, no TP cost
+        elif plan == 'elite':
+            limit_dict = {"monthly_limit": 1000, "tp_cost": 0}
+        else:
+            limit_dict = {"monthly_limit": 3, "tp_cost": 1}  # FIXED: Default to 1
 
-async def get_monthly_generations_used(db: AsyncSession, user_id: int) -> int:
+    if redis:
+        await set_cache(redis, cache_key, json.dumps(limit_dict), ttl=3600)  # 1 hour
+
+    return limit_dict
+
+async def get_monthly_generations_used(db: AsyncSession, user_id: int, redis: Optional[Redis] = None) -> int:
     """Count insights generations for the user this month."""
     now = datetime.utcnow()
+    month_key = now.strftime('%Y-%m')
+    cache_key = f"monthly_used:{user_id}:{month_key}"
+    if redis:
+        cached_data = await get_cache(redis, cache_key)
+        if cached_data:
+            return int(cached_data)
+
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     try:
         stmt = select(func.count()).select_from(models.TradeInsight).where(
@@ -135,44 +174,27 @@ async def get_monthly_generations_used(db: AsyncSession, user_id: int) -> int:
             models.TradeInsight.created_at >= month_start
         )
         result = await db.execute(stmt)
-        return result.scalar() or 0
+        used = result.scalar() or 0
     except Exception as e:
         logger.error("Failed to count monthly generations: %s", e)
-        return 0
+        used = 0
 
-async def spend_trade_points(db: AsyncSession, user: models.User, action: str, amount: int = 1) -> None:
-    """Deduct Trade Points for an action (e.g., 'insight')."""
-    current_points = user.trade_points or 0  # Coerce None to 0 for check
-    if current_points < amount:
-        raise HTTPException(status_code=402, detail=f"Insufficient Trade Points ({current_points} remaining). Refer friends to earn more!")
-    
-    # FIXED: Direct SQL UPDATE for reliability (bypasses object state issues); handle None as 0
-    stmt = (
-        update(models.User)
-        .where(models.User.id == user.id)
-        .values(trade_points=case((models.User.trade_points.is_(None), 0 - amount), else_=models.User.trade_points - amount))
-        .execution_options(synchronize_session="fetch")
-    )
-    await db.execute(stmt)
-    
-    # Log transaction
-    tx = models.PointTransaction(
-        user_id=user.id,
-        type=action,
-        amount=-amount,
-        description=f"Spent {amount} TP on {action}"
-    )
-    db.add(tx)
-    await db.flush()  # Flush tx before commit for atomicity
-    await db.commit()
-    
-    # FIXED: Refresh user object post-update for in-request consistency
-    await db.refresh(user)
-    
-    logger.info(f"Spent {amount} TP for user {user.id} on {action}; new balance: {user.trade_points}")
+    if redis:
+        await set_cache(redis, cache_key, str(used), ttl=60)  # 1 min, as may increment often
 
-async def get_stored_insights(user_id: int, db: AsyncSession, total_trades: Optional[int] = None) -> Tuple[Optional[Dict[str, Any]], Optional[int]]:
+    return used
+
+# REMOVED: spend_trade_points function (now imported from app_utils.points)
+
+async def get_stored_insights(user_id: int, db: AsyncSession, total_trades: Optional[int] = None, redis: Optional[Redis] = None) -> Tuple[Optional[Dict[str, Any]], Optional[int]]:
     """Get latest stored insights for user (optionally filtered by total_trades). Returns (insights_dict, trades_count_at_save)."""
+    cache_key = f"stored_insights:{user_id}:{total_trades or 'latest'}"
+    if redis:
+        cached_data = await get_cache(redis, cache_key)
+        if cached_data:
+            data = json.loads(cached_data)
+            return data[0], data[1]
+
     if total_trades is not None and total_trades == 0:
         return None, None
     try:
@@ -183,22 +205,35 @@ async def get_stored_insights(user_id: int, db: AsyncSession, total_trades: Opti
         result = await db.execute(stmt)
         insight = result.scalar_one_or_none()
         if insight:
-            return json.loads(insight.insights_json), insight.total_trades
+            insights_dict = json.loads(insight.insights_json)
+            trades_count_at_save = insight.total_trades
+            if redis:
+                await set_cache(redis, cache_key, json.dumps([insights_dict, trades_count_at_save]), ttl=300)  # 5 min
+            return insights_dict, trades_count_at_save
     except Exception as e:
         logger.error("Stored insights fetch failed: %s", e)
     return None, None
 
-async def has_any_insights(user_id: int, db: AsyncSession) -> bool:
+async def has_any_insights(user_id: int, db: AsyncSession, redis: Optional[Redis] = None) -> bool:
     """Check if user has any stored insights."""
+    cache_key = f"has_insights:{user_id}"
+    if redis:
+        cached_data = await get_cache(redis, cache_key)
+        if cached_data:
+            return bool(int(cached_data))
+
     try:
         stmt = select(func.count()).select_from(models.TradeInsight).where(models.TradeInsight.user_id == user_id)
         result = await db.execute(stmt)
-        return result.scalar() > 0
+        has = result.scalar() > 0
+        if redis:
+            await set_cache(redis, cache_key, str(int(has)), ttl=300)  # 5 min
+        return has
     except Exception as e:
         logger.error("Failed to check for any insights: %s", e)
         return False
 
-async def save_insights_to_db(user_id: int, db: AsyncSession, total_trades: int, ai_part: Dict[str, Any]):
+async def save_insights_to_db(user_id: int, db: AsyncSession, total_trades: int, ai_part: Dict[str, Any], redis: Optional[Redis] = None):
     try:
         new_insight = models.TradeInsight(
             user_id=user_id,
@@ -209,6 +244,19 @@ async def save_insights_to_db(user_id: int, db: AsyncSession, total_trades: int,
         await db.commit()
         await db.refresh(new_insight)
         logger.info("Saved insights to DB for user %d, total_trades=%d", user_id, total_trades)
+
+        # NEW: Invalidate stored insights caches and monthly used
+        if redis:
+            # Pattern delete for stored_insights:{user_id}:*
+            keys = await redis.keys(f"stored_insights:{user_id}:*")
+            if keys:
+                await redis.delete(*keys)
+            # Invalidate has_any
+            await redis.delete(f"has_insights:{user_id}")
+            # Invalidate monthly used (as incremented)
+            now = datetime.utcnow()
+            month_key = now.strftime('%Y-%m')
+            await redis.delete(f"monthly_used:{user_id}:{month_key}")
     except Exception as e:
         logger.error("Failed to save insights to DB: %s", e)
         await db.rollback()
@@ -256,8 +304,9 @@ def get_trade_datetime(trade) -> Optional[datetime]:
     logger.warning(f"No valid date for trade {getattr(trade, 'id', 'unknown')}")
     return None
 
-async def fetch_user_trades(db: AsyncSession, user: models.User, limit: int = MAX_TRADES_FOR_ANALYSIS) -> List[models.Trade]:
+async def fetch_user_trades(db: AsyncSession, user: models.User, limit: int = MAX_TRADES_FOR_ANALYSIS, redis: Optional[Redis] = None) -> List[models.Trade]:
     """Flexible fetch with owner/user_id support, ordered by date desc."""
+    # NEW: No caching for trades list (objects hard to serialize/deserialize; query fast with limit)
     owner_field = None
     stmt = None
     if hasattr(models.Trade, "owner_id"):
@@ -286,8 +335,14 @@ async def fetch_user_trades(db: AsyncSession, user: models.User, limit: int = MA
         logger.error("Trade fetch failed: %s", e)
         raise HTTPException(status_code=500, detail="Failed to fetch trades")
 
-async def get_total_trades_count(db: AsyncSession, user: models.User) -> int:
+async def get_total_trades_count(db: AsyncSession, user: models.User, redis: Optional[Redis] = None) -> int:
     """Get exact total trades count (no limit)."""
+    cache_key = f"trades_count:{user.id}"
+    if redis:
+        cached_data = await get_cache(redis, cache_key)
+        if cached_data:
+            return int(cached_data)
+
     owner_field = None
     stmt = None
     if hasattr(models.Trade, "owner_id"):
@@ -305,7 +360,10 @@ async def get_total_trades_count(db: AsyncSession, user: models.User) -> int:
 
     try:
         result = await db.execute(stmt)
-        return result.scalar() or 0
+        count = result.scalar() or 0
+        if redis:
+            await set_cache(redis, cache_key, str(count), ttl=60)  # 1 min, as trades may add
+        return count
     except SQLAlchemyError as e:
         logger.error("Total trades count failed: %s", e)
         return 0
@@ -394,29 +452,44 @@ async def get_insights_page(
     request: Request,
     db: AsyncSession = Depends(get_session),
     current_user: models.User = Depends(auth.get_current_user),
+    redis: Redis = Depends(redis_dependency)  # NEW: Add Redis dependency
 ):
     now = datetime.utcnow()
     
     try:
-        insights_dict = await compute_insights(current_user, db)
+        insights_dict = await compute_insights(current_user, db, redis=redis)
     except Exception as e:
         logger.error(f"Error computing insights: {e}")
         # Fallback: compute remaining as 0
         plan = normalize_plan(getattr(current_user, 'plan', 'starter'))
-        limit_dict = await get_insights_limit(db, plan)
+        limit_dict = await get_insights_limit(db, plan, redis=redis)
         limit = limit_dict["monthly_limit"]
-        used = await get_monthly_generations_used(db, current_user.id)
+        used = await get_monthly_generations_used(db, current_user.id, redis=redis)
         remaining = -1 if limit >= 999 else max(0, limit - used)
         insights_dict = {"total_trades": 0, "ai_insights": {}, "insights_based_on": None, "credits": remaining}
     return templates.TemplateResponse("insights.html", {"request": request, "insights": insights_dict, "current_user": current_user, "now": now})
 
-async def compute_insights(current_user: models.User, db: AsyncSession, prompt: Optional[str] = None, force: bool = False) -> Dict[str, Any]:
+async def compute_insights(current_user: models.User, db: AsyncSession, prompt: Optional[str] = None, force: bool = False, redis: Optional[Redis] = None) -> Dict[str, Any]:
+    # NEW: Cache the full insights response (standard or prompt-specific)
+    def get_insights_cache_key(user_id: int, prompt: Optional[str]):
+        if prompt:
+            prompt_hash = hashlib.md5(prompt.encode()).hexdigest()[:8]
+            return f"insights:{user_id}:prompt_{prompt_hash}"
+        return f"insights:{user_id}"
+
+    cache_key = get_insights_cache_key(current_user.id, prompt)
+    if redis and not force:
+        cached_data = await get_cache(redis, cache_key)
+        if cached_data:
+            logger.info(f"Using cached insights for user {current_user.id}, key={cache_key}")
+            return json.loads(cached_data)
+
     plan = normalize_plan(getattr(current_user, 'plan', 'starter'))
     # Always fetch limit from DB
-    limit_dict = await get_insights_limit(db, plan)
+    limit_dict = await get_insights_limit(db, plan, redis=redis)
     limit = limit_dict["monthly_limit"]
     tp_cost = limit_dict["tp_cost"]
-    used = await get_monthly_generations_used(db, current_user.id)
+    used = await get_monthly_generations_used(db, current_user.id, redis=redis)
     if limit >= 999:
         remaining_generations = -1
         has_generation_right = True
@@ -424,16 +497,18 @@ async def compute_insights(current_user: models.User, db: AsyncSession, prompt: 
         remaining_generations = max(0, limit - used)
         has_generation_right = remaining_generations > 0
 
-    total_trades = await get_total_trades_count(db, current_user)  # Exact count, no limit
+    total_trades = await get_total_trades_count(db, current_user, redis=redis)  # Exact count, no limit
     if total_trades == 0:
         empty_data = {"total_trades": 0, "ai_insights": {}, "insights_based_on": None, "credits": current_user.trade_points}
+        if redis:
+            await set_cache(redis, cache_key, json.dumps(empty_data), ttl=300)  # Cache empty
         return empty_data
 
     # FIXED: Always compute basic metrics (equity curve, sessions, etc.) - cheap, no AI
     # Use initial_deposit from user model as starting balance
     initial_deposit = getattr(current_user, 'initial_deposit', 10000.0)
 
-    trades = await fetch_user_trades(db, current_user)  # Limited for analysis
+    trades = await fetch_user_trades(db, current_user, redis=redis)  # Limited for analysis
     analysis_trades_count = len(trades)  # For equity/aggregates (capped)
 
     # Parse dates
@@ -604,14 +679,15 @@ async def compute_insights(current_user: models.User, db: AsyncSession, prompt: 
     generated_new = False
     if not (prompt is not None or force):
         # Normal load: use stored or fallback
-        stored, old_total = await get_stored_insights(current_user.id, db)
+        stored, old_total = await get_stored_insights(current_user.id, db, redis=redis)
         ai_part = stored
         insights_based_on = old_total
     else:
         # Explicit regenerate: ignore stored, check rights, spend if needed, then generate
         if has_generation_right:
             if tp_cost > 0:
-                await spend_trade_points(db, current_user, "insight", tp_cost)
+                # CHANGED: Call the imported async function for points spending
+                await spend_trade_points(db, current_user, "insight", tp_cost, redis=redis)
                 # FIXED: Re-fetch balance post-refresh for accurate response
                 await db.refresh(current_user)
                 logger.info(f"Deducted {tp_cost} TP for insights generation; new balance: {current_user.trade_points}")
@@ -634,9 +710,10 @@ async def compute_insights(current_user: models.User, db: AsyncSession, prompt: 
                 ai_part = ai_parsed
                 generated_new = True
                 # Save to DB the AI part (this increments the monthly count; overwrites latest for freshness)
-                await save_insights_to_db(current_user.id, db, total_trades, ai_part)  # Use exact total_trades
+                if not prompt:  # NEW: Save only standard insights (no custom prompt)
+                    await save_insights_to_db(current_user.id, db, total_trades, ai_part, redis=redis)  # Use exact total_trades
                 # Recalculate remaining after save
-                used = await get_monthly_generations_used(db, current_user.id)
+                used = await get_monthly_generations_used(db, current_user.id, redis=redis)
                 remaining_generations = -1 if limit >= 999 else max(0, limit - used)
                 logger.info("Generated new insights for user %s. Remaining generations: %d", current_user.id, remaining_generations)
                 insights_based_on = total_trades
@@ -677,6 +754,10 @@ async def compute_insights(current_user: models.User, db: AsyncSession, prompt: 
         "credits": current_user.trade_points  # Report TP balance
     }
     
+    # NEW: Cache the response
+    if redis:
+        await set_cache(redis, cache_key, json.dumps(response_data), ttl=300 if not prompt else 1800)  # Longer for custom prompts
+
     logger.info("Generated/loaded insights for user %s: total_trades=%d, insights_based_on=%s, sessions=%d, remaining TP=%d, explicit=%s", 
                 current_user.id, total_trades, insights_based_on, len(session_data), current_user.trade_points, bool(prompt or force))
     
@@ -688,8 +769,9 @@ async def get_insights_data(
     force: bool = Query(False),
     db: AsyncSession = Depends(get_session),
     current_user: models.User = Depends(auth.get_current_user),
+    redis: Redis = Depends(redis_dependency)  # NEW: Add Redis dependency
 ):
-    insights_dict = await compute_insights(current_user, db, prompt=prompt, force=force)
+    insights_dict = await compute_insights(current_user, db, prompt=prompt, force=force, redis=redis)
     return InsightsResponse(**insights_dict)
 
 # Additional endpoint for raw trade data export (premium feature)
@@ -699,10 +781,11 @@ async def export_trades(
     include_insights: bool = Query(False),  # New: Optional insights inclusion
     db: AsyncSession = Depends(get_session),
     current_user: models.User = Depends(auth.get_current_user),
+    redis: Redis = Depends(redis_dependency)  # NEW: Add Redis (though not used yet; for potential caching)
 ):
     """Export user trades and/or insights in JSON or CSV."""
-    trades = await fetch_user_trades(db, current_user, limit=10000)  # Higher limit for export
-    insights_dict = await compute_insights(current_user, db) if include_insights else {}
+    trades = await fetch_user_trades(db, current_user, limit=10000, redis=redis)  # Higher limit for export
+    insights_dict = await compute_insights(current_user, db, redis=redis) if include_insights else {}
     
     if format == "csv":
         import csv

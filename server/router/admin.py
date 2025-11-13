@@ -1,4 +1,5 @@
-# Updated server/router/admin.py
+# Updated server/router/admin.py with cache invalidation added for waitlist dashboard
+
 import logging
 import secrets
 import string
@@ -8,16 +9,23 @@ from typing import Optional, List
 from fastapi import APIRouter, Request, Depends, HTTPException, status, Form, Body, Query
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, update, or_, desc
-from sqlalchemy.orm import joinedload
+from sqlalchemy import select, func, update, or_, desc, text, and_
+from sqlalchemy.orm import joinedload, selectinload, aliased
+
+# NEW: Redis imports for cache invalidation
+from redis.asyncio import Redis
+from redis_client import redis_dependency  # Assuming same as in journal.py
 
 from templates_config import templates
 from models.models import (
     User, Trade, Subscription, Payment, Pricing, Discount, EligibilityConfig, UploadLimits, Notification, InsightsLimits,
-    Referral, PointTransaction, InitialTpConfig, UpgradeTpConfig, AiChatLimits, BetaInvite, BetaConfig, BetaReferralTpConfig
+    Referral, PointTransaction, InitialTpConfig, UpgradeTpConfig, AiChatLimits, BetaInvite, BetaConfig, BetaReferralTpConfig,
+    Waitlist  # NEW: Import Waitlist model
 )
 from database import get_session
 import auth
+
+from app_utils.points import spend_trade_points, grant_trade_points  # NEW: Import points functions
 
 from app_utils.admin_utils import (
     compute_admin_stats, get_all_configs, get_revenue_metrics,
@@ -71,6 +79,130 @@ async def admin_page(
     recent_referrals = await get_recent_referrals_list(db)
     recent_points = await get_recent_points_list(db)
 
+    # NEW: Compute waitlist stats and data for integrated section (defaults: verified=True, page=1, per_page=10, reuse search)
+    # Base query for waitlist entries
+    query = select(Waitlist).options(
+        selectinload(Waitlist.referrals)  # Load referrals for count
+    ).where(Waitlist.verified == True)  # Default to verified only
+
+    # Filters (reuse search for Twitter/email; no verified/access_granted filter for dashboard)
+    if search:
+        query = query.where(
+            or_(
+                Waitlist.twitter.ilike(f"%{search}%"),
+                Waitlist.email.ilike(f"%{search}%")
+            )
+        )
+
+    # Order by created_at for position calculation
+    query = query.order_by(Waitlist.created_at.asc())
+
+    # Total count for pagination (only verified)
+    total_result = await db.execute(select(func.count()).select_from(query.subquery()))
+    total_entries = total_result.scalar()
+
+    # Pagination (compact for dashboard)
+    page = 1
+    per_page = 10
+    offset = (page - 1) * per_page
+    paginated_query = query.limit(per_page).offset(offset)
+    result = await db.execute(paginated_query)
+    entries = result.scalars().all()
+
+    # Compute positions and additional stats for each entry
+    for entry in entries:
+        # Position: ROW_NUMBER based on created_at (stable sort)
+        pos_query = text("""
+            SELECT ROW_NUMBER() OVER (ORDER BY created_at ASC, id ASC) as pos
+            FROM waitlist
+            WHERE id = :id AND verified = true
+        """)
+        pos_result = await db.execute(pos_query, {"id": entry.id})
+        entry.position = pos_result.scalar() or 1
+
+        entry.referrals_count = len(entry.referrals)
+        entry.access_progress = min((entry.position / total_entries * 100) if total_entries else 0, 100) if not entry.access_granted_at else 100
+
+    # Global stats
+    total_waitlist = (await db.execute(select(func.count(Waitlist.id)))).scalar()
+    verified_count = (await db.execute(select(func.count(Waitlist.id)).where(Waitlist.verified == True))).scalar()
+    access_grants_issued = (await db.execute(select(func.count(Waitlist.id)).where(Waitlist.access_granted_at.is_not(None)))).scalar()
+    
+    # FIXED: Compute avg_referrals with proper join/subquery to avoid nested aggregates
+    referral_table = aliased(Waitlist)
+    ref_counts = (
+        select(func.count(referral_table.id).label('ref_count'))
+        .select_from(Waitlist)
+        .where(Waitlist.verified == True)
+        .outerjoin(
+            referral_table,
+            and_(
+                referral_table.referred_by == Waitlist.referral_code,
+                referral_table.verified == True
+            )
+        )
+        .group_by(Waitlist.id)
+    ).subquery()
+
+    avg_query = select(func.avg(ref_counts.c.ref_count))
+    avg_result = await db.execute(avg_query)
+    avg_referrals = round(avg_result.scalar() or 0, 1)
+
+    # Top referrers for sidebar (top 10)
+    top_query = (
+        select(
+            Waitlist.id,
+            Waitlist.twitter,
+            func.count(referral_table.id).label('ref_count')
+        )
+        .select_from(Waitlist)
+        .where(Waitlist.verified == True)
+        .outerjoin(
+            referral_table,
+            and_(
+                referral_table.referred_by == Waitlist.referral_code,
+                referral_table.verified == True
+            )
+        )
+        .group_by(Waitlist.id, Waitlist.twitter)
+        .order_by(desc('ref_count'))
+        .limit(10)
+    )
+    top_result = await db.execute(top_query)
+    top_referrers = [
+        {"twitter": row.twitter or "Anon", "ref_count": row.ref_count}
+        for row in top_result.fetchall()
+    ]
+
+    # Pagination helpers
+    total_pages = (total_entries + per_page - 1) // per_page if per_page > 0 else 0
+
+    def get_iter_pages(current_page, total_pages, window=2):
+        pages = []
+        if total_pages <= 5:
+            pages = list(range(1, total_pages + 1))
+        else:
+            if current_page <= window + 1:
+                pages = list(range(1, window * 2 + 2)) + [None] + [total_pages]
+            elif current_page >= total_pages - window:
+                pages = [1, None] + list(range(total_pages - window * 2 - 1, total_pages + 1))
+            else:
+                pages = [1, None] + list(range(current_page - window, current_page + window + 1)) + [None, total_pages]
+        return pages
+
+    pagination = {
+        'page': page,
+        'pages': total_pages,
+        'total': total_entries,
+        'has_prev': page > 1,
+        'has_next': page < total_pages,
+        'prev_num': page - 1 if page > 1 else None,
+        'next_num': page + 1 if page < total_pages else None,
+        'iter_pages': lambda: get_iter_pages(page, total_pages),
+    }
+
+    verified_pct = round((verified_count / total_waitlist * 100) if total_waitlist else 0, 1)
+
     return templates.TemplateResponse(
         "admin.html",
         {
@@ -92,8 +224,333 @@ async def admin_page(
             "recent_partial_marketplace": recent_partial_marketplace,
             "search": search or "",
             'now': datetime.now(),
+            # NEW: Waitlist context for integrated section
+            "entries": entries,
+            "total_entries": total_entries,
+            "total_waitlist": total_waitlist,
+            "verified_count": verified_count,
+            "verified_pct": verified_pct,
+            "avg_referrals": avg_referrals,
+            "access_grants_issued": access_grants_issued,
+            "top_referrers": top_referrers,
+            "pagination": pagination,
+            "verified": True,  # Default for dashboard
+            "access_granted": None,
         }
     )
+
+
+# ───── NEW: ADMIN WAITLIST MANAGEMENT ─────
+@router.get("/waitlist", response_class=HTMLResponse)
+async def admin_waitlist_page(
+    request: Request,
+    search: Optional[str] = Query(None, description="Search by Twitter/email"),
+    verified: Optional[bool] = Query(None, description="Filter by verification status"),
+    access_granted: Optional[bool] = Query(None, description="Filter by access grant status"),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(50, ge=1, le=100),
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(auth.get_current_user),
+    redis: Redis = Depends(redis_dependency)  # For cache invalidation if needed
+):
+    if not current_user or current_user.email != "ukovictor8@gmail.com":
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    # Base query for waitlist entries
+    query = select(Waitlist).options(
+        selectinload(Waitlist.referrals)  # Load referrals for count
+    ).where(Waitlist.verified == True)  # Default to verified only; filter can override
+
+    # Filters
+    if search:
+        query = query.where(
+            or_(
+                Waitlist.twitter.ilike(f"%{search}%"),
+                Waitlist.email.ilike(f"%{search}%")
+            )
+        )
+    if verified is not None:
+        query = query.where(Waitlist.verified == verified)
+    if access_granted is not None:
+        if access_granted:
+            query = query.where(Waitlist.access_granted_at.is_not(None))
+        else:
+            query = query.where(Waitlist.access_granted_at.is_(None))
+
+    # Order by created_at for position calculation
+    query = query.order_by(Waitlist.created_at.asc())
+
+    # Total count for pagination
+    total_result = await db.execute(select(func.count()).select_from(query.subquery()))
+    total_entries = total_result.scalar()
+
+    # Pagination
+    offset = (page - 1) * per_page
+    paginated_query = query.limit(per_page).offset(offset)
+    result = await db.execute(paginated_query)
+    entries = result.scalars().all()
+
+    # Compute positions and additional stats for each entry
+    for entry in entries:
+        # Position: ROW_NUMBER based on created_at (stable sort)
+        pos_query = text("""
+            SELECT ROW_NUMBER() OVER (ORDER BY created_at ASC, id ASC) as pos
+            FROM waitlist
+            WHERE id = :id AND verified = true
+        """)
+        pos_result = await db.execute(pos_query, {"id": entry.id})
+        entry.position = pos_result.scalar() or 1
+
+        entry.referrals_count = len(entry.referrals)
+        entry.access_progress = min((entry.position / total_entries * 100) if total_entries else 0, 100) if not entry.access_granted_at else 100
+
+    # Global stats
+    total_waitlist = (await db.execute(select(func.count(Waitlist.id)))).scalar()
+    verified_count = (await db.execute(select(func.count(Waitlist.id)).where(Waitlist.verified == True))).scalar()
+    access_grants_issued = (await db.execute(select(func.count(Waitlist.id)).where(Waitlist.access_granted_at.is_not(None)))).scalar()
+    
+    # FIXED: Compute avg_referrals with proper join/subquery to avoid nested aggregates
+    referral_table = aliased(Waitlist)
+    ref_counts = (
+        select(func.count(referral_table.id).label('ref_count'))
+        .select_from(Waitlist)
+        .where(Waitlist.verified == True)
+        .outerjoin(
+            referral_table,
+            and_(
+                referral_table.referred_by == Waitlist.referral_code,
+                referral_table.verified == True
+            )
+        )
+        .group_by(Waitlist.id)
+    ).subquery()
+
+    avg_query = select(func.avg(ref_counts.c.ref_count))
+    avg_result = await db.execute(avg_query)
+    avg_referrals = round(avg_result.scalar() or 0, 1)
+
+    # Top referrers for sidebar (top 10)
+    top_query = (
+        select(
+            Waitlist.id,
+            Waitlist.twitter,
+            func.count(referral_table.id).label('ref_count')
+        )
+        .select_from(Waitlist)
+        .where(Waitlist.verified == True)
+        .outerjoin(
+            referral_table,
+            and_(
+                referral_table.referred_by == Waitlist.referral_code,
+                referral_table.verified == True
+            )
+        )
+        .group_by(Waitlist.id, Waitlist.twitter)
+        .order_by(desc('ref_count'))
+        .limit(10)
+    )
+    top_result = await db.execute(top_query)
+    top_referrers = [
+        {"twitter": row.twitter or "Anon", "ref_count": row.ref_count}
+        for row in top_result.fetchall()
+    ]
+
+    # Pagination helpers
+    total_pages = (total_entries + per_page - 1) // per_page if per_page > 0 else 0
+
+    def get_iter_pages(current_page, total_pages, window=2):
+        pages = []
+        if total_pages <= 5:
+            pages = list(range(1, total_pages + 1))
+        else:
+            if current_page <= window + 1:
+                pages = list(range(1, window * 2 + 2)) + [None] + [total_pages]
+            elif current_page >= total_pages - window:
+                pages = [1, None] + list(range(total_pages - window * 2 - 1, total_pages + 1))
+            else:
+                pages = [1, None] + list(range(current_page - window, current_page + window + 1)) + [None, total_pages]
+        return pages
+
+    pagination = {
+        'page': page,
+        'pages': total_pages,
+        'total': total_entries,
+        'has_prev': page > 1,
+        'has_next': page < total_pages,
+        'prev_num': page - 1 if page > 1 else None,
+        'next_num': page + 1 if page < total_pages else None,
+        'iter_pages': lambda: get_iter_pages(page, total_pages),
+    }
+
+    context = {
+        "request": request,
+        "entries": entries,
+        "total_entries": total_entries,
+        "total_waitlist": total_waitlist,
+        "verified_count": verified_count,
+        "verified_pct": round((verified_count / total_waitlist * 100) if total_waitlist else 0, 1),
+        "avg_referrals": avg_referrals,
+        "access_grants_issued": access_grants_issued,
+        "top_referrers": top_referrers,
+        "pagination": pagination,
+        "search": search,
+        "verified": verified,
+        "access_granted": access_granted,
+        "now": datetime.utcnow(),
+    }
+
+    return templates.TemplateResponse("admin_waitlist.html", context)
+
+
+# ───── NEW: GRANT ACCESS TO WAITLIST USER ─────
+@router.post("/waitlist/grant-access/{waitlist_id}")
+async def admin_grant_waitlist_access(
+    waitlist_id: int,
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(auth.get_current_user),
+    redis: Redis = Depends(redis_dependency)  # Added for cache invalidation
+):
+    if not current_user or current_user.email != "ukovictor8@gmail.com":
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    entry = await db.get(Waitlist, waitlist_id)
+    if not entry or not entry.verified:
+        raise HTTPException(status_code=404, detail="Valid verified entry not found")
+
+    if entry.access_granted_at:
+        raise HTTPException(status_code=400, detail="Access already granted")
+
+    # Generate beta invite code if not exists
+    if not entry.access_code:
+        code = generate_code()
+        # Ensure unique in BetaInvite table
+        while (await db.execute(select(BetaInvite).where(BetaInvite.code == code))).first():
+            code = generate_code()
+        invite = BetaInvite(
+            owner_id=current_user.id,  # Admin owns waitlist grant codes
+            code=code,
+            created_at=datetime.utcnow(),
+            used_by_id=None,
+            used_at=None
+        )
+        db.add(invite)
+        entry.access_code = code
+
+    entry.access_granted_at = datetime.utcnow()
+    await db.commit()
+    await db.refresh(entry)
+
+    # NEW: Invalidate dashboard cache for this user
+    await redis.delete(f"waitlist_dash:{waitlist_id}")
+    await redis.delete("waitlist_global_stats")  # Optional, for updated stats
+
+    logger.info(f"Admin granted access to waitlist entry {waitlist_id} (@{entry.twitter}) with beta code {entry.access_code}")
+
+    return JSONResponse({
+        "success": True,
+        "message": f"Access granted to @{entry.twitter} on {entry.access_granted_at.strftime('%Y-%m-%d %H:%M')} with beta code {entry.access_code}"
+    })
+
+
+# ───── NEW: REVOKE ACCESS FROM WAITLIST USER ─────
+@router.post("/waitlist/revoke-access/{waitlist_id}")
+async def admin_revoke_waitlist_access(
+    waitlist_id: int,
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(auth.get_current_user),
+    redis: Redis = Depends(redis_dependency)  # Added for cache invalidation
+):
+    if not current_user or current_user.email != "ukovictor8@gmail.com":
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    entry = await db.get(Waitlist, waitlist_id)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+
+    if not entry.access_granted_at:
+        raise HTTPException(status_code=400, detail="No access to revoke")
+
+    # Clean up associated unused beta invite
+    if entry.access_code:
+        result = await db.execute(
+            select(BetaInvite).where(
+                and_(
+                    BetaInvite.code == entry.access_code,
+                    BetaInvite.owner_id == current_user.id,
+                    BetaInvite.used_by_id.is_(None)
+                )
+            )
+        )
+        invite_to_delete = result.scalar_one_or_none()
+        if invite_to_delete:
+            await db.delete(invite_to_delete)
+
+    entry.access_granted_at = None
+    entry.access_code = None
+    await db.commit()
+    await db.refresh(entry)
+
+    # NEW: Invalidate dashboard cache for this user on revoke as well
+    await redis.delete(f"waitlist_dash:{waitlist_id}")
+    await redis.delete("waitlist_global_stats")  # Optional
+
+    logger.info(f"Admin revoked access from waitlist entry {waitlist_id} (@{entry.twitter})")
+
+    return JSONResponse({
+        "success": True,
+        "message": f"Access revoked for @{entry.twitter}"
+    })
+
+
+# ───── NEW: BULK GRANT ACCESS TO WAITLIST USERS ─────
+@router.post("/waitlist/bulk-grant")
+async def admin_bulk_grant_waitlist_access(
+    waitlist_ids: List[int] = Body(...),
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(auth.get_current_user),
+    redis: Redis = Depends(redis_dependency)  # Added for cache invalidation
+):
+    if not current_user or current_user.email != "ukovictor8@gmail.com":
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    if not waitlist_ids:
+        raise HTTPException(status_code=400, detail="No IDs provided")
+
+    granted_count = 0
+    for wl_id in waitlist_ids:
+        entry = await db.get(Waitlist, wl_id)
+        if entry and entry.verified and not entry.access_granted_at:
+            if not entry.access_code:
+                code = generate_code()
+                # Ensure unique in BetaInvite table
+                while (await db.execute(select(BetaInvite).where(BetaInvite.code == code))).first():
+                    code = generate_code()
+                invite = BetaInvite(
+                    owner_id=current_user.id,  # Admin owns waitlist grant codes
+                    code=code,
+                    created_at=datetime.utcnow(),
+                    used_by_id=None,
+                    used_at=None
+                )
+                db.add(invite)
+                entry.access_code = code
+            entry.access_granted_at = datetime.utcnow()
+            granted_count += 1
+
+            # NEW: Invalidate per user
+            await redis.delete(f"waitlist_dash:{wl_id}")
+
+    await db.commit()
+
+    # NEW: Invalidate global stats once after bulk
+    await redis.delete("waitlist_global_stats")  # Optional
+
+    logger.info(f"Admin bulk-granted access to {granted_count} waitlist entries: {waitlist_ids}")
+
+    return JSONResponse({
+        "success": True,
+        "message": f"Access granted to {granted_count} users"
+    })
 
 
 # ───── GET USER DETAILS (FULL) ─────
@@ -209,7 +666,7 @@ async def admin_generate_beta_pool(
         while (await db.execute(select(BetaInvite).where(BetaInvite.code == code))).first():
             code = generate_code()
         invite = BetaInvite(
-            owner_id=0,  # FIXED: Global pool: special owner_id=0 (no real user, treated as None in queries)
+            owner_id=current_user.id,  # Admin owns pool codes
             code=code,
             created_at=datetime.utcnow(),
             used_by_id=None,
@@ -262,21 +719,28 @@ async def list_referrals(
     return data
 
 
-# ───── NEW: BULK BETA INVITES MANAGEMENT ─────
-@router.get("/beta-invites")
+# ───── NEW: BULK BETA INVITES MANAGEMENT (HTML VIEW) ─────
+@router.get("/beta-invites", response_class=HTMLResponse)
 async def list_beta_invites(
+    request: Request,
     search: Optional[str] = Query(None),
     used: Optional[bool] = Query(None),
     owner_id: Optional[int] = Query(None),
-    limit: int = Query(50, ge=1, le=100),
-    offset: int = Query(0),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_session),
     current_user: User = Depends(auth.get_current_user)
 ):
     if not current_user or current_user.email != "ukovictor8@gmail.com":
         raise HTTPException(status_code=403, detail="Access denied")
     
-    query = select(BetaInvite).options(joinedload(BetaInvite.owner), joinedload(BetaInvite.used_by))
+    # Base query with joins
+    query = select(BetaInvite).options(
+        joinedload(BetaInvite.owner),
+        joinedload(BetaInvite.used_by)
+    )
+    
+    # Filters
     if search:
         query = query.where(or_(
             BetaInvite.code.ilike(f"%{search}%"),
@@ -288,31 +752,69 @@ async def list_beta_invites(
             query = query.where(BetaInvite.used_by_id.is_not(None))
         else:
             query = query.where(BetaInvite.used_by_id.is_(None))
-    if owner_id:
-        query = query.where(BetaInvite.owner_id == owner_id)
+    if owner_id is not None:
+        if owner_id == 0:  # Special case: pool codes owned by admin
+            query = query.where(BetaInvite.owner_id == current_user.id)
+        else:
+            query = query.where(BetaInvite.owner_id == owner_id)
+    
     query = query.order_by(desc(BetaInvite.created_at))
-    result = await db.execute(query.limit(limit).offset(offset))
-    invites = result.scalars().all()
+    
+    # Total count
     total_result = await db.execute(select(func.count()).select_from(query.subquery()))
-    total_count = total_result.scalar()
-
-    # Serialize
-    serialized = []
-    for invite in invites:
-        used_email = invite.used_by.email if invite.used_by else None
-        owner_email = invite.owner.email if invite.owner else "Global Pool"
-        serialized.append({
-            "id": invite.id,
-            "code": invite.code,
-            "owner_id": invite.owner_id,
-            "owner_email": owner_email,
-            "used_by_id": invite.used_by_id,
-            "used_by_email": used_email,
-            "created_at": invite.created_at.isoformat(),
-            "used_at": invite.used_at.isoformat() if invite.used_at else None
-        })
-    return {"invites": serialized, "total": total_count}
-
+    total_invites = total_result.scalar()
+    
+    # Pagination
+    offset = (page - 1) * per_page
+    paginated_query = query.limit(per_page).offset(offset)
+    result = await db.execute(paginated_query)
+    beta_invites = result.scalars().all()
+    
+    total_pages = (total_invites + per_page - 1) // per_page if per_page > 0 else 0
+    
+    # Helper: generate page numbers with ellipsis
+    def get_iter_pages(current_page, total_pages, window=2):
+        pages = []
+        if total_pages <= 5:
+            pages = list(range(1, total_pages + 1))
+        else:
+            if current_page <= window + 1:
+                pages = list(range(1, window * 2 + 2)) + [None] + [total_pages]
+            elif current_page >= total_pages - window:
+                pages = [1, None] + list(range(total_pages - window * 2 - 1, total_pages + 1))
+            else:
+                pages = [1, None] + list(range(current_page - window, current_page + window + 1)) + [None, total_pages]
+        return pages
+    
+    # Make iter_pages callable (Flask-style) — allows `iter_pages()` in template
+    pagination = {
+        'page': page,
+        'pages': total_pages,
+        'total': total_invites,
+        'has_prev': page > 1,
+        'has_next': page < total_pages,
+        'prev_num': page - 1 if page > 1 else None,
+        'next_num': page + 1 if page < total_pages else None,
+        'iter_pages': lambda: get_iter_pages(page, total_pages),  # ← Callable!
+    }
+    
+    # Add email attrs for template
+    for invite in beta_invites:
+        invite.owner_email = invite.owner.email if invite.owner else None
+        invite.used_by_email = invite.used_by.email if invite.used_by else None
+    
+    context = {
+        "request": request,
+        "beta_invites": beta_invites,
+        "total_invites": total_invites,
+        "pagination": pagination,
+        "search": search,
+        "used": used,
+        "owner_id": owner_id,
+        "now": datetime.utcnow(),
+    }
+    
+    return templates.TemplateResponse("beta_invites.html", context)
 
 # ───── BULK POINT TRANSACTIONS ─────
 @router.get("/points")
@@ -332,7 +834,7 @@ async def list_points(
     return data
 
 
-# ───── ADMIN ADJUST POINTS (Add/Remove) ─────
+# ───── ADMIN ADJUST POINTS (Add/Remove) ───── UPDATED: Use points.py functions
 @router.post("/points/adjust")
 async def admin_adjust_points(
     user_id: int = Form(...),
@@ -348,23 +850,52 @@ async def admin_adjust_points(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    user.trade_points += amount
-    user.trade_points = max(0, user.trade_points)
+    current_points = user.trade_points or 0
     
-    tx = PointTransaction(
-        user_id=user_id,
-        type="admin_adjust",
-        amount=amount,
-        description=f"{reason} ({'Added' if amount > 0 else 'Deducted'} {abs(amount)} TP)"
-    )
-    db.add(tx)
-    await db.commit()
-    await db.refresh(user)
+    if amount > 0:
+        # Use grant for positive adjustments
+        await grant_trade_points(
+            db=db,
+            user=user,
+            action="admin_adjust",
+            amount=amount,
+            description=f"{reason} (Added {amount} TP)",
+            redis=None  # No Redis in admin context
+        )
+        new_balance = current_points + amount
+        action_desc = f"Added {amount} TP"
+    else:
+        # Use spend for negative adjustments, force to 0 if insufficient
+        deduct_amount = -amount
+        if deduct_amount <= current_points:
+            await spend_trade_points(
+                db=db,
+                user=user,
+                action="admin_adjust",
+                amount=deduct_amount,
+                redis=None
+            )
+            new_balance = current_points - deduct_amount
+            action_desc = f"Deducted {deduct_amount} TP"
+        else:
+            # Force deduct remaining points (set to 0)
+            if current_points > 0:
+                await spend_trade_points(
+                    db=db,
+                    user=user,
+                    action="admin_adjust_force",
+                    amount=current_points,
+                    redis=None
+                )
+            new_balance = 0
+            action_desc = f"Forced deduct {current_points} TP (to 0)"
     
-    logger.info(f"Admin adjusted {amount} TP for user {user_id}: {reason}")
+    # User is refreshed in the functions; log with updated balance
+    logger.info(f"Admin adjusted {amount} TP for user {user_id} ({action_desc}): {reason}; new balance: {user.trade_points}")
+    
     return JSONResponse({
         "success": True,
-        "message": f"{'Added' if amount > 0 else 'Deducted'} {abs(amount)} TP for user {user_id}. New balance: {user.trade_points}",
+        "message": f"{action_desc} for user {user_id}. New balance: {user.trade_points}",
         "new_balance": user.trade_points
     })
 
@@ -651,7 +1182,7 @@ async def update_upload_limits(
     elite_batch: int = Form(10),
     current_user: User = Depends(auth.get_current_user),
     db: AsyncSession = Depends(get_session)
-):
+    ):
     if not current_user or current_user.email != "ukovictor8@gmail.com":
         raise HTTPException(status_code=403, detail="Access denied")
 
@@ -845,11 +1376,12 @@ async def update_beta_referral_tp(
     })
 
 
-# ───── UPDATE USER PLAN ─────
+# ───── UPDATE USER PLAN (UPDATED: Support manual upgrade with duration for pro/elite) ─────
 @router.post("/update_plan/{user_id}")
 async def update_user_plan(
     user_id: int,
     plan: str = Form(...),
+    interval: Optional[str] = Form(None),  # monthly, yearly; ignored for starter
     current_user: User = Depends(auth.get_current_user),
     db: AsyncSession = Depends(get_session)
 ):
@@ -859,16 +1391,92 @@ async def update_user_plan(
     if plan not in ["starter", "pro", "elite"]:
         raise HTTPException(status_code=400, detail="Invalid plan")
 
-    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    user = await db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    user.plan = plan
+    sub_created_id = None
+    if plan == "starter":
+        # For starter: Cancel any active platform subscriptions
+        old_subs_result = await db.execute(
+            select(Subscription).where(
+                Subscription.user_id == user_id,
+                Subscription.trader_id.is_(None),
+                Subscription.status == 'active'
+            )
+        )
+        old_subs = old_subs_result.scalars().all()
+        for old_sub in old_subs:
+            old_sub.status = 'cancelled'
+            old_sub.updated_at = datetime.utcnow()
+        user.plan = "starter"
+    else:
+        # For pro/elite: Validate and set interval
+        if interval is None:
+            interval = "monthly"  # Default for upgrades
+        if interval not in ["monthly", "yearly"]:
+            raise HTTPException(status_code=400, detail="Interval must be 'monthly' or 'yearly' for paid plans")
+
+        interval_days = 30 if interval == "monthly" else 365
+        plan_type = f"{plan}_{interval}"
+
+        # Cancel any existing active platform subscriptions
+        old_subs_result = await db.execute(
+            select(Subscription).where(
+                Subscription.user_id == user_id,
+                Subscription.trader_id.is_(None),
+                Subscription.status == 'active'
+            )
+        )
+        old_subs = old_subs_result.scalars().all()
+        for old_sub in old_subs:
+            old_sub.status = 'cancelled'
+            old_sub.updated_at = datetime.utcnow()
+
+        # Create new manual subscription
+        sub = Subscription(
+            user_id=user_id,
+            trader_id=None,  # Platform subscription
+            plan_type=plan_type,
+            interval_days=interval_days,
+            amount_usd=0.0,  # Manual upgrade, no charge
+            status='active',
+            start_date=datetime.utcnow(),
+            next_billing_date=datetime.utcnow() + timedelta(days=interval_days),
+            order_id=f"manual_upgrade_{user_id}_{plan}_{interval}",
+            order_description=f"Manual upgrade to {plan} {interval} plan",
+            renewal_url=None
+        )
+        db.add(sub)
+        sub_created_id = sub.id
+        user.plan = plan
+
     user.updated_at = datetime.utcnow()
+
+    # Grant upgrade TP bonus if applicable (for pro/elite)
+    if plan in ["pro", "elite"]:
+        config_id = 1 if plan == "pro" else 2
+        config = await db.get(UpgradeTpConfig, config_id)
+        if config and config.amount > 0:
+            await grant_trade_points(
+                db=db,
+                user=user,
+                action="manual_upgrade",
+                amount=config.amount,
+                description=f"Manual upgrade to {plan}: {config.amount} TP bonus",
+                redis=None
+            )
+
     await db.commit()
     await db.refresh(user)
 
-    return JSONResponse({"success": True, "message": f"Plan updated to {plan}"})
+    message = f"Plan updated to {plan}"
+    if sub_created_id:
+        message += f" ({interval} duration). New subscription ID: {sub_created_id}"
+
+    logger.info(f"Admin manually upgraded user {user_id} to {plan} {interval or ''}: {message}")
+
+    return JSONResponse({"success": True, "message": message})
 
 
 # ───── UPDATE MARKETPLACE PRICE ─────
@@ -907,6 +1515,7 @@ async def toggle_trader(
     desired_is_trader: bool = Form(...),
     current_user: User = Depends(auth.get_current_user),
     db: AsyncSession = Depends(get_session),
+    redis: Redis = Depends(redis_dependency)  # NEW: Add Redis dependency for cache invalidation
 ):
     if not current_user or current_user.email != "ukovictor8@gmail.com":
         raise HTTPException(status_code=403, detail="Access denied")
@@ -948,6 +1557,11 @@ async def toggle_trader(
     await db.commit()
     await db.refresh(user)
 
+    # NEW: Invalidate caches after toggle
+    await redis.delete("eligible_traders")  # Global marketplace list (forces rebuild on next dashboard load)
+    await redis.delete(f"eligibility:{user_id}")  # User's self-eligibility check
+    logger.info(f"Invalidated caches after toggling trader {user_id} to {desired_is_trader}")
+
     return JSONResponse({
         "success": True,
         "is_trader": user.is_trader,
@@ -957,7 +1571,6 @@ async def toggle_trader(
         "min_trades": min_trades,
         "min_win_rate": min_win_rate,
     })
-
 
 # ───── CREATE TEST MARKETPLACE SUBSCRIPTION ─────
 @router.post("/create_test_subscription")
@@ -1051,7 +1664,8 @@ async def approve_trader(
     approve: bool = Form(...),
     reason: Optional[str] = Form(None),
     current_user: User = Depends(auth.get_current_user),
-    db: AsyncSession = Depends(get_session)
+    db: AsyncSession = Depends(get_session),
+    redis: Redis = Depends(redis_dependency)  # NEW: Add Redis dependency for invalidation
 ):
     if not current_user or current_user.email != "ukovictor8@gmail.com":
         raise HTTPException(status_code=403, detail="Access denied")
@@ -1090,6 +1704,10 @@ async def approve_trader(
     applicant.updated_at = datetime.utcnow()
     await db.commit()
     await db.refresh(applicant)
+
+    # NEW: Invalidate eligibility cache after approval/rejection
+    await redis.delete(f"eligibility:{user_id}")
+    logger.info(f"Invalidated eligibility cache for user {user_id} after trader status update")
 
     return JSONResponse({"success": True, "message": message})
 

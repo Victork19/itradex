@@ -14,12 +14,21 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Path, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 
-from config import settings
 from auth import get_current_user
 from database import get_session
 from models.models import User, Subscription, Payment, Pricing, Discount, PointTransaction, UpgradeTpConfig, BetaInvite
 import models  # For models.User in marketplace
 
+# NEW: Redis imports
+from redis.asyncio import Redis
+from redis_client import redis_dependency, get_cache, set_cache
+
+# NEW: Import points functions
+from app_utils.points import grant_trade_points, get_upgrade_tp_amount
+
+from config import get_settings
+
+settings = get_settings()
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
@@ -30,18 +39,19 @@ API_KEY_HEADERS = {
     "Content-Type": "application/json",
 }
 
-# Token cache (in-memory; use Redis for production)
-_token_cache: Optional[dict] = None
-_token_expiry: Optional[float] = None
-
-async def get_nowpayments_token() -> str:
-    """Obtain JWT token for NowPayments API with caching and retries."""
-    global _token_cache, _token_expiry
+async def get_nowpayments_token(redis: Redis) -> str:
+    """Obtain JWT token for NowPayments API with Redis caching and retries."""
     current_time = time.time()
-
-    if _token_cache and _token_expiry and current_time < _token_expiry - 30:
-        logger.debug("Using cached JWT token")
-        return _token_cache["token"]
+    cache_key = "nowpayments:token_info"
+    cached_info_str = await get_cache(redis, cache_key)
+    if cached_info_str:
+        try:
+            cached_info = json.loads(cached_info_str)
+            if current_time < cached_info["exp"] - 30:
+                logger.debug("Cached JWT token used from Redis")
+                return cached_info["token"]
+        except (json.JSONDecodeError, KeyError) as e:
+            logger.warning(f"Invalid cached token info: {e}")
 
     if not hasattr(settings, 'NOWPAYMENTS_EMAIL') or not hasattr(settings, 'NOWPAYMENTS_PASSWORD'):
         raise HTTPException(status_code=500, detail="NowPayments credentials not configured")
@@ -67,22 +77,22 @@ async def get_nowpayments_token() -> str:
                 if not token:
                     raise HTTPException(status_code=500, detail=f"No token in auth response. Response: {token_data}")
                 
+                token_exp_unix = None
                 try:
                     payload_b64 = token.split('.')[1]
                     payload_b64 += '=' * (4 - len(payload_b64) % 4)
                     payload = json.loads(base64.urlsafe_b64decode(payload_b64).decode('utf-8'))
                     token_exp_unix = payload.get('exp')
                     if token_exp_unix:
-                        _token_expiry = token_exp_unix
                         logger.info(f"Token expires at Unix {token_exp_unix} ({datetime.fromtimestamp(token_exp_unix)})")
-                    else:
-                        _token_expiry = current_time + 240
                 except Exception as e:
                     logger.warning(f"Failed to parse JWT exp: {e}, using fallback 4 min")
-                    _token_expiry = current_time + 240
                 
-                _token_cache = {"token": token}
-                logger.info(f"Successfully obtained new NowPayments JWT token (expires in ~5 min)")
+                exp = token_exp_unix or current_time + 240
+                token_info = {"token": token, "exp": exp}
+                ttl = int(exp - current_time)
+                await set_cache(redis, cache_key, json.dumps(token_info), ttl=ttl)
+                logger.info(f"Successfully obtained new NowPayments JWT token (expires in ~5 min), cached in Redis")
                 return token
 
         except httpx.HTTPStatusError as e:
@@ -129,17 +139,7 @@ async def get_plan_amount(plan: str, interval: str, db: AsyncSession) -> float:
         raise HTTPException(status_code=500, detail=f"Price not configured for {plan} {interval}")
     return amount
 
-async def get_upgrade_tp_amount(base_plan: str, db: AsyncSession) -> int:
-    """Fetch upgrade TP amount for the plan from database."""
-    config_id = 1 if base_plan == 'pro' else 2
-    result = await db.execute(
-        select(UpgradeTpConfig.amount).where(
-            UpgradeTpConfig.plan == base_plan,
-            UpgradeTpConfig.id == config_id
-        )
-    )
-    amount = result.scalar()
-    return amount if amount is not None else 0
+# REMOVED: get_upgrade_tp_amount (now imported from app_utils.points)
 
 async def has_used_beta_code(user_id: int, db: AsyncSession) -> bool:
     """Check if the user signed up using a beta invite code."""
@@ -221,7 +221,8 @@ async def create_subscription(
     request: Request,
     trader_id: Optional[int] = None,
     current_user=Depends(get_current_user),
-    db: AsyncSession = Depends(get_session)
+    db: AsyncSession = Depends(get_session),
+    redis: Redis = Depends(redis_dependency)  # NEW: Add Redis dependency
 ):
     body = await request.json()
     plan = body.get("plan")
@@ -317,7 +318,7 @@ async def create_subscription(
     # Now use real sub_id in params
     success_params = f"&sub_id={db_sub.id}"
 
-    token = await get_nowpayments_token()
+    token = await get_nowpayments_token(redis)  # UPDATED: Pass redis
     order_id = db_sub.order_id  # Use the one from sub
     order_description = db_sub.order_description
 
@@ -346,7 +347,8 @@ async def create_subscription(
 async def renew_subscription(
     sub_id: int = Path(..., description="Subscription ID to renew"),
     current_user=Depends(get_current_user),
-    db: AsyncSession = Depends(get_session)
+    db: AsyncSession = Depends(get_session),
+    redis: Redis = Depends(redis_dependency)  # NEW: Add Redis dependency
 ):
     # Fetch and validate sub
     result = await db.execute(
@@ -379,7 +381,7 @@ async def renew_subscription(
 
     success_params = f"&sub_id={sub_id}"  # Already real
 
-    token = await get_nowpayments_token()
+    token = await get_nowpayments_token(redis)  # UPDATED: Pass redis
 
     # Generate renewal invoice
     try:
@@ -409,7 +411,8 @@ async def renew_subscription(
 async def create_marketplace_subscription(
     request: Request,
     current_user=Depends(get_current_user),
-    db: AsyncSession = Depends(get_session)
+    db: AsyncSession = Depends(get_session),
+    redis: Redis = Depends(redis_dependency)  # NEW: Add Redis dependency
 ):
     body = await request.json()
     trader_id = body.get("trader_id")
@@ -473,7 +476,7 @@ async def create_marketplace_subscription(
     pending_sub = pending_result.scalar_one_or_none()
 
     if pending_sub and pending_sub.renewal_url:
-        token = await get_nowpayments_token()
+        token = await get_nowpayments_token(redis)  # UPDATED: Pass redis
         status_data = await get_invoice_status(pending_sub.renewal_url, token)
         payment_status = status_data.get("payment_status")
         if payment_status in ["new", "waiting"]:
@@ -529,7 +532,7 @@ async def create_marketplace_subscription(
     # Now use real sub_id in params
     success_params = f"&sub_id={db_sub.id}&trader_id={trader_id}"
 
-    token = await get_nowpayments_token()
+    token = await get_nowpayments_token(redis)  # UPDATED: Pass redis
     order_id = db_sub.order_id
     order_description = db_sub.order_description
 
@@ -559,7 +562,8 @@ async def create_marketplace_subscription(
 async def verify_subscription(
     sub_id: int = Path(..., description="Subscription ID to verify"),
     current_user=Depends(get_current_user),
-    db: AsyncSession = Depends(get_session)
+    db: AsyncSession = Depends(get_session),
+    redis: Redis = Depends(redis_dependency)  # NEW: Add Redis dependency
 ):
     result = await db.execute(
         select(Subscription).where(Subscription.id == sub_id, Subscription.user_id == current_user.id)
@@ -571,7 +575,7 @@ async def verify_subscription(
     if not db_sub.renewal_url:
         raise HTTPException(status_code=400, detail="No invoice URL for verification")
 
-    token = await get_nowpayments_token()
+    token = await get_nowpayments_token(redis)  # UPDATED: Pass redis
     status_data = await get_invoice_status(db_sub.renewal_url, token)
     payment_status = status_data.get("payment_status", "").lower().replace(" ", "_").replace("-", "_")
 
@@ -671,8 +675,9 @@ async def nowpayments_webhook(request: Request, db: AsyncSession = Depends(get_s
 
     logger.info(f"[WEBHOOK DEBUG] Matched sub {db_sub.id} (status: {db_sub.status}, plan_type: {db_sub.plan_type}) for order_id {order_id}")
 
-    # ALWAYS update/create Payment record
-    result = await db.execute(select(Payment).where(Payment.nowpayments_payment_id == payment_id))
+    # FIXED: Cast payment_id to str for DB query (column is varchar, ID comes as int from JSON)
+    payment_id_str = str(payment_id)
+    result = await db.execute(select(Payment).where(Payment.nowpayments_payment_id == payment_id_str))
     existing_payment = result.scalars().first()
 
     pay_date = None
@@ -703,7 +708,7 @@ async def nowpayments_webhook(request: Request, db: AsyncSession = Depends(get_s
         db_payment = Payment(
             user_id=user_id,
             subscription_id=db_sub.id,
-            nowpayments_payment_id=payment_id,
+            nowpayments_payment_id=payment_id_str,  # FIXED: As str
             amount_usd=float(data.get("price_amount", 0)),
             amount_paid_crypto=actually_paid_crypto,  # FIXED: From actually_paid
             amount_paid_usd=actually_paid_usd,  # NEW: USD equiv for partials
@@ -726,16 +731,16 @@ async def nowpayments_webhook(request: Request, db: AsyncSession = Depends(get_s
         diff_usd = expected_usd - actually_paid_usd
         logger.info(f"[PARTIAL DEBUG] Expected: ${expected_usd:.2f}, Paid USD equiv: ${actually_paid_usd:.2f}, Shortfall: ${diff_usd:.2f}")
 
-        # Optional: Email user "Partial received—top up ${diff_usd:.2f} to complete"
+        # Optional: Email user "Partial payment received—top up ${diff_usd:.2f} to complete"
         # TODO: Integrate your email service here
 
     # Handle sub/trader only for final statuses
     if payment_status in ["finished", "failed", "refunded"]:
-        # ADDED: Tolerance check for 'finished' but slight underpay (e.g., volatility)
+        # UPDATED: Tolerance check for 'finished' but slight underpay (e.g., volatility) - Increased to 10% for better UX
         if payment_status == "finished":
             paid = actually_paid_usd  # Now reliable
             expected = expected_usd
-            if paid < expected * 0.95:  # 5% tolerance for underpay
+            if paid < expected * 0.90:  # 10% tolerance for underpay (was 5%; increased to reduce false partials)
                 logger.warning(f"[TOLERANCE DEBUG] Finished but underpaid for {payment_id}: ${paid:.2f} vs ${expected:.2f} (short by ${(expected - paid):.2f}) - treating as partial")
                 # Downgrade to partial handling (no sub activation)
                 payment_status = "partially_paid"
@@ -746,7 +751,7 @@ async def nowpayments_webhook(request: Request, db: AsyncSession = Depends(get_s
                     db_payment.status = payment_status
                 await db.commit()
             else:
-                logger.info(f"[TOLERANCE DEBUG] Finished payment within tolerance: ${paid:.2f} >= ${expected * 0.95:.2f}")
+                logger.info(f"[TOLERANCE DEBUG] Finished payment within tolerance: ${paid:.2f} >= ${expected * 0.90:.2f}")
 
         if payment_status == "partially_paid":
             logger.info(f"Webhook partial/update: payment {payment_id} status {payment_status} for order {order_id} (sub {db_sub.id}) - awaiting full/covering payment")
@@ -790,16 +795,9 @@ async def nowpayments_webhook(request: Request, db: AsyncSession = Depends(get_s
                 if tp_amount > 0:
                     user = await db.get(User, user_id)
                     if user:
-                        user.trade_points += tp_amount
-                        upgrade_tx = PointTransaction(
-                            user_id=user_id,
-                            type='plan_upgrade',
-                            amount=tp_amount,
-                            description=f"{base_plan.title()} plan upgrade bonus"
-                        )
-                        db.add(upgrade_tx)
+                        # CHANGED: Use the imported async function for points granting
+                        await grant_trade_points(db, user, "plan_upgrade", tp_amount, description=f"{base_plan.title()} plan upgrade bonus", redis=redis)
                         logger.info(f"Granted {tp_amount} TP for {base_plan} upgrade to user {user_id}")
-                        await db.commit()
 
         # Now update user if exists
         user = await db.get(User, user_id)
@@ -840,8 +838,11 @@ async def get_current_subscription(db: AsyncSession, user_id: int):
     return result.scalars().first()
 
 # Optional: Cron job example (add to your main app startup)
-async def auto_generate_renewals(db: AsyncSession):
+async def auto_generate_renewals(db: AsyncSession, redis: Optional[Redis] = None):
     """Cron: Generate renewals for subs due in 3 days."""
+    if redis is None:
+        logger.warning("Redis not provided for auto_generate_renewals; skipping token fetch")
+        return
     due_date = datetime.utcnow() + timedelta(days=3)
     result = await db.execute(
         select(Subscription).where(
@@ -850,7 +851,7 @@ async def auto_generate_renewals(db: AsyncSession):
         )
     )
     subs = result.scalars().all()
-    token = await get_nowpayments_token()
+    token = await get_nowpayments_token(redis)  # UPDATED: Pass redis
     for sub in subs:
         if sub.renewal_url:  # Already generated
             continue
@@ -881,52 +882,66 @@ async def auto_generate_renewals(db: AsyncSession):
 # TODO: Implement get_admin_user() similar to get_current_user but check is_admin
 @router.post("/admin/complete-payment")
 async def manual_complete_payment(
-    payment_id: str = Body(...),  # e.g., "5102708066"
-    reason: str = Body("Test/manual override"),
+    payload: dict = Body(...),
     db: AsyncSession = Depends(get_session),
+    redis: Redis = Depends(redis_dependency),  # NEW: Add Redis for points
     # current_user=Depends(get_admin_user)  # Uncomment and implement
 ):
-    # Fetch payment and sub
-    result = await db.execute(select(Payment).where(Payment.nowpayments_payment_id == payment_id))
+    payment_id = payload.get("payment_id")
+    reason = payload.get("reason", "Test/manual override")
+
+    # FIXED: Cast to str for query
+    payment_id_str = str(payment_id)
+    result = await db.execute(select(Payment).where(Payment.nowpayments_payment_id == payment_id_str))
     db_payment = result.scalar_one_or_none()
     if not db_payment:
-        raise HTTPException(404, "Payment not found")
+        raise HTTPException(status_code=404, detail="Payment not found")
     
-    # Verify status
     if db_payment.status not in ["partially_paid", "failed"]:
-        raise HTTPException(400, "Only partial/failed can be completed")
+        raise HTTPException(status_code=400, detail="Only partial/failed payments can be completed")
     
-    # Link to sub if needed
     if not db_payment.subscription_id:
-        # Parse from order_id or error
-        raise HTTPException(400, "No linked subscription")
+        raise HTTPException(status_code=400, detail="No linked subscription")
     
     result = await db.execute(select(Subscription).where(Subscription.id == db_payment.subscription_id))
     db_sub = result.scalar_one_or_none()
     if not db_sub:
-        raise HTTPException(404, "Subscription not found")
+        raise HTTPException(status_code=404, detail="Subscription not found")
     
-    # Complete
     db_payment.status = "finished_manual"
     db_payment.notes = reason
     db_payment.updated_at = datetime.utcnow()
     
     db_sub.status = "active"
-    db_sub.next_billing_date = db_sub.start_date + timedelta(days=db_sub.interval_days) if "_renew" not in db_payment.order_id else db_sub.next_billing_date + timedelta(days=db_sub.interval_days)
+    is_renewal = "_renew" in (db_payment.order_id or "")
+    if is_renewal:
+        db_sub.next_billing_date += timedelta(days=db_sub.interval_days)
+    else:
+        # Initial: Set from start_date
+        db_sub.next_billing_date = db_sub.start_date + timedelta(days=db_sub.interval_days)
     db_sub.renewal_url = None
     db_sub.updated_at = datetime.utcnow()
     
-    # Update user
     result = await db.execute(select(User).where(User.id == db_sub.user_id))
     user = result.scalar_one_or_none()
-    if user:
-        user.plan = db_sub.plan_type
+    if user and db_sub.trader_id is None:  # Only update for PLATFORM subs (no trader_id)
+        # Normalize to base plan (e.g., 'pro_monthly' -> 'pro' for AiChatLimits matching)
+        base_plan = db_sub.plan_type.lower().split('_')[0] if '_' in db_sub.plan_type.lower() else db_sub.plan_type.lower()
+        user.plan = base_plan  # e.g., 'pro' instead of 'pro_monthly'
         user.updated_at = datetime.utcnow()
+        
+        # NEW: Grant TP on plan upgrade (only for platform plans, initial activation, not renewals)
+        if not is_renewal and base_plan in ['pro', 'elite']:
+            tp_amount = await get_upgrade_tp_amount(base_plan, db)
+            if tp_amount > 0:
+                # CHANGED: Use the imported async function for points granting
+                await grant_trade_points(db, user, "plan_upgrade", tp_amount, description=f"{base_plan.title()} plan upgrade bonus (manual)", redis=redis)
+                logger.info(f"Granted {tp_amount} TP for {base_plan} upgrade (manual) to user {user.id}")
     
     await db.commit()
     
-    logger.info(f"Manually completed {payment_id} for sub {db_sub.id}: {reason}")
-    return {"message": "Payment completed, subscription activated!"}
+    logger.info(f"Manually completed payment {payment_id} for sub {db_sub.id}: {reason}")
+    return {"success": True, "message": f"Payment {payment_id} completed! Subscription {db_sub.id} activated for user {db_sub.user_id}."}
 
 # NEW: Public status API for polling (no auth)
 @router.get("/sub-status/{sub_id}")

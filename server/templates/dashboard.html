@@ -855,7 +855,7 @@
                 <div class="beta-code-item">
                   <span class="beta-code">{{ code }}</span>
                   <div class="beta-actions">
-                    <button class="beta-btn" onclick="copyBetaCode('{{ code }}')" title="Copy Invite Link">
+                    <button class="beta-btn" onclick="copyBetaCode('{{ code }}')" title="Copy Invite Code">
                       <i class="bi bi-copy"></i>
                     </button>
                     <button class="beta-btn" onclick="shareBetaOnX('{{ code }}')" title="Share on X">
@@ -1484,23 +1484,22 @@
   // Referral functions (unchanged)
   function copyReferralCode() {
     const code = document.getElementById('referralCode').textContent;
-    const referralUrl = `${window.location.origin}/?ref=${code}`;
-    navigator.clipboard.writeText(referralUrl).then(() => {
-      showToast('Referral link copied!');
+    navigator.clipboard.writeText(code).then(() => {
+      showToast('Referral code copied!');
     }).catch(() => {
       const textArea = document.createElement('textarea');
-      textArea.value = referralUrl;
+      textArea.value = code;
       document.body.appendChild(textArea);
       textArea.select();
       document.execCommand('copy');
       document.body.removeChild(textArea);
-      showToast('Referral link copied!');
+      showToast('Referral code copied!');
     });
   }
 
   function shareOnTwitter() {
     const code = document.getElementById('referralCode').textContent;
-    const text = `Join me on iTrade Journal! Use my referral code ${code} to get started. Earn TP together! ${window.location.origin}/?ref=${code}`;
+    const text = `Join me on iTradeX Journal! Use my referral code ${code} to get started. Earn TP together! ${window.location.origin}/?ref=${code}`;
     const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   }
@@ -1508,17 +1507,16 @@
 
   // Beta Invite Functions (always available) (unchanged)
   function copyBetaCode(code) {
-    const betaUrl = `${window.location.origin}/?beta=${code}`;
-    navigator.clipboard.writeText(betaUrl).then(() => {
-      showToast('Beta invite link copied!');
+    navigator.clipboard.writeText(code).then(() => {
+      showToast('Beta invite code copied!');
     }).catch(() => {
       const textArea = document.createElement('textarea');
-      textArea.value = betaUrl;
+      textArea.value = code;
       document.body.appendChild(textArea);
       textArea.select();
       document.execCommand('copy');
       document.body.removeChild(textArea);
-      showToast('Beta invite link copied!');
+      showToast('Beta invite code copied!');
     });
   }
 
@@ -1551,4 +1549,3 @@
   });
 </script>
 {% endblock %}
-

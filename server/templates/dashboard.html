@@ -484,6 +484,10 @@
     .beta-codes-list {
       -webkit-overflow-scrolling: touch;
     }
+    /* FIX: Hero header mobile tweaks for Upgrade button */
+    .hero-header .col-md-3 { align-items: stretch !important; }
+    .mt-2 { margin-top: 0.5rem !important; width: 100%; }
+    .mt-2 .btn-primary { width: 100%; justify-content: center; }
   }
 
   /* Rest of the styles remain unchanged... (omitted for brevity, include all original styles below) */
@@ -623,8 +627,25 @@
   .quick-icon { width: 32px; height: 32px; border-radius: 50%; background: var(--gradient); color: white; display: flex; align-items: center; justify-content: center; font-size: 1rem; }
 
   /* OPTIMIZATION: Reduce transition complexity and remove some shadows for faster repaints */
-  * { transition: none !important; }
+  .hero-header * { transition: none !important; } /* FIX: Scoped to hero only */
   .btn-premium, .btn-secondary-premium, .points-item, .beta-code-item, .beta-btn, .share-btn { transition: background-color 0.2s ease, transform 0.2s ease; }
+
+  /* FIX: Explicit Upgrade Button Styles for Responsiveness */
+  .btn-primary {
+    cursor: pointer !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    transition: background-color 0.2s ease, transform 0.2s ease; /* Restore button hover */
+  }
+  .btn-primary:hover { 
+    transform: translateY(-1px); /* Add subtle lift for feedback */
+  }
+  [data-theme="dark"] .btn-primary,
+  [data-theme="light"] .btn-primary {
+    background: var(--brand-500) !important; /* Ensure visible bg */
+    color: white !important;
+  }
+  .btn-primary { position: relative; z-index: 10; } /* Prevent overlaps */
 
   /* FIX: Define missing CSS variables for consistent gradients across themes */
   :root {
@@ -678,9 +699,10 @@
             <div class="hero-actions">
               <button class="btn btn-outline-primary" onclick="scrollToMarketplace()">Browse Signals</button>
             </div>
-            <div class="hero-notification mt-2"> <!-- Subtle right-side utilization -->
-              <small> No new alerts</small>
+            <div class="mt-2"> <!-- Subtle right-side utilization -->
+              <a href="/plans" class="btn btn-primary">Upgrade</a>
             </div>
+            
           </div>
         </div>
       </div>
@@ -881,10 +903,7 @@
                 <div class="stat-number">{{ used_beta_count if beta_active else referrals_count }}</div>
                 <div class="stat-label">Referred</div>
               </div>
-              <div class="stat-item">
-                <div class="stat-number">{{ points_from_referrals }} TP</div>
-                <div class="stat-label">Earned</div>
-              </div>
+            
             </div>
             {% if not beta_active %}
             <div class="share-buttons">
@@ -1542,10 +1561,14 @@
     setTimeout(() => toast.remove(), 3000);
   }
 
-  // OPTIMIZATION: Init critical on DOM load
+  // OPTIMIZATION: Init critical on DOM load - Wrapped in try-catch for robustness
   document.addEventListener('DOMContentLoaded', () => {
-    initPnlSpark();
-    updateTierBadge();
+    try {
+      initPnlSpark();
+      updateTierBadge();
+    } catch (err) {
+      console.error('Dashboard init error:', err);
+    }
   });
 </script>
 {% endblock %}

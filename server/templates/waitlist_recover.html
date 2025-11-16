@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Recover Token - iTrade Waitlist</title>
+    <title>Recover Access - iTrade</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <style>
@@ -36,6 +36,14 @@
         .form-control:focus { border-color: var(--brand-500); box-shadow: 0 0 0 0.2rem rgba(59,130,246,0.25); }
         .btn-primary { background: linear-gradient(135deg, var(--brand-500), var(--brand-600)); border: none; border-radius: 50px; padding: 0.75rem 2rem; font-weight: 600; }
         .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(59,130,246,0.3); }
+        .google-btn {
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            width: 100%; height: 46px; border-radius: 10px; border: 1px solid var(--border);
+            background: var(--surface); cursor: pointer; transition: .2s; font-weight: 500;
+            text-decoration: none; color: var(--text); margin-top: 1rem;
+        }
+        .google-btn img { height: 18px; }
+        .google-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(47,107,255,0.2); }
         .alert { border-radius: var(--radius); border: none; }
         .success-toast { position: fixed; top: 20px; right: 20px; z-index: 1050; }
         /* Mobile adjustments */
@@ -49,47 +57,35 @@
         <div class="recover-card text-center">
             <i class="bi bi-shield-lock fs-1 text-muted mb-4"></i>
             <h1 class="mb-4">Recover Dashboard Access</h1>
+            <p class="text-muted mb-4">Enter your email—we'll use Google to verify and log you in directly. No tokens needed!</p>
+            
             {% if expired %}
-                <div class="alert alert-warning">
-                    <i class="bi bi-exclamation-triangle"></i> Your token has expired. Enter your email to get a new one instantly!
-                </div>
+            <div class="alert alert-warning mb-3">
+                <i class="bi bi-exclamation-triangle"></i> Your access token has expired. Recover your access below.
+            </div>
             {% endif %}
-            <p class="text-muted mb-4">We'll send a fresh 30-day token to your verified email.</p>
+            
             <form id="recoverForm">
                 <div class="mb-3">
                     <input type="email" class="form-control form-control-lg" id="email" placeholder="your.email@example.com" required value="{{ email_hint }}">
                 </div>
                 <button type="submit" class="btn btn-primary w-100 mb-3">
-                    <i class="bi bi-envelope"></i> Send New Token
+                    <i class="bi bi-arrow-clockwise"></i> Verify & Recover Access
                 </button>
             </form>
             <div class="d-flex justify-content-between">
                 <a href="/waitlist" class="text-muted text-decoration-none"><i class="bi bi-arrow-left"></i> Back to Waitlist</a>
-                <a href="/waitlist/dashboard" class="text-primary" onclick="promptTokenAndRedirect(); return false;">
-                    <i class="bi bi-graph-up"></i> Have Token? Enter It
-                </a>
             </div>
-            <p class="text-muted small mt-3">Paste your 12-char token into the URL after /dashboard/ (e.g., /waitlist/dashboard/ABC123DEF456).</p>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // NEW: Prompt for token to avoid loops
-        function promptTokenAndRedirect() {
-            const token = prompt("Enter your 12-char dashboard token (e.g., ABC123DEF456):");
-            if (token && token.length === 12 && /^[A-F0-9]{12}$/.test(token)) {
-                window.location.href = `/waitlist/dashboard/${token}`;
-            } else if (token) {
-                alert("Invalid token format. Must be 12 uppercase hex chars.");
-            }
-        }
-
         document.getElementById('recoverForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const email = document.getElementById('email').value;
+            const email = document.getElementById('email').value.trim().toLowerCase();
             const btn = e.target.querySelector('button');
-            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Sending...';
+            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Checking your account...';
             btn.disabled = true;
 
             try {
@@ -98,27 +94,51 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email })
                 });
+                if (!res.ok) {
+                    const errData = await res.json();
+                    throw new Error(errData.detail || 'Recovery failed. Try again.');
+                }
                 const data = await res.json();
-                if (data.success) {
-                    // Show success toast with auto-redirect option if dashboard_url provided
-                    const toast = document.createElement('div');
-                    toast.className = 'alert alert-success success-toast';
-                    const dashboardLink = data.dashboard_url || `/waitlist/dashboard/${data.new_token || ''}`;
-                    toast.innerHTML = `<i class="bi bi-check-circle"></i> New token sent! Check your email and <a href="${dashboardLink}" target="_blank">access dashboard</a>. <button class="btn btn-sm btn-outline-success ms-2" onclick="window.open('${dashboardLink}', '_blank'); this.parentElement.remove();">Open Now</button>`;
-                    document.body.appendChild(toast);
-                    setTimeout(() => toast.remove(), 5000);
-                    // Clear form
-                    document.getElementById('recoverForm').reset();
+
+                if (data.needs_google_verify) {
+                    // Unverified: Redirect to Google flow
+                    window.location.href = `/waitlist/google/verify?email=${encodeURIComponent(email)}`;
+                } else if (data.token) {
+                    // Verified: Direct to dashboard with new token
+                    showAlert('Access restored! Redirecting to dashboard...', 'success');
+                    setTimeout(() => {
+                        window.location.href = `/waitlist/dashboard/${data.token}`;
+                    }, 1500);
                 } else {
-                    throw new Error(data.message || 'Something went wrong');
+                    throw new Error(data.message || 'Unexpected response. Please try again.');
                 }
             } catch (err) {
-                alert('Error: ' + err.message);
+                console.error('Recovery error:', err);
+                showAlert('Error: ' + err.message, 'danger');
             } finally {
-                btn.innerHTML = '<i class="bi bi-envelope"></i> Send New Token';
+                btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Verify & Recover Access';
                 btn.disabled = false;
             }
         });
+
+        // Updated alert helper (now with type param)
+        function showAlert(message, type = 'success') {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} position-fixed top-0 end-0 m-3 fade show`;
+            alertDiv.innerHTML = `<i class="bi bi-${type === 'success' ? 'check-circle' : 'exclamation-triangle'}"></i> ${message}`;
+            alertDiv.setAttribute('role', 'alert');
+            document.body.appendChild(alertDiv);
+            setTimeout(() => {
+                const bsAlert = new bootstrap.Alert(alertDiv);
+                bsAlert.close();
+            }, 5000);
+        }
+
+        // Optional: Pre-fill email from query param (e.g., ?email=foo@bar.com)
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('email')) {
+            document.getElementById('email').value = urlParams.get('email');
+        }
     </script>
 </body>
 </html>

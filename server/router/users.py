@@ -1,4 +1,5 @@
-# users.py - Updated with Email Verification for Email/Password Signup
+# users.py - Updated with Google Verification for Email/Password Signup
+# (Minimal changes: Added /check_email endpoint for recovery UX; no major shifts since recovery logic is in waitlist.py)
 from pathlib import Path
 from datetime import timedelta, datetime
 from typing import Union, Any, Optional
@@ -7,11 +8,9 @@ import urllib.parse
 import os
 import secrets
 import string
-import random  # NEW: For verification code
-import logging  # NEW: For debugging
-import asyncio  # NEW: For retries
+import logging
 
-from fastapi import APIRouter, Depends, Request, Form, HTTPException, status, Cookie, BackgroundTasks, Query  # NEW: Added BackgroundTasks, Query
+from fastapi import APIRouter, Depends, Request, Form, HTTPException, status, Cookie, BackgroundTasks, Query
 from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, exists, update
@@ -22,20 +21,18 @@ from templates_config import templates
 from models import models, schemas
 from models.models import (
     BetaInvite, BetaConfig, Referral, PointTransaction, User, InitialTpConfig,
-    BetaReferralTpConfig  # NEW: Added for per-plan beta referral TP
+    BetaReferralTpConfig
 )
 import auth
 
 from database import get_session
-from app_utils.points import grant_trade_points  # NEW: Import for point granting
+from app_utils.points import grant_trade_points
 from config import get_settings
-from services.email_service import send_email  # NEW: For email verification
-from redis.asyncio import Redis  # NEW: For code storage
-from redis_client import redis_dependency  # NEW: Assume exists like in waitlist
+from redis.asyncio import Redis
+from redis_client import redis_dependency
 
 settings = get_settings()
 
-# NEW: Logger
 logger = logging.getLogger(__name__)
 
 # Tier bonuses
@@ -47,33 +44,6 @@ REFERRAL_TIER_BONUSES = {
 
 def get_tier_bonus(tier: str) -> float:
     return REFERRAL_TIER_BONUSES.get(tier, 1.0)
-
-# NEW: Verification code generator
-def generate_verification_code() -> str:
-    return ''.join(random.choices(string.digits, k=6))
-
-# NEW: Send with retry
-async def send_with_retry(email: str, subject: str, body: str, background_tasks: BackgroundTasks = None, max_retries: int = 3) -> dict:
-    for attempt in range(max_retries):
-        result = await send_email(email, subject, body, background_tasks)
-        if result["status"] == "success":
-            return result
-        if attempt < max_retries - 1:
-            await asyncio.sleep(2 ** attempt)  # Exponential backoff: 1s, 2s, 4s
-        else:
-            return result  # Final fail
-
-# NEW: Background email sender for signup
-async def send_verification_email(email: str, code: str, background_tasks: BackgroundTasks = None):
-    body = f"""
-Hello,
-
-Your verification code for iTradeX: {code}
-
-Enter this code to verify your email and complete signup.
-This code expires in 15 minutes.
-"""
-    await send_email(email, "Verify Your iTradeX Email", body, background_tasks)
 
 # Initialize OAuth
 oauth = OAuth()
@@ -286,18 +256,38 @@ async def process_referral_code(db: AsyncSession, referral_code: str, new_user_i
     return None
 
 
-# ───── NEW: Verify Email ─────
-@router.post("/verify")
-async def verify_email(
+# ───── UPDATED: Verify Page (with error support) ─────
+@router.get("/verify", response_class=HTMLResponse)
+async def verify_page(
     request: Request,
-    background_tasks: BackgroundTasks,
-    email: str = Form(...),
-    code: str = Form(...),
+    new: bool = Query(False),
+    email: Optional[str] = Query(None),
+    error: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_session),
-    redis: Redis = Depends(redis_dependency),
+):
+    config = await get_beta_config(db)
+    return templates.TemplateResponse(
+        "index.html",
+        {
+            "request": request,
+            "verify_mode": True,
+            "new_signup": new,
+            "prefill_email": email,
+            "verify_error": error,
+            "tab": "verify",
+            "beta_config": config
+        }
+    )
+
+
+# ───── NEW: Google Verify Redirect ─────
+@router.get("/google/verify")
+async def google_verify_redirect(
+    request: Request,
+    email: str = Query(...),
+    db: AsyncSession = Depends(get_session)
 ):
     email = email.lower().strip()
-    code = code.strip()
 
     # Find unverified user
     result = await db.execute(
@@ -310,127 +300,39 @@ async def verify_email(
     if not user:
         raise HTTPException(status_code=400, detail="No pending verification for this email.")
 
-    # Check code from Redis
-    stored_code = await redis.get(f"verify:{user.id}")
-    stored_str = stored_code.decode('utf-8') if isinstance(stored_code, bytes) else stored_code
-    if not stored_str or stored_str != code:
-        raise HTTPException(status_code=400, detail="Invalid or expired code.")
-
-    # Verify user
-    await redis.delete(f"verify:{user.id}")
-    user.verified = True
-    user.verified_at = datetime.utcnow()
-    await db.commit()
-    await db.refresh(user)
-
-    # Auto-login
-    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = auth.create_access_token({"sub": str(user.id)}, access_token_expires)
-
-    # Determine redirect based on onboarding status
-    redirect_url = "/onboard" if user.trading_style is None else "/dashboard"
-    logger.info(f"Email verification for user {user.id}: redirecting to {redirect_url} (trading_style={user.trading_style})")
-    
-    redirect = RedirectResponse(url=redirect_url, status_code=status.HTTP_303_SEE_OTHER)
-    redirect.set_cookie(
-        key="access_token",
-        value=access_token,
-        httponly=True,
-        max_age=int(access_token_expires.total_seconds()),
-        secure=False,  # Set to True in prod
-        samesite="lax"
-    )
-    return redirect
+    request.session['pending_verify_user_id'] = user.id
+    return RedirectResponse(url="/users/google/login", status_code=status.HTTP_303_SEE_OTHER)
 
 
-# ───── NEW: Resend Verification Code ─────
-@router.post("/resend")
-async def resend_verification(
+# ───── NEW: Email Check for Recovery UX (Reusable) ─────
+@router.post("/check_email", response_model=schemas.GenericResponse)
+async def check_email(
     request: Request,
-    background_tasks: BackgroundTasks,
-    email: str = Form(...),
-    db: AsyncSession = Depends(get_session),
-    redis: Redis = Depends(redis_dependency),
+    payload: dict,
+    db: AsyncSession = Depends(get_session)
 ):
-    email = email.lower().strip()
+    email = payload.get('email', '').lower().strip()
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required.")
 
-    # Rate limit
-    email_key = f"resend:{email}"
-    count = await redis.incr(email_key)
-    if count == 1:
-        await redis.expire(email_key, 3600)  # 1hr
-    if count > 3:
-        raise HTTPException(status_code=429, detail="Too many resend requests. Try again later.")
-
-    # Find unverified user
-    result = await db.execute(
-        select(User).where(
-            User.email == email,
-            User.verified == False
-        )
-    )
+    result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=404, detail="No pending verification for this email.")
-
-    # New code
-    new_code = generate_verification_code()
-    await redis.setex(f"verify:{user.id}", 900, new_code)
-
-    # Send email with retry
-    email_result = await send_with_retry(email, "New Verification Code for iTradeX", f"""
-Hello,
-
-Your new verification code for iTradeX: {new_code}
-
-Enter this code to verify your email.
-This code expires in 15 minutes.
-""", background_tasks)
-    if email_result["status"] == "error":
-        # UPDATED: Don't delete on failure; let it expire naturally
-        error_msg = email_result['message']
-        if "timeout" in error_msg.lower():
-            error_msg = "Server busy – try again in a minute."
-        elif "auth" in error_msg.lower() or "connection" in error_msg.lower():
-            error_msg = "Email config issue – contact support."
-        else:
-            error_msg = f"Failed to send code: {error_msg}. Please check your connection and try again."
-        logger.error(f"Resend email failed for {email}: {email_result['message']}")
-        raise HTTPException(status_code=500, detail=error_msg)
-
-    logger.info(f"Resent code to {email}: {new_code} | id: {user.id}")
-    return JSONResponse({"success": True, "message": "New code sent! Check your inbox."})
+        return {"success": False, "message": "No account found for this email. Please sign up first."}
+    
+    # Optional: Check verified for stricter beta gating
+    if not user.verified:
+        return {"success": False, "message": "Account exists but requires Google verification. We'll handle that next."}
+    
+    return {"success": True, "message": "Account found. Proceeding to secure login."}
 
 
-# ───── NEW: Verify Page ─────
-@router.get("/verify", response_class=HTMLResponse)
-async def verify_page(
-    request: Request,
-    new: bool = Query(False),
-    email: Optional[str] = Query(None),
-    db: AsyncSession = Depends(get_session),
-):
-    config = await get_beta_config(db)
-    return templates.TemplateResponse(
-        "index.html",
-        {
-            "request": request,
-            "verify_mode": True,
-            "new_signup": new,
-            "prefill_email": email,
-            "tab": "verify",
-            "beta_config": config
-        }
-    )
-
-
-# ───── JSON API: Signup (UPDATED: No auto-login, requires verification) ─────
+# ───── JSON API: Signup (UPDATED: No email, requires Google verification) ─────
 @router.post("/signup-email", response_model=schemas.GenericResponse)
 async def create_user_json(
     payload: schemas.SignupRequest,
     background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_session),
-    redis: Redis = Depends(redis_dependency)
+    db: AsyncSession = Depends(get_session)
 ):
     email = payload.email.lower().strip()  # NEW: Normalize email
     payload.email = email  # Update for consistency
@@ -465,12 +367,7 @@ async def create_user_json(
     await db.commit()
     await db.refresh(new_user)
 
-    # UPDATED: Background send with retry
-    verification_code = generate_verification_code()
-    await redis.setex(f"verify:{new_user.id}", 900, verification_code)
-    background_tasks.add_task(send_verification_email, email, verification_code, background_tasks)
-    email_result = {"status": "success"}  # Assume success for now; log actual in task if needed
-    logger.info(f"Queued verification email for {email} (code: {verification_code})")
+    logger.info(f"Created new user {new_user.id} ({new_user.username}), awaiting Google verification")
 
     try:
         referred_by = await process_referral_code(db, getattr(payload, 'referral_code', None), new_user.id, new_user.plan)
@@ -492,10 +389,9 @@ async def create_user_json(
 
     return {
         "success": True,
-        "message": "User created successfully. Please check your email for verification code.",
+        "message": "User created successfully. Connect your Google account to verify your email.",
         "needs_verification": True,
         "email": email,
-        "email_sent": email_result["status"] == "success"  # NEW: Flag for client handling
     }
 
 
@@ -510,7 +406,7 @@ async def login_json(payload: schemas.LoginRequest, db: AsyncSession = Depends(g
         return {"success": False, "message": "Invalid username or password."}
 
     if not user.verified:  # NEW: Check verified
-        return {"success": False, "message": "Please verify your email before logging in.", "needs_verification": True, "email": user.email}
+        return {"success": False, "message": "Please verify your email with Google before logging in.", "needs_verification": True, "email": user.email}
 
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     refresh_token_expires = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS if payload.remember_me else 7)
@@ -616,7 +512,7 @@ async def change_user_password(
     return {"success": True, "message": "Password changed successfully."}
 
 
-# ───── Form Signup (UPDATED: Send verification, redirect to /verify) ─────
+# ───── Form Signup (UPDATED: No email, redirect to /verify for Google) ─────
 @router.post("/signup", response_class=HTMLResponse)
 async def create_user_form(
     request: Request,
@@ -628,7 +524,6 @@ async def create_user_form(
     password_confirm: str = Form(...),
     referral_code: str = Form(None),
     db: AsyncSession = Depends(get_session),
-    redis: Redis = Depends(redis_dependency),  # NEW
 ):
     if password != password_confirm:
         config = await get_beta_config(db)
@@ -672,13 +567,7 @@ async def create_user_form(
     await db.refresh(new_user)
 
     # NEW: Log for debugging
-    logger.info(f"Created new user {new_user.id} ({new_user.username}), trading_style={new_user.trading_style}")
-
-    # UPDATED: Background send with retry
-    verification_code = generate_verification_code()
-    await redis.setex(f"verify:{new_user.id}", 900, verification_code)
-    background_tasks.add_task(send_verification_email, email, verification_code, background_tasks)
-    logger.info(f"Queued verification email for {email} (code: {verification_code})")
+    logger.info(f"Created new user {new_user.id} ({new_user.username}), trading_style={new_user.trading_style}, awaiting Google verification")
 
     try:
         referred_by = await process_referral_code(db, referral_code, new_user.id, new_user.plan)
@@ -791,7 +680,7 @@ async def google_login(request: Request, db: AsyncSession = Depends(get_session)
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 
-# ───── Google OAuth Callback (UPDATED: Auto-Login + Redirect to / for New Users) ─────
+# ───── Google OAuth Callback (UPDATED: Handle Google verification mode) ─────
 @router.get("/google/callback", response_class=HTMLResponse)
 async def google_callback(request: Request, db: AsyncSession = Depends(get_session)):
     try:
@@ -804,6 +693,7 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_sessi
             user_info = resp.json()
     except Exception as e:
         request.session.pop('pending_referral_code', None)
+        request.session.pop('pending_verify_user_id', None)
         error_msg = "Authentication failed. Please try again."
         if "redirect_uri" in str(e).lower():
             error_msg = "Redirect URI mismatch. Contact support."
@@ -816,12 +706,49 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_sessi
             status_code=400
         )
 
-    referral_code = request.session.pop('pending_referral_code', None)
-    email = user_info['email']
+    # Normalize email
+    google_email = user_info['email'].lower().strip()
     full_name = user_info.get('name', '')
 
+    # Handle verification mode first
+    pending_verify_id = request.session.pop('pending_verify_user_id', None)
+    if pending_verify_id:
+        pending_user = await db.get(User, pending_verify_id)
+        if not pending_user or pending_user.email != google_email:
+            error_msg = "The email from your Google account doesn't match the one you signed up with. Please use the Google account associated with your signup email."
+            redirect_url = f"/users/verify?email={urllib.parse.quote(pending_user.email if pending_user else google_email)}&error={urllib.parse.quote(error_msg)}"
+            return RedirectResponse(url=redirect_url, status_code=status.HTTP_303_SEE_OTHER)
+
+        # Verify the user
+        pending_user.verified = True
+        pending_user.verified_at = datetime.utcnow()
+        if not pending_user.full_name:
+            pending_user.full_name = full_name
+        await db.commit()
+        await db.refresh(pending_user)
+
+        # Auto-login
+        expires_delta = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+        access_token = auth.create_access_token({"sub": str(pending_user.id)}, expires_delta)
+        
+        redirect_url = "/onboard" if pending_user.trading_style is None else "/dashboard"
+        logger.info(f"Google verification for user {pending_user.id}: redirecting to {redirect_url} (trading_style={pending_user.trading_style})")
+        
+        redirect = RedirectResponse(url=redirect_url, status_code=status.HTTP_303_SEE_OTHER)
+        redirect.set_cookie(
+            "access_token", access_token, 
+            httponly=True, 
+            max_age=int(expires_delta.total_seconds()), 
+            secure=False, 
+            samesite="lax"
+        )
+        return redirect
+
+    # Normal flow
+    referral_code = request.session.pop('pending_referral_code', None)
+
     # FIXED: Proper async username generation
-    username_base = email.split('@')[0].lower().replace('.', '')
+    username_base = google_email.split('@')[0].lower().replace('.', '')
     username = username_base
     counter = 1
     while True:
@@ -832,7 +759,7 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_sessi
         else:
             break
 
-    user_result = await db.execute(select(User).where(User.email == email))
+    user_result = await db.execute(select(User).where(User.email == google_email))
     user = user_result.scalars().first()
     initial_tp = await get_initial_tp_amount(db)
 
@@ -841,7 +768,7 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_sessi
         new_user = User(
             username=username,
             full_name=full_name,
-            email=email,
+            email=google_email,
             password_hash=None,
             referral_code=await generate_unique_code(db),
             referred_by=None,

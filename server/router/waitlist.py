@@ -1,4 +1,3 @@
-# /app/router/waitlist.py
 import logging
 import json
 import string
@@ -7,28 +6,54 @@ from secrets import token_hex
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
 import re
-import bcrypt  # New: For hashing tokens
-import asyncio  # New: For async email wrapping if needed
-
-from fastapi import APIRouter, Request, Depends, HTTPException, status, BackgroundTasks, Body, Query, Form
+import bcrypt  # For hashing tokens
+import asyncio  # For async email wrapping if needed
+import urllib.parse  # NEW: For URL encoding
+import secrets
+from fastapi import APIRouter, Request, Depends, HTTPException, status, Body, Query, Form
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-from pydantic import BaseModel, EmailStr, validator, Field  # Updated: Added Field if needed
+from pydantic import BaseModel, EmailStr, validator, Field  # Added Field if needed
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, asc, desc, or_, text, exists, and_  # Added exists explicitly
 from sqlalchemy.orm import selectinload, aliased  # Added aliased
-from sqlalchemy.exc import IntegrityError  # New: For constraint handling
+from sqlalchemy.exc import IntegrityError  # For constraint handling
+
+# NEW: Rate limiting imports
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 from database import get_session
 from models.models import Waitlist
 from templates_config import templates
 from redis.asyncio import Redis
 from redis_client import redis_dependency, get_cache, set_cache
-from services.email_service import send_email  # New: Centralized email service
+from config import get_settings  # NEW: For BASE_URL and OAuth
+
+settings = get_settings()
 
 logger = logging.getLogger("iTrade")
+
+# NEW: Rate limiter setup (global, can be moved to main app if needed)
+limiter = Limiter(key_func=get_remote_address, default_limits=["100/hour"])
+
+# NEW: OAuth setup (shared with users.py)
+from authlib.integrations.starlette_client import OAuth
+oauth = OAuth()
+oauth.register(
+    name='google',
+    client_id=settings.GOOGLE_CLIENT_ID,
+    client_secret=settings.GOOGLE_CLIENT_SECRET,
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={
+        'scope': 'openid email profile',
+        'timeout': 30.0,
+    }
+)
+
 router = APIRouter()
 
-# New: Pydantic models for validation
+# Pydantic models for validation
 class UsernameCheckData(BaseModel):
     username: str = Field(..., min_length=1, max_length=15)
 
@@ -67,13 +92,6 @@ class SignupData(BaseModel):
     def validate_referred_by(cls, v):
         return v.strip().upper() if v else None
 
-class VerifyData(BaseModel):
-    email: EmailStr
-    code: str
-
-class ResendData(BaseModel):
-    email: EmailStr
-
 class RecoverData(BaseModel):
     email: EmailStr
 
@@ -81,11 +99,8 @@ def generate_referral_code(length: int = 8) -> str:
     chars = string.ascii_uppercase + string.digits
     return ''.join(random.choice(chars) for _ in range(length))
 
-def generate_verification_code() -> str:
-    return ''.join(random.choices(string.digits, k=6))
-
 def hash_token(token: str) -> str:
-    # New: Hash for secure storage
+    # Hash for secure storage
     return bcrypt.hashpw(token.encode(), bcrypt.gensalt()).decode()
 
 def verify_token_hash(token: str, hashed: str) -> bool:
@@ -106,14 +121,39 @@ def get_remote_address(request: Request) -> str:
     # Helper to get client IP (implement based on your setup, e.g., proxy headers)
     return request.client.host if request.client else "unknown"
 
+# ───── NEW: Session Security Helpers (Redis TTL for Pending Data) ─────
+async def generate_verification_token() -> str:
+    """Generate a secure token for pending verification."""
+    return secrets.token_urlsafe(32)
+
+async def set_pending_verify_token(
+    redis: Redis, token: str, entry_id: int, ttl: int = 900  # 15 minutes
+) -> None:
+    """Store pending entry_id in Redis with TTL."""
+    await redis.setex(f"pending_verify_waitlist:{token}", ttl, str(entry_id))
+
+async def get_and_delete_pending_verify_token(
+    redis: Redis, token: str
+) -> Optional[int]:
+    """Retrieve and delete pending entry_id from Redis."""
+    entry_id_str = await redis.getdel(f"pending_verify_waitlist:{token}")
+    if entry_id_str:
+        try:
+            return int(entry_id_str)
+        except ValueError:
+            logger.error(f"Invalid entry_id in Redis: {entry_id_str[:20]}...")
+            return None
+    return None
+
 @router.get("/", response_class=HTMLResponse)
 async def waitlist_landing(request: Request):
     return templates.TemplateResponse("waitlist_signup.html", {"request": request})
 
+# ───── UPDATED: Waitlist Signup (with Rate Limiting, Unverified State, No Code) ─────
 @router.post("/", response_model=Dict[str, Any])
+@limiter.limit("5/1minute")  # NEW: Rate limit to prevent enumeration
 async def waitlist_signup(
     request: Request,
-    background_tasks: BackgroundTasks,  # New: For async email
     data: SignupData = Body(..., description="Signup data"),
     db: AsyncSession = Depends(get_session),
     redis: Redis = Depends(redis_dependency),
@@ -196,22 +236,17 @@ async def waitlist_signup(
     else:
         raise HTTPException(500, "Unable to generate unique code.")
 
-    verification_code = generate_verification_code()
-
-    # Create entry
+    # Create entry (UPDATED: unverified, no verified_at)
     entry = Waitlist(
         twitter=username,
         email=email,
         wallet=wallet,
         referral_code=code,
         referred_by=referred_by,
-        verified=False,
+        verified=False,  # NEW: Unverified
     )
     db.add(entry)
     await db.flush()  # Get ID
-
-    # Store verification in Redis (15 min TTL)
-    await redis.setex(f"verify:{entry.id}", 900, verification_code)
 
     # Generate & hash login token (12-char hex, 30-day expiry)
     login_token = token_hex(6).upper()
@@ -227,26 +262,20 @@ async def waitlist_signup(
         logger.error(f"DB constraint violation on signup: {e}")
         raise HTTPException(409, "Account already exists. Try recovery.")
 
-    logger.info(f"New signup: {email} | code: {code} | token: {login_token} | verify: {verification_code} | id: {entry.id} | ip: {ip}")
+    logger.info(f"New signup: {email} | code: {code} | token: {login_token} | id: {entry.id} | ip: {ip} | awaiting Google verification")
 
-    # UPDATED: Await the async send_email call to get result and handle errors properly
-    body = f"""
-Hello,
-
-Your verification code for iTradeX waitlist: {verification_code}
-
-Enter this code to verify your email and complete signup.
-This code expires in 15 minutes.
-"""
-    email_result = await send_email(email, "Verify Your iTradeX Waitlist Email", body, background_tasks)
-    if email_result["status"] == "error":
-        logger.error(f"Verification email failed: {email_result['message']}")
+    # UPDATED: No email sent—frontend handles verification prompt with direct link
+    base_url = getattr(settings, 'BASE_URL', f"{request.url.scheme}://{request.url.netloc}")
+    verify_link = f"{base_url}/waitlist/verify?email={urllib.parse.quote(email)}"
 
     return {
         "success": True,
         "referral_code": entry.referral_code,
         "login_token": login_token,  # Plain for user
-        "waitlist_id": entry.id
+        "waitlist_id": entry.id,
+        "needs_verification": True,  # NEW
+        "email": email,
+        "verify_url": verify_link,  # NEW: For frontend to show "Verify with Google" button/link
     }
 
 @router.post("/check_username")
@@ -278,106 +307,182 @@ async def check_referral(
     result = await db.execute(exists_query)
     return {"valid": result.scalar()}
 
-@router.post("/resend_code")
-async def resend_code(
+# ───── REMOVED: /resend_code and /verify_code (Replaced by Google) ─────
+
+# ───── UPDATED: Verify Page (with error support) ─────
+@router.get("/verify", response_class=HTMLResponse)
+async def waitlist_verify_page(
     request: Request,
-    background_tasks: BackgroundTasks,
-    data: ResendData,
-    db: AsyncSession = Depends(get_session),
-    redis: Redis = Depends(redis_dependency),
+    new: bool = Query(False),
+    email: Optional[str] = Query(None),
+    error: Optional[str] = Query(None),
 ):
-    email = data.email.lower()
-
-    # New: Rate limit per email
-    email_key = f"resend:{email}"
-    count = await redis.incr(email_key)
-    if count == 1:
-        await redis.expire(email_key, 3600)
-    if count > 3:
-        raise HTTPException(429, "Too many resend requests. Try again later.")
-
-    entry_result = await db.execute(
-        select(Waitlist).where(func.lower(Waitlist.email) == email, Waitlist.verified == False)
+    return templates.TemplateResponse(
+        "waitlist_verify.html",  # NEW: Dedicated verify template or reuse
+        {
+            "request": request,
+            "verify_mode": True,
+            "new_signup": new,
+            "prefill_email": email,
+            "verify_error": error,
+        }
     )
-    entry = entry_result.scalar_one_or_none()
-    if not entry:
-        raise HTTPException(404, "Unverified entry not found.")
 
-    new_code = generate_verification_code()
-    await redis.setex(f"verify:{entry.id}", 900, new_code)
-
-    body = f"""
-Hello,
-
-Your new verification code for iTradeX waitlist: {new_code}
-
-Enter this code to verify your email.
-This code expires in 15 minutes.
-"""
-    # UPDATED: Await the async send_email call to get result and handle errors properly
-    email_result = await send_email(email, "New Verification Code for iTrade Waitlist", body, background_tasks)
-    if email_result["status"] == "error":
-        logger.error(f"Resend email failed: {email_result['message']}")
-
-    logger.info(f"Resent code to {email}: {new_code} | id: {entry.id}")
-    return {"success": True}
-
-@router.post("/verify_code")
-async def verify_code(
-    data: VerifyData,
+# ───── UPDATED: Google Verify Redirect (with Session Security & Improved Error UX) ─────
+@router.get("/google/verify")
+async def waitlist_google_verify_redirect(
+    request: Request,
+    email: str = Query(...),
     db: AsyncSession = Depends(get_session),
-    redis: Redis = Depends(redis_dependency),
+    redis: Redis = Depends(redis_dependency)
 ):
-    email = data.email.lower()
-    code = data.code.strip()
+    email = email.lower().strip()
 
-    entry_result = await db.execute(
+    # UPDATED: Find entry (now for both verified/unverified)
+    result = await db.execute(
+        select(Waitlist).where(func.lower(Waitlist.email) == email)
+    )
+    entry = result.scalar_one_or_none()
+    if not entry:
+        error_msg = "No account found for this email. Please sign up first."
+        redirect_url = f"/waitlist/?error={urllib.parse.quote(error_msg)}"
+        return RedirectResponse(url=redirect_url, status_code=status.HTTP_303_SEE_OTHER)
+
+    if entry.verified:
+        # UPDATED: Already verified: Generate token directly (no Google/session needed)
+        plain_token = token_hex(6).upper()
+        hashed = hash_token(plain_token)
+        entry.login_token = hashed
+        entry.token_expires = datetime.utcnow() + timedelta(days=30)
+        await db.commit()
+        logger.info(f"Direct token recovery via verify for verified entry: {email} | token: {plain_token}")
+        redirect_url = f"/waitlist/success?code={entry.referral_code}&twitter={entry.twitter}&token={plain_token}"
+        return RedirectResponse(url=redirect_url, status_code=status.HTTP_303_SEE_OTHER)
+
+    # Existing unverified logic...
+    # Find unverified entry (redundant but safe)
+    result = await db.execute(
         select(Waitlist).where(
             func.lower(Waitlist.email) == email,
             Waitlist.verified == False
         )
     )
-    entry = entry_result.scalar_one_or_none()
+    entry = result.scalar_one_or_none()
     if not entry:
-        raise HTTPException(400, "Entry not found or already verified.")
+        # UPDATED: Improved UX - redirect to signup instead of 400
+        error_msg = "No pending verification for this email. Please sign up first."
+        redirect_url = f"/waitlist/?error={urllib.parse.quote(error_msg)}"
+        return RedirectResponse(url=redirect_url, status_code=status.HTTP_303_SEE_OTHER)
 
-    stored_code = await redis.get(f"verify:{entry.id}")
-    
-    # FIXED: Safe decode—handle str (decode_responses=True) or bytes
-    stored_str = stored_code.decode('utf-8') if isinstance(stored_code, bytes) else stored_code
-    if not stored_str or stored_str != code:
-        raise HTTPException(400, "Invalid or expired code.")
+    # NEW: Session Security - Use token-based Redis storage with TTL
+    token = await generate_verification_token()
+    request.session['pending_verify_token'] = token
+    await set_pending_verify_token(redis, token, entry.id)
 
-    await redis.delete(f"verify:{entry.id}")
+    return RedirectResponse(url="/waitlist/google/login", status_code=status.HTTP_303_SEE_OTHER)
 
-    # NEW: Invalidate referrer's cache if this is a referral
-    if entry.referred_by:
-        ref_result = await db.execute(
-            select(Waitlist.id).where(
-                func.upper(Waitlist.referral_code) == entry.referred_by
-            )
+# ───── NEW: Google Login for Waitlist ─────
+@router.get("/google/login")
+async def waitlist_google_login(request: Request):
+    base_url = getattr(settings, 'BASE_URL', f"{request.url.scheme}://{request.url.netloc}")
+    redirect_uri = urllib.parse.urljoin(base_url, "/waitlist/google/callback")
+    logger.info(f"OAuth Redirect URI being sent to Google: {redirect_uri}")  # ADD THIS LINE
+    return await oauth.google.authorize_redirect(request, redirect_uri)
+
+# ───── UPDATED: Google Callback for Waitlist Verification ─────
+@router.get("/google/callback", response_class=HTMLResponse)
+async def waitlist_google_callback(request: Request, db: AsyncSession = Depends(get_session), redis: Redis = Depends(redis_dependency)):
+    try:
+        token = await oauth.google.authorize_access_token(request)
+        try:
+            user_info = await oauth.google.parse_id_token(request, token)
+        except KeyError:
+            resp = await oauth.google.get('https://www.googleapis.com/oauth2/v1/userinfo', token=token)
+            resp.raise_for_status()
+            user_info = resp.json()
+    except Exception as e:
+        # NEW: Clean up pending token on error
+        pending_token = request.session.pop('pending_verify_token', None)
+        if pending_token:
+            await redis.delete(f"pending_verify_waitlist:{pending_token}")
+        error_msg = "Authentication failed. Please try again."
+        if "redirect_uri" in str(e).lower():
+            error_msg = "Redirect URI mismatch. Contact support."
+        return templates.TemplateResponse(
+            "waitlist_signup.html", 
+            {"request": request, "error": error_msg}, 
+            status_code=400
         )
-        ref_id = ref_result.scalar_one_or_none()
-        if ref_id:
-            await redis.delete(f"waitlist_dash:{ref_id}")
-            logger.info(f"Invalidated referrer cache on verification: {ref_id} for verified {entry.id}")
 
-    # Existing: Invalidate own caches
-    await redis.delete(f"waitlist_dash:{entry.id}")
-    await redis.delete("waitlist_global_stats")
+    # Normalize email
+    google_email = user_info['email'].lower().strip()
 
-    entry.verified = True
-    entry.verified_at = datetime.utcnow()
+    # UPDATED: Handle verification mode with token-based Redis lookup
+    pending_token = request.session.pop('pending_verify_token', None)
+    if pending_token:
+        pending_entry_id = await get_and_delete_pending_verify_token(redis, pending_token)
+        if not pending_entry_id:
+            error_msg = "Verification token expired or invalid. Please try verifying again."
+            redirect_url = f"/waitlist/verify?email={urllib.parse.quote(google_email)}&error={urllib.parse.quote(error_msg)}"
+            return RedirectResponse(url=redirect_url, status_code=status.HTTP_303_SEE_OTHER)
 
-    await db.commit()
-    logger.info(f"Verified: {email} | id: {entry.id}")
-    return {"success": True}
+        pending_entry = await db.get(Waitlist, pending_entry_id)
+        if not pending_entry or pending_entry.email != google_email:
+            error_msg = "The email from your Google account doesn't match the one you signed up with. Please use the Google account associated with your signup email."
+            redirect_url = f"/waitlist/verify?email={urllib.parse.quote(pending_entry.email if pending_entry else google_email)}&error={urllib.parse.quote(error_msg)}"
+            return RedirectResponse(url=redirect_url, status_code=status.HTTP_303_SEE_OTHER)
 
-# New: Token recovery endpoint
+        # Verify the entry (UPDATED: No verified_at)
+        pending_entry.verified = True
+        await db.commit()
+        await db.refresh(pending_entry)
+
+        # NEW: Invalidate referrer's cache if this is a referral
+        if pending_entry.referred_by:
+            ref_result = await db.execute(
+                select(Waitlist.id).where(
+                    func.upper(Waitlist.referral_code) == pending_entry.referred_by
+                )
+            )
+            ref_id = ref_result.scalar_one_or_none()
+            if ref_id:
+                await redis.delete(f"waitlist_dash:{ref_id}")
+                logger.info(f"Invalidated referrer cache on verification: {ref_id} for verified {pending_entry.id}")
+
+        # Existing: Invalidate own caches
+        await redis.delete(f"waitlist_dash:{pending_entry.id}")
+        await redis.delete("waitlist_global_stats")
+
+        logger.info(f"Google verified waitlist entry: {pending_entry.email} | id: {pending_entry.id}")
+
+        # UPDATED: Generate/ensure token for dashboard access
+        plain_token = None
+        if not pending_entry.login_token or pending_entry.token_expires < datetime.utcnow():
+            plain_token = token_hex(6).upper()
+            hashed = hash_token(plain_token)
+            pending_entry.login_token = hashed
+            pending_entry.token_expires = datetime.utcnow() + timedelta(days=30)
+            await db.commit()
+        else:
+            # For existing, but since hashed, can't retrieve plain; user needs to recover
+            # But for simplicity, regenerate always on verify
+            plain_token = token_hex(6).upper()
+            hashed = hash_token(plain_token)
+            pending_entry.login_token = hashed
+            pending_entry.token_expires = datetime.utcnow() + timedelta(days=30)
+            await db.commit()
+
+        # Redirect to success with token
+        redirect_url = f"/waitlist/success?code={pending_entry.referral_code}&twitter={pending_entry.twitter}&token={plain_token}"
+        return RedirectResponse(url=redirect_url, status_code=status.HTTP_303_SEE_OTHER)
+
+    # If no pending, treat as new signup (but for waitlist, redirect to landing)
+    return RedirectResponse(url="/waitlist/", status_code=status.HTTP_303_SEE_OTHER)
+
+# New: Token recovery endpoint (UPDATED: No email for verified; direct token return)
 @router.post("/recover_token")
 async def recover_token(
     request: Request,
-    background_tasks: BackgroundTasks,
     data: RecoverData,
     db: AsyncSession = Depends(get_session),
     redis: Redis = Depends(redis_dependency),
@@ -385,48 +490,40 @@ async def recover_token(
     email = data.email.lower()
     entry_result = await db.execute(
         select(Waitlist).where(
-            func.lower(Waitlist.email) == email,
-            Waitlist.verified == True  # Only verified
+            func.lower(Waitlist.email) == email
         )
     )
     entry = entry_result.scalar_one_or_none()
     if not entry:
-        raise HTTPException(404, "Verified entry not found.")
+        raise HTTPException(404, "Entry not found.")
 
-    # Generate new token
-    new_token = token_hex(6).upper()
-    hashed = hash_token(new_token)
-    old_expires = entry.token_expires
-    entry.login_token = hashed
-    entry.token_expires = datetime.utcnow() + timedelta(days=30)
-    await db.commit()
+    if entry.verified:
+        # Generate new token (no email; return directly)
+        new_token = token_hex(6).upper()
+        hashed = hash_token(new_token)
+        old_expires = entry.token_expires
+        entry.login_token = hashed
+        entry.token_expires = datetime.utcnow() + timedelta(days=30)
+        await db.commit()
 
-    # New: Per-email rate limit
-    email_key = f"recover:{email}"
-    count = await redis.incr(email_key)
-    if count == 1:
-        await redis.expire(email_key, 3600)
-    if count > 3:
-        raise HTTPException(429, "Too many recovery requests.")
+        # Per-email rate limit
+        email_key = f"recover:{email}"
+        count = await redis.incr(email_key)
+        if count == 1:
+            await redis.expire(email_key, 3600)
+        if count > 3:
+            raise HTTPException(429, "Too many recovery requests.")
 
-    body = f"""
-Hello,
+        logger.info(f"Direct token recovery for {email} | new: {new_token} | old_expires: {old_expires} | id: {entry.id}")
+        return {"success": True, "token": new_token, "message": "Token generated successfully."}
+    else:
+        # For unverified, prompt Google verification
+        return {
+            "success": True,
+            "needs_google_verify": True,
+            "message": "Please connect your Google account to verify your email and access the dashboard."
+        }
 
-Your new iTradeX waitlist dashboard token: {new_token}
-
-Access your dashboard at: /waitlist/dashboard/{new_token}
-
-This token expires on {entry.token_expires.date()}. If it expires, request a new one.
-
-If you didn't request this, ignore this email.
-"""
-    # UPDATED: Await the async send_email call to get result and handle errors properly
-    email_result = await send_email(email, "Your New iTradeX Dashboard Token", body, background_tasks)
-    if email_result["status"] == "error":
-        logger.error(f"Recovery email failed: {email_result['message']}")
-
-    logger.info(f"Recovered token for {email} | new: {new_token} | old_expires: {old_expires} | id: {entry.id}")
-    return {"success": True, "message": "New token sent to email."}
 
 @router.get("/recover", response_class=HTMLResponse)
 async def recover_token_form(request: Request, expired: bool = Query(False)):
@@ -443,7 +540,7 @@ async def waitlist_success(
     request: Request,
     code: str = Query(...),
     twitter: str = Query(...),
-    token: str = Query(...),
+    token: Optional[str] = Query(None),  # Optional now
 ):
     # New: Add login instructions in template context
     return templates.TemplateResponse(
@@ -453,7 +550,7 @@ async def waitlist_success(
             "referral_code": code,
             "twitter": twitter,
             "login_token": token,
-            "dashboard_url": f"/waitlist/dashboard/{token}",  # For easy link
+            "dashboard_url": f"/waitlist/dashboard/{token}" if token else None,  # Conditional
         },
     )
 

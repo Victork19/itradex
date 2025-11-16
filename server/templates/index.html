@@ -136,12 +136,11 @@
       text-align:center;
     }
 
-    /* NEW: Verify styles */
+    /* UPDATED: Verify styles for Google connect */
     .verify-card { text-align: center; }
-    .verify-code-input { font-size: 1.5rem; font-weight: 600; letter-spacing: 0.5rem; text-align: center; max-width: 200px; margin: 0 auto; }
-    .resend-section { margin-top: 1rem; }
-    .resend-btn { background: none; border: none; color: var(--brand-500); text-decoration: underline; cursor: pointer; font-size: 0.9rem; }
-    .resend-btn:disabled { color: var(--muted); cursor: not-allowed; text-decoration: none; }
+    .verify-google-btn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; height: 46px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; transition: .2s; font-weight: 500; text-decoration: none; color: var(--text); }
+    .verify-google-btn img { height: 18px; }
+    .verify-google-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(47,107,255,0.2); }
 
     @media(max-width:900px){.card-wrap{grid-template-columns:1fr;}}
   </style>
@@ -531,33 +530,29 @@
                     </div>
                   </form>
 
-                  <!-- NEW: Verify Form -->
+                  <!-- UPDATED: Verify Section (Google Connect) -->
                   {% if verify_mode %}
-                  <form id="verifyForm" class="d-block" autocomplete="off" action="/users/verify" method="post">
-                    <div class="text-center mb-3">
+                  <div id="verifySection" class="d-block">
+                    <div class="verify-card">
                       <i class="bi bi-envelope-check" style="font-size: 3rem; color: var(--success);"></i>
                       <h4 class="mt-2">Verify your email</h4>
-                      <p class="text-muted">We've sent a code to <strong id="verifyEmailDisplay">{{ prefill_email or '' }}</strong>. Enter it below.</p>
-                    </div>
-                    <div class="mb-3">
-                      <label class="form-label">Email Address</label>
-                      <input name="email" type="email" class="form-control" value="{{ prefill_email or '' }}" {% if prefill_email %}readonly{% endif %} required />
-                    </div>
-                    <div class="mb-3">
-                      <label class="form-label">Verification Code</label>
-                      <input name="code" type="text" class="form-control verify-code-input" maxlength="6" placeholder="000000" required />
-                    </div>
-                    <button type="submit" class="btn btn-primary w-100 mb-2">Verify & Continue</button>
-                    <div class="resend-section text-center">
-                      <button type="button" class="resend-btn" id="btnResend" onclick="resendCode()">Didn't receive the code? Resend</button>
-                      <span id="resendStatus"></span>
-                    </div>
-                    {% if new_signup %}
-                      <div class="text-center mt-3">
-                        <small class="text-muted">New account? Check your spam folder if the email doesn't arrive.</small>
+                      {% if verify_error %}
+                        <div class="alert alert-danger mb-3">{{ verify_error }}</div>
+                      {% endif %}
+                      <p class="text-muted">Connect your Google account to confirm <strong id="verifyEmailDisplay">{{ prefill_email or '' }}</strong>.</p>
+                      <a href="/users/google/verify?email={{ prefill_email }}" class="verify-google-btn mb-2">
+                        <img src="https://www.svgrepo.com/show/355037/google.svg" alt="Google"> Connect Google Account
+                      </a>
+                      <div class="text-center">
+                        <small class="text-muted">This will verify your email securely without needing a code. Make sure it uses the same email address.</small>
                       </div>
-                    {% endif %}
-                  </form>
+                      {% if new_signup %}
+                        <div class="text-center mt-3">
+                          <small class="text-muted">New account? We'll get you set up after verification.</small>
+                        </div>
+                      {% endif %}
+                    </div>
+                  </div>
                   {% endif %}
                 </div>
 
@@ -583,37 +578,37 @@
     const tabVerify = document.getElementById('tabVerify');
     const signupForm = document.getElementById('signupForm');
     const loginForm = document.getElementById('loginForm');
-    const verifyForm = document.getElementById('verifyForm');
+    const verifySection = document.getElementById('verifySection');
 
     if (tabSignup && tabLogin && signupForm && loginForm) {
       tabSignup.addEventListener('click', () => {
-        if (verifyForm) verifyForm.classList.add('d-none');
+        if (verifySection) verifySection.classList.add('d-none');
         tabSignup.classList.add('active');
         tabLogin.classList.remove('active');
         if (tabVerify) tabVerify.classList.remove('active');
         signupForm.classList.remove('d-none');
         loginForm.classList.add('d-none');
-        if (verifyForm) verifyForm.classList.add('d-none');
+        if (verifySection) verifySection.classList.add('d-none');
       });
 
       tabLogin.addEventListener('click', () => {
-        if (verifyForm) verifyForm.classList.add('d-none');
+        if (verifySection) verifySection.classList.add('d-none');
         tabLogin.classList.add('active');
         tabSignup.classList.remove('active');
         if (tabVerify) tabVerify.classList.remove('active');
         loginForm.classList.remove('d-none');
         signupForm.classList.add('d-none');
-        if (verifyForm) verifyForm.classList.add('d-none');
+        if (verifySection) verifySection.classList.add('d-none');
       });
     }
 
-    // NEW: Verify tab (if exists)
-    if (tabVerify && verifyForm) {
+    // UPDATED: Verify tab (if exists)
+    if (tabVerify && verifySection) {
       tabVerify.addEventListener('click', () => {
         tabVerify.classList.add('active');
         tabSignup.classList.remove('active');
         tabLogin.classList.remove('active');
-        verifyForm.classList.remove('d-none');
+        verifySection.classList.remove('d-none');
         signupForm.classList.add('d-none');
         loginForm.classList.add('d-none');
       });
@@ -690,59 +685,6 @@
 
       passwordInput.addEventListener('input', validatePasswords);
       confirmInput.addEventListener('input', validatePasswords);
-    }
-
-    // NEW: Resend code functionality
-    let resendCooldown = 0;
-    const btnResend = document.getElementById('btnResend');
-    const resendStatus = document.getElementById('resendStatus');
-    if (btnResend && verifyForm) {
-      function startResendCooldown() {
-        resendCooldown = 30;  // 30s cooldown
-        btnResend.disabled = true;
-        const interval = setInterval(() => {
-          resendCooldown--;
-          resendStatus.textContent = ` (resend in ${resendCooldown}s)`;
-          if (resendCooldown <= 0) {
-            clearInterval(interval);
-            btnResend.disabled = false;
-            resendStatus.textContent = '';
-          }
-        }, 1000);
-      }
-
-      window.resendCode = async function() {
-        if (resendCooldown > 0) return;
-        const emailInput = verifyForm.querySelector('input[name="email"]');
-        const email = emailInput.value.trim();
-        if (!email) return alert('Please enter your email.');
-
-        try {
-          btnResend.textContent = 'Resending...';
-          const res = await fetch('/users/resend', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({ email })
-          });
-          let data;
-          try {
-            data = await res.json();
-            data.message = data.detail || data.message;  // Normalize error message
-          } catch {
-            data = { message: await res.text() };
-          }
-          if (res.ok && data.success) {
-            startResendCooldown();
-            resendStatus.innerHTML = '<span class="text-success">' + data.message + '</span>';
-          } else {
-            alert(data.message || 'Failed to resend.');
-          }
-        } catch (err) {
-          alert('Error resending code. Try again.');
-        } finally {
-          btnResend.textContent = 'Resend';
-        }
-      };
     }
   </script>
 </body>

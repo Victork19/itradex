@@ -360,6 +360,24 @@
             margin: 1.5rem 0;
             padding-top: 1rem;
         }
+        /* Google Button Styling */
+        .btn-google {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            color: #333;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            transition: all 0.2s ease;
+        }
+        .btn-google:hover {
+            background: #f8f9fa;
+            border-color: #ccc;
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-sm);
+        }
     </style>
 </head>
 <body data-theme="light">
@@ -369,14 +387,13 @@
     <div class="waitlist-container">
         <div class="row justify-content-center w-100">
             <div class="col-12 col-md-8 col-lg-6 col-xl-5">
-                <!-- Progress Indicators -->
+                <!-- Progress Indicators (UPDATED: Only 2 steps now) -->
                 <div class="step-progress mb-4">
                     <div class="step-indicator active" data-step="1">1</div>
                     <div class="step-indicator" data-step="2">2</div>
-                    <div class="step-indicator" data-step="3">3</div>
                 </div>
 
-                <!-- Step 1: Follow + Retweet -->
+                <!-- Step 1: Follow + Retweet (Unchanged) -->
                 <div class="card waitlist-card p-4 p-md-5 panel active" id="step1">
                     <div class="step-header">
                         <h1 class="step-title">Join the iTradeX Waitlist</h1>
@@ -426,14 +443,14 @@
                     </div>
                 </div>
 
-                <!-- Step 2: Email + Wallet + Referral -->
+                <!-- Step 2: Email + Wallet + Referral + Google Verify (UPDATED: No code step, direct Google) -->
                 <div class="card waitlist-card p-4 p-md-5 panel hidden" id="step2">
                     <div class="step-header">
                         <div class="step-icon">
                             <i class="bi bi-envelope-check"></i>
                         </div>
                         <h1 class="step-title">Complete Your Entry</h1>
-                        <p class="step-subtitle">Provide your details to lock in your waitlist position.</p>
+                        <p class="step-subtitle">Provide your details and verify with Google to lock in your waitlist position.</p>
                     </div>
 
                     <div class="form-floating mb-3">
@@ -462,35 +479,23 @@
                         </small>
                     </p>
 
-                    <button class="btn btn-primary w-100" id="btnJoinWaitlist">
+                    <button class="btn btn-primary w-100 mb-3" id="btnJoinWaitlist">
                         <i class="bi bi-arrow-right-circle me-2"></i>Secure My Spot
                     </button>
+
+                    <!-- NEW: Google Verification Section (Replaces code step) -->
+                    <div id="googleVerifySection" style="display: none;">
+                        <p class="text-center text-muted mb-3">Verify your email with Google:</p>
+                        <a href="#" class="btn btn-google w-100 mb-3" id="btnGoogleVerify">
+                            <i class="bi bi-google"></i> Connect Google Account
+                        </a>
+                        <p class="text-center small text-muted">
+                            We'll use this to confirm your email. No password needed.
+                        </p>
+                    </div>
                 </div>
 
-                <!-- Step 3: Verify Code -->
-                <div class="card waitlist-card p-4 p-md-5 panel hidden" id="step3">
-                    <div class="step-header">
-                        <div class="step-icon">
-                            <i class="bi bi-shield-check"></i>
-                        </div>
-                        <h1 class="step-title">Verify Your Email</h1>
-                        <p class="step-subtitle">We've sent a verification code to <span id="verifyEmailText" class="fw-semibold text-brand-500"></span>.</p>
-                    </div>
-
-                    <div class="form-floating mb-3">
-                        <input type="text" class="form-control text-center fw-semibold" id="verificationCode" maxlength="12" placeholder="Enter your code">
-                        <label for="verificationCode">Verification Code</label>
-                    </div>
-
-                    <button class="btn btn-primary w-100 mb-3" id="btnVerify">
-                        <i class="bi bi-check-lg me-2"></i>Verify & Join
-                    </button>
-
-                    <p class="text-center small text-muted mb-0">
-                        Didn't receive the code? <a href="#" class="link-howto" id="btnResend">Resend Code</a>
-                        <span id="resendTimer" class="ms-1"></span>
-                    </p>
-                </div>
+                <!-- REMOVED: Step 3: Verify Code -->
 
                 <!-- Footer -->
                 <div class="text-center mt-4 p-3">
@@ -537,15 +542,12 @@
                     email: document.getElementById('email'),
                     wallet: document.getElementById('wallet'),
                     btnJoinWaitlist: document.getElementById('btnJoinWaitlist'),
-                    btnVerify: document.getElementById('btnVerify'),
-                    verificationCode: document.getElementById('verificationCode'),
-                    verifyEmailText: document.getElementById('verifyEmailText'),
-                    btnResend: document.getElementById('btnResend'),
-                    resendTimer: document.getElementById('resendTimer'),
+                    btnGoogleVerify: document.getElementById('btnGoogleVerify'),
+                    googleVerifySection: document.getElementById('googleVerifySection'),
                     howToQuote: document.getElementById('howToQuote')
                 };
 
-                // Step Management
+                // Step Management (UPDATED: Only 2 steps)
                 const steps = document.querySelectorAll('.panel');
                 let currentStep = 1;
                 function showStep(stepNum) {
@@ -572,7 +574,7 @@
                     return /Mobi|Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
                 }
 
-                // Enhanced Alert System
+                // Enhanced Alert System (Unchanged)
                 function getAlert() {
                     let alert = document.getElementById('itradex_runtime_alert');
                     if (alert) return alert;
@@ -662,7 +664,7 @@
                 window.showAlert = showAlert;
                 window.showThreat = showThreat;
 
-                // Follow Detection
+                // Follow Detection (Unchanged)
                 let followClicked = !!localStorage.getItem('itradex_follow_clicked');
                 if (elements.btnFollowRetweet) {
                     elements.btnFollowRetweet.addEventListener('click', (e) => {
@@ -684,7 +686,7 @@
                     }
                 });
 
-                // How-to-Quote (Enhanced for beginners)
+                // How-to-Quote (Enhanced for beginners) (Unchanged)
                 if (elements.howToQuote) {
                     elements.howToQuote.addEventListener('click', (e) => {
                         e.preventDefault();
@@ -696,7 +698,7 @@
                     });
                 }
 
-                // Validation Helpers
+                // Validation Helpers (Unchanged)
                 function isValidRetweet(link) {
                     if (!link || typeof link !== 'string') return false;
                     return /^(https?:\/\/)?((www|mobile|m)\.)?(twitter|x)\.com\/[A-Za-z0-9_]+\/status\/\d+\/?(\S*)?$/i.test(link.trim());
@@ -707,7 +709,7 @@
                     return m ? m[1] : null;
                 }
 
-                // Verify Handle UI
+                // Verify Handle UI (Unchanged)
                 if (elements.verifyHandle && elements.btnVerifyActions && elements.retweetLink) {
                     elements.verifyHandle.addEventListener('input', () => {
                         const value = elements.verifyHandle.value.trim();
@@ -720,7 +722,7 @@
                     });
                 }
 
-                // Verify Actions
+                // Verify Actions (Unchanged)
                 if (elements.btnVerifyActions) {
                     elements.btnVerifyActions.addEventListener('click', async () => {
                         const username = elements.verifyHandle?.value.trim().replace(/^@/, '') || '';
@@ -785,7 +787,7 @@
                     });
                 }
 
-                // Join Waitlist - UPDATED: Enhanced error handling for 409 and other status codes
+                // Join Waitlist - UPDATED: On success, show Google section instead of code step
                 if (elements.btnJoinWaitlist) {
                     elements.btnJoinWaitlist.addEventListener('click', async () => {
                         const email = elements.email?.value.trim() || '';
@@ -857,10 +859,10 @@
                             if (data.success) {
                                 localStorage.setItem('referralCode', data.referral_code);
                                 localStorage.setItem('loginToken', data.login_token);
-                                elements.verifyEmailText.textContent = email;
-                                showStep(3);
-                                showAlert('Verification code sent! Check your inbox (and spam folder).', 'success', 4000);
-                                if (typeof startCooldown === 'function') startCooldown();
+                                // NEW: Show Google verify section instead of code step
+                                elements.googleVerifySection.style.display = 'block';
+                                elements.btnJoinWaitlist.style.display = 'none';  // Hide join button
+                                showAlert(`Entry created! Now verify your email with Google to complete. Check your inbox for details.`, 'success', 5000);
                             } else {
                                 showAlert(data.error || 'Signup failed. Please try again.', 'error');
                             }
@@ -874,104 +876,19 @@
                     });
                 }
 
-                // Resend & Verify
-                let resendCooldown = 0;
-                let resendAttempts = 0;
-                const maxResends = 3;
-                let timerInterval;
-
-                function startCooldown() {
-                    if (resendAttempts === 1) resendCooldown = 30;
-                    else if (resendAttempts === 2) resendCooldown = 120;
-                    else if (resendAttempts === 3) resendCooldown = 300;
-                    else return;
-
-                    elements.btnResend?.classList.add('disabled', 'opacity-50');
-                    clearInterval(timerInterval);
-                    timerInterval = setInterval(() => {
-                        if (resendCooldown <= 0) {
-                            clearInterval(timerInterval);
-                            elements.resendTimer.textContent = '';
-                            elements.btnResend?.classList.remove('disabled', 'opacity-50');
-                        } else {
-                            elements.resendTimer.textContent = ` (resend in ${resendCooldown}s)`;
-                            resendCooldown--;
+                // NEW: Google Verify Button
+                if (elements.btnGoogleVerify) {
+                    elements.btnGoogleVerify.addEventListener('click', async () => {
+                        const email = elements.email?.value.trim() || '';
+                        if (!email) {
+                            return showAlert('Please enter your email first.', 'error');
                         }
-                    }, 1000);
-                }
-
-                if (elements.btnResend) {
-                    elements.btnResend.addEventListener('click', async (e) => {
-                        e.preventDefault();
-                        if (resendCooldown > 0 || elements.btnResend.classList.contains('disabled')) return;
-                        if (resendAttempts >= maxResends) return showAlert(`Maximum ${maxResends} resends reached. Contact support.`, 'error');
-
-                        const email = elements.verifyEmailText.textContent;
-                        try {
-                            elements.btnResend.innerHTML = `<i class="bi bi-arrow-clockwise me-1"></i>Resending...`;
-                            const res = await fetch('/waitlist/resend_code', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ email })
-                            });
-                            const data = await res.json();
-                            if (data.success) {
-                                resendAttempts++;
-                                showAlert(`New code sent! (Attempt ${resendAttempts}/${maxResends})`, 'success', 3000);
-                                startCooldown();
-                            } else {
-                                showAlert(data.error || 'Failed to resend. Try again later.', 'error');
-                            }
-                        } catch (err) {
-                            console.error(err);
-                            showAlert('Resend error. Please try again.', 'error');
-                        } finally {
-                            elements.btnResend.innerHTML = `Resend Code`;
-                        }
+                        // Redirect to backend Google verify endpoint
+                        window.location.href = `/waitlist/google/verify?email=${encodeURIComponent(email)}`;
                     });
                 }
 
-                if (elements.btnVerify) {
-                    elements.btnVerify.addEventListener('click', async () => {
-                        const code = elements.verificationCode?.value.trim() || '';
-                        const email = elements.verifyEmailText.textContent;
-                        if (!code || code.length < 6) {
-                            elements.verificationCode?.classList.add('input-error');
-                            setTimeout(() => elements.verificationCode?.classList.remove('input-error'), 600);
-                            return showAlert('Please enter the full verification code.', 'error');
-                        }
-
-                        try {
-                            elements.btnVerify.disabled = true;
-                            elements.btnVerify.innerHTML = `<i class="bi bi-lock-fill me-2"></i>Verifying...`;
-                            const res = await fetch('/waitlist/verify_code', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ email, code })
-                            });
-                            const data = await res.json();
-                            if (data.success) {
-                                showAlert('Welcome to the iTradeX waitlist! 🚀', 'success', 3000);
-                                // Redirect to success page (adjust params as needed from backend response)
-                                setTimeout(() => { 
-                                    const referralCode = localStorage.getItem('referralCode') || 'unknown';
-                                    const username = localStorage.getItem('waitlistUsername') || 'unknown';
-                                    const token = localStorage.getItem('loginToken') || 'unknown';
-                                    window.location.href = `/waitlist/success?code=${referralCode}&twitter=${username}&token=${token}`; 
-                                }, 2000);
-                            } else {
-                                showAlert(data.error || 'Invalid code. Please check and try again.', 'error');
-                                elements.verificationCode.value = '';
-                            }
-                        } catch (err) {
-                            console.error(err);
-                            showAlert('Verification failed. Please try again.', 'error');
-                        } finally {
-                            elements.btnVerify.disabled = false;
-                            elements.btnVerify.innerHTML = `<i class="bi bi-check-lg me-2"></i>Verify & Join`;
-                        }
-                    });
-                }
+                // REMOVED: Resend & Verify Code Logic
 
                 // Auto-focus on load
                 setTimeout(() => elements.retweetLink?.focus(), 500);

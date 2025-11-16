@@ -91,7 +91,7 @@
               <input type="hidden" name="next" value="/dashboard">
               <button type="submit" class="btn-login">Sign In & Continue</button>
             </form>
-            <div class="auto-redirect">Or <a href="/signup?next=/dashboard">sign up</a> for a new account.</div>
+            <div class="auto-redirect">Or <a href="/auth">sign up</a> for a new account.</div>
           {% endif %}
         {% else %}
           <i class="bi bi-clock processing-icon"></i>
@@ -99,7 +99,7 @@
           <p class="text-muted mb-4">We've received your payment (Sub ID: {{ sub_id or 'N/A' }}). Activating your subscription now—it may take a moment for the network to confirm.</p>
           <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;"></div>
           <div class="polling-status" id="pollingStatus">Checking status... <button class="btn-refresh" onclick="pollStatus()">Refresh</button></div>
-          <p class="text-muted">If delayed, <a href="/login?next=/dashboard">sign in</a> to check manually.</p>
+          <p class="text-muted">If delayed, <a href="/auth">sign in</a> to check manually.</p>
         {% endif %}
       </div>
     </main>
@@ -127,7 +127,12 @@
       statusEl.className = 'polling-status status-updating';
 
       fetch(`/payments/sub-status/${subId}`)
-        .then(response => response.json())
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          return response.json();
+        })
         .then(data => {
           if (data.active) {
             statusEl.innerHTML = '✅ Subscription activated! Reloading page...';
@@ -140,7 +145,14 @@
         })
         .catch(error => {
           console.error('Polling error:', error);
-          statusEl.innerHTML = '❌ Check failed—try refresh. <button class="btn-refresh" onclick="pollStatus()">Retry</button>';
+          let errorMsg = '❌ Check failed—try refresh.';
+          if (error.message.includes('401')) {
+            const currentUrl = encodeURIComponent(window.location.href);
+            errorMsg = `🔐 Authentication required. <a href="/login?next=${currentUrl}">Sign in to check status</a>.`;
+          } else {
+            errorMsg += ' <button class="btn-refresh" onclick="pollStatus()">Retry</button>';
+          }
+          statusEl.innerHTML = errorMsg;
           statusEl.className = 'polling-status status-error';
         });
     }
@@ -151,12 +163,12 @@
       setTimeout(() => clearInterval(pollInterval), 120000);  // Stop after 2min
       pollStatus();  // Initial check
     } else {
-      // Confirmed: 3s auto-redirect if no email
+      // FIXED: Confirmed: 3s auto-redirect ONLY if has_email (logged in)
+      {% if has_email %}
       setTimeout(() => {
-        if (!{{ has_email | tojson }}) {
-          window.location.href = '/dashboard';
-        }
+        window.location.href = '/dashboard';
       }, 3000);
+      {% endif %}
     }
   </script>
 </body>

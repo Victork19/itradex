@@ -719,6 +719,10 @@ async def redirect_subscription():
 async def redirect_waitlist():
     return RedirectResponse(url="/waitlist/", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
+@app.get("/plan", response_class=RedirectResponse)
+async def redirect_waitlist():
+    return RedirectResponse(url="/plans", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+
 
 @app.get("/{full_path:path}")
 async def catch_html_redirect(full_path: str):

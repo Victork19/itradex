@@ -143,7 +143,8 @@ async def ai_chat(
         # Append brief details for last 5 trades (symbol, direction, PnL, notes snippet)
         last_five = user_trades[:5]
         user_trades_summary += "Recent 5:\n" + "\n".join([
-            f"- {t.symbol} {t.direction.value if t.direction else 'N/A'} | PnL: {t.pnl:.2f}% | "
+            f"- {t.symbol} {t.direction.value if t.direction else 'N/A'} | PnL: "
+            f"{t.pnl:.2f if t.pnl is not None else 'N/A'}% | "
             f"Notes: {t.notes[:50] + '...' if t.notes and len(t.notes) > 50 else (t.notes or 'No notes')}"
             for t in last_five
         ]) + "\n"

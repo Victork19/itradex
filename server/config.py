@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     # 3. Environment
     # ──────────────────────────────────────────────────────────────
     IS_PRODUCTION: bool = False
+    SECURE_COOKIES: bool = False 
 
     # ──────────────────────────────────────────────────────────────
     # 4. External APIs
@@ -64,6 +65,7 @@ class Settings(BaseSettings):
     POSTGRES_DB: str | None = None
     POSTGRES_USER: str | None = None
     POSTGRES_PASSWORD: str | None = None
+    
 
     # ──────────────────────────────────────────────────────────────
     # 8. Pydantic config

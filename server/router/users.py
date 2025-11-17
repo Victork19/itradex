@@ -421,6 +421,38 @@ async def login_json(payload: schemas.LoginRequest, db: AsyncSession = Depends(g
     }
 
 
+# ───── NEW: JSON Refresh Token Endpoint ─────
+@router.post("/refresh", response_model=schemas.GenericResponse)
+async def refresh_token_json(
+    refresh_token: str = Form(...),  # For form/multipart if needed; or use Cookie
+    db: AsyncSession = Depends(get_session)
+):
+    try:
+        payload = auth.decode_refresh_token(refresh_token)
+        user_id = int(payload.get("sub"))
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+        if not user:
+            raise HTTPException(status_code=401, detail="Invalid refresh token.")
+        
+        # Issue new access token (short-lived); optionally rotate refresh
+        access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        new_access_token = auth.create_access_token({"sub": str(user.id)}, access_token_expires)
+        
+        # Optional: Rotate refresh token for security (create new one)
+        # refresh_token_expires = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+        # new_refresh_token = auth.create_refresh_token({"sub": str(user.id)}, refresh_token_expires)
+        # But for simplicity, return existing (or implement rotation if needed)
+        
+        return {
+            "success": True,
+            "data": {"access_token": new_access_token}  # , "refresh_token": new_refresh_token if rotating
+        }
+    except Exception as e:
+        logger.warning(f"Refresh failed: {str(e)}")
+        raise HTTPException(status_code=401, detail="Invalid refresh token.")
+
+
 # ───── JSON API: Logout ─────
 @router.post("/logout", response_model=schemas.GenericResponse)
 async def logout_json(current_user: User = Depends(auth.get_current_user)):
@@ -591,7 +623,7 @@ async def create_user_form(
     return RedirectResponse(url=redirect_url, status_code=status.HTTP_303_SEE_OTHER)
 
 
-# ───── Form Login (UPDATED: Normalize username, check verified, redirect to verify if needed) ─────
+# ───── UPDATED: Form Login (Now sets both access and refresh tokens as cookies) ─────
 @router.post("/login", response_class=HTMLResponse)
 async def login_form(
     request: Request,
@@ -611,14 +643,76 @@ async def login_form(
         redirect_url = f"/users/verify?email={urllib.parse.quote(user.email)}"
         return RedirectResponse(url=redirect_url, status_code=status.HTTP_303_SEE_OTHER)
 
-    # UPDATED: Use remember_me for expiry
-    expires = timedelta(days=settings.REMEMBER_ME_REFRESH_TOKEN_EXPIRE_DAYS) if remember_me else timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = auth.create_access_token({"sub": str(user.id)}, expires)
+    # UPDATED: Create both access (short) and refresh (long) tokens
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    refresh_token_expires = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS if remember_me else 7)
+    
+    access_token = auth.create_access_token({"sub": str(user.id)}, access_token_expires)
+    refresh_token = auth.create_refresh_token({"sub": str(user.id)}, refresh_token_expires)
 
+    # UPDATED: Redirect based on onboarding
     redirect_url = "/onboard" if user.trading_style is None else "/dashboard"
     redirect = RedirectResponse(url=redirect_url, status_code=status.HTTP_303_SEE_OTHER)
-    redirect.set_cookie("access_token", access_token, httponly=True, max_age=int(expires.total_seconds()), secure=False, samesite="lax")
+    
+    # Set cookies: access short-lived, refresh long-lived
+    secure_cookies = getattr(settings, 'SECURE_COOKIES', False)  # FIXED: Fallback to False if not set
+    redirect.set_cookie(
+        "access_token", access_token, 
+        httponly=True, 
+        max_age=int(access_token_expires.total_seconds()), 
+        secure=secure_cookies,
+        samesite="lax"
+    )
+    redirect.set_cookie(
+        "refresh_token", refresh_token, 
+        httponly=True, 
+        max_age=int(refresh_token_expires.total_seconds()), 
+        secure=secure_cookies,
+        samesite="lax"
+    )
     return redirect
+
+
+# ───── NEW: Form Refresh (for cookie-based refresh) ─────
+@router.post("/refresh-form")
+async def refresh_form(
+    request: Request,
+    refresh_token: Optional[str] = Cookie(None),  # Extract from cookie
+    db: AsyncSession = Depends(get_session)
+):
+    if not refresh_token:
+        raise HTTPException(status_code=401, detail="No refresh token provided.")
+    
+    try:
+        payload = auth.decode_refresh_token(refresh_token)
+        user_id = int(payload.get("sub"))
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+        if not user:
+            raise HTTPException(status_code=401, detail="Invalid refresh token.")
+        
+        access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        new_access_token = auth.create_access_token({"sub": str(user.id)}, access_token_expires)
+        
+        # Redirect to dashboard (or original page via query param if added)
+        redirect = RedirectResponse(url="/dashboard", status_code=status.HTTP_303_SEE_OTHER)
+        secure_cookies = getattr(settings, 'SECURE_COOKIES', False)  # FIXED: Fallback to False
+        redirect.set_cookie(
+            "access_token", new_access_token, 
+            httponly=True, 
+            max_age=int(access_token_expires.total_seconds()), 
+            secure=secure_cookies,
+            samesite="lax"
+        )
+        # Keep existing refresh_token (no rotation for simplicity)
+        return redirect
+    except Exception as e:
+        logger.warning(f"Form refresh failed: {str(e)}")
+        # Clear cookies on failure
+        redirect = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
+        redirect.delete_cookie("access_token")
+        redirect.delete_cookie("refresh_token")
+        return redirect
 
 
 # ───── Google Beta Prompt (NEW) ─────
@@ -680,7 +774,7 @@ async def google_login(request: Request, db: AsyncSession = Depends(get_session)
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 
-# ───── Google OAuth Callback (UPDATED: Handle Google verification mode) ─────
+# ───── UPDATED: Google OAuth Callback (Now sets both access and refresh cookies) ─────
 @router.get("/google/callback", response_class=HTMLResponse)
 async def google_callback(request: Request, db: AsyncSession = Depends(get_session)):
     try:
@@ -727,19 +821,29 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_sessi
         await db.commit()
         await db.refresh(pending_user)
 
-        # Auto-login
-        expires_delta = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-        access_token = auth.create_access_token({"sub": str(pending_user.id)}, expires_delta)
+        # Auto-login with both tokens
+        access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        refresh_token_expires = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+        access_token = auth.create_access_token({"sub": str(pending_user.id)}, access_token_expires)
+        refresh_token = auth.create_refresh_token({"sub": str(pending_user.id)}, refresh_token_expires)
         
         redirect_url = "/onboard" if pending_user.trading_style is None else "/dashboard"
         logger.info(f"Google verification for user {pending_user.id}: redirecting to {redirect_url} (trading_style={pending_user.trading_style})")
         
         redirect = RedirectResponse(url=redirect_url, status_code=status.HTTP_303_SEE_OTHER)
+        secure_cookies = getattr(settings, 'SECURE_COOKIES', False)  # FIXED: Fallback to False if not set
         redirect.set_cookie(
             "access_token", access_token, 
             httponly=True, 
-            max_age=int(expires_delta.total_seconds()), 
-            secure=False, 
+            max_age=int(access_token_expires.total_seconds()), 
+            secure=secure_cookies,
+            samesite="lax"
+        )
+        redirect.set_cookie(
+            "refresh_token", refresh_token, 
+            httponly=True, 
+            max_age=int(refresh_token_expires.total_seconds()), 
+            secure=secure_cookies,
             samesite="lax"
         )
         return redirect
@@ -807,29 +911,42 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_sessi
 
         user = new_user
 
-    # UPDATED: Use long-lived expiry for Google flow (aligns with refresh token logic)
-    expires_delta = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)  # e.g., 30 days
-    access_token = auth.create_access_token({"sub": str(user.id)}, expires_delta)
+    # UPDATED: Create both access (short) and refresh (long) tokens for Google flow
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    refresh_token_expires = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    access_token = auth.create_access_token({"sub": str(user.id)}, access_token_expires)
+    refresh_token = auth.create_refresh_token({"sub": str(user.id)}, refresh_token_expires)
     
     # UPDATED: For new users, redirect to /onboard to trigger onboarding check; for existing, to /dashboard
     redirect_url = "/onboard" if user.trading_style is None else "/dashboard"
     logger.info(f"Google login for user {user.id}: redirecting to {redirect_url} (trading_style={user.trading_style})")
     
     redirect = RedirectResponse(url=redirect_url, status_code=status.HTTP_303_SEE_OTHER)
+    secure_cookies = getattr(settings, 'SECURE_COOKIES', False)  # FIXED: Fallback to False if not set
     redirect.set_cookie(
         "access_token", access_token, 
         httponly=True, 
-        max_age=int(expires_delta.total_seconds()),  # Dynamic, matches token expiry
-        secure=False,  # Set to True in production (e.g., via settings)
+        max_age=int(access_token_expires.total_seconds()), 
+        secure=secure_cookies,
+        samesite="lax"
+    )
+    redirect.set_cookie(
+        "refresh_token", refresh_token, 
+        httponly=True, 
+        max_age=int(refresh_token_expires.total_seconds()), 
+        secure=secure_cookies,
         samesite="lax"
     )
     return redirect
 
 
-# ───── Logout ─────
+# ───── UPDATED: Logout (Clear both cookies) ─────
 @router.get("/logout")
-async def logout(access_token: Optional[str] = Cookie(None)):
+async def logout(
+    access_token: Optional[str] = Cookie(None),
+    refresh_token: Optional[str] = Cookie(None)  # NEW: Clear refresh too
+):
     redirect = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
-    if access_token:
-        redirect.delete_cookie("access_token")
+    redirect.delete_cookie("access_token")
+    redirect.delete_cookie("refresh_token")  # NEW
     return redirect

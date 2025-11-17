@@ -118,15 +118,42 @@ async def ai_chat(
     # 3. Load recent history
     history = await get_chat_history(db, current_user.id)
 
-    # 4. Build insights & subscriptions context (unchanged)
+    # 4. Build insights & subscriptions context
     insights_dict = await compute_insights(current_user, db)
     insights_summary = json.dumps(insights_dict, default=str, ensure_ascii=False)
+
+    # NEW: Fetch and summarize user's recent trades (last 30 days, top 20)
+    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    stmt_user_trades = select(Trade).where(
+        Trade.owner_id == current_user.id,
+        Trade.trade_date >= thirty_days_ago
+    ).order_by(Trade.trade_date.desc()).limit(20)
+    trades_result = await db.execute(stmt_user_trades)
+    user_trades = trades_result.scalars().all()
+    user_trades_summary = ""
+    if user_trades:
+        wins = sum(1 for t in user_trades if (t.pnl or 0) > 0)
+        recent_win_rate = (wins / len(user_trades)) * 100 if user_trades else 0
+        avg_pnl = sum((t.pnl or 0) for t in user_trades) / len(user_trades) if user_trades else 0
+        total_pnl = sum((t.pnl or 0) for t in user_trades)
+        user_trades_summary = (
+            f"Your Recent Trades (last 30 days): {len(user_trades)} total, "
+            f"Win Rate: {recent_win_rate:.1f}%, Avg PnL: {avg_pnl:.2f}%, Total PnL: {total_pnl:.2f}%.\n"
+        )
+        # Append brief details for last 5 trades (symbol, direction, PnL, notes snippet)
+        last_five = user_trades[:5]
+        user_trades_summary += "Recent 5:\n" + "\n".join([
+            f"- {t.symbol} {t.direction.value if t.direction else 'N/A'} | PnL: {t.pnl:.2f}% | "
+            f"Notes: {t.notes[:50] + '...' if t.notes and len(t.notes) > 50 else (t.notes or 'No notes')}"
+            for t in last_five
+        ]) + "\n"
+    else:
+        user_trades_summary = "No recent trades logged in the last 30 days.\n"
 
     stmt = select(Subscription).where(Subscription.user_id == current_user.id, Subscription.trader_id.is_not(None), Subscription.status == 'active')
     result = await db.execute(stmt)
     subscriptions = result.scalars().all()
     sub_trades_summary = ""
-    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
     for sub in subscriptions:
         trader = await db.get(User, sub.trader_id)
         if trader:
@@ -150,6 +177,7 @@ async def ai_chat(
         "CRITICAL RULE #2: Use normal sentence case with proper capitalization and punctuation—ABSOLUTELY NO ALL CAPS, even for emphasis, excitement, or to match user energy. Stay calm and professional. Examples: 'What's up? How can I help with your trades today?' NOT 'WHAT'S UP?'. 'Not much, just ready to dive into your trading questions.' NOT 'NOT MUCH, JUST READY TO DIVE IN!!!'. "
         "Keep responses concise, actionable, under 200 words. Give trading advice based on context.\n\n"
         f"User Insights: {insights_summary}\n\n"
+        f"{user_trades_summary}\n\n"
         f"Subscribed Traders: {sub_trades_summary}\n\n"
         f"{system_prompt or ''}\n\n"  # Custom prompt LAST, after rules
     )

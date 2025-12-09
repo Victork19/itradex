@@ -232,36 +232,38 @@
 {% endblock %}
 {% block content %}
 <main class="container-main">
-  <!-- GLOBAL PRO OVERRIDE SWITCH (NUCLEAR BUTTON) -->
-<div class="admin-card bg-red-900/20 border border-red-600 p-6 mb-6 fade-up">
-  <form hx-post="/admin/toggle-global-pro" hx-swap="outerHTML" hx-target="this">
+  <!-- GLOBAL PRO OVERRIDE — FIXED VERSION -->
+<div class="admin-card bg-red-900/20 border border-red-600 p-6 mb-6">
+  <form hx-post="/admin/toggle-global-pro"
+        hx-swap="outerHTML"
+        hx-target="this"
+        hx-vals='{"enabled": !{{ "true" if global_pro_override else "false" }} }'>
+    
     <div class="d-flex align-items-center justify-content-between">
       <div>
         <h4 class="mb-1 text-danger fw-bold">
-          <i class="bi bi-radioactive me-2"></i>GLOBAL PRO OVERRIDE
+          GLOBAL PRO OVERRIDE
         </h4>
-        <p class="mb-0 text-danger-emphasis">
-          When ON → <strong>EVERY user instantly gets Pro + active subscription</strong><br>
-          <small class="text-muted">Exactly like manual /update_plan — but for all users at once</small>
+        <p class="mb-0">
+          When ON → <strong>every user instantly gets Pro + active subscription</strong>
         </p>
+        {% if global_pro_override %}
+          <div class="alert alert-danger mt-3 py-2 px-3 mb-0">
+            <strong>ACTIVE:</strong> All {{ total_users }} users currently have Pro
+          </div>
+        {% endif %}
       </div>
+
       <div class="form-check form-switch form-switch-xl">
-        <input class="form-check-input" type="checkbox" role="switch" name="enabled"
+        <input class="form-check-input" type="checkbox" role="switch"
                {% if global_pro_override %}checked{% endif %}
-               onchange="this.form.submit()"
-               style="width: 80px; height: 40px;">
-        <label class="form-check-label text-danger fw-bold">
+               style="width: 90px; height: 46px;">
+        <label class="form-check-label text-danger fw-bold fs-4">
           {{ "ON" if global_pro_override else "OFF" }}
         </label>
       </div>
     </div>
   </form>
-  {% if global_pro_override %}
-  <div class="alert alert-danger mt-3 mb-0">
-    <i class="bi bi-exclamation-triangle-fill me-2"></i>
-    <strong>WARNING:</strong> Global Pro Override is ACTIVE — ALL {{ total_users }} users currently have Pro
-  </div>
-  {% endif %}
 </div>
   <div class="position-relative fade-up" style="margin-bottom:18px">
     <div>

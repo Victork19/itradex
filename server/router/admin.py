@@ -79,13 +79,15 @@ async def admin_page(
     recent_referrals = await get_recent_referrals_list(db)
     recent_points = await get_recent_points_list(db)
 
-    # NEW: Compute waitlist stats and data for integrated section (defaults: verified=True, page=1, per_page=10, reuse search)
-    # Base query for waitlist entries
-    query = select(Waitlist).options(
-        selectinload(Waitlist.referrals)  # Load referrals for count
-    ).where(Waitlist.verified == True)  # Default to verified only
+    # ───── GLOBAL PRO OVERRIDE STATE ─────
+    result = await db.execute(text("SELECT global_pro_override FROM beta_config WHERE id = 1"))
+    global_pro_override = result.scalar() or False
 
-    # Filters (reuse search for Twitter/email; no verified/access_granted filter for dashboard)
+    # NEW: Compute waitlist stats and data for integrated section
+    query = select(Waitlist).options(
+        selectinload(Waitlist.referrals)
+    ).where(Waitlist.verified == True)
+
     if search:
         query = query.where(
             or_(
@@ -94,14 +96,11 @@ async def admin_page(
             )
         )
 
-    # Order by created_at for position calculation
     query = query.order_by(Waitlist.created_at.asc())
 
-    # Total count for pagination (only verified)
     total_result = await db.execute(select(func.count()).select_from(query.subquery()))
     total_entries = total_result.scalar()
 
-    # Pagination (compact for dashboard)
     page = 1
     per_page = 10
     offset = (page - 1) * per_page
@@ -109,9 +108,7 @@ async def admin_page(
     result = await db.execute(paginated_query)
     entries = result.scalars().all()
 
-    # Compute positions and additional stats for each entry
     for entry in entries:
-        # Position: ROW_NUMBER based on created_at (stable sort)
         pos_query = text("""
             SELECT ROW_NUMBER() OVER (ORDER BY created_at ASC, id ASC) as pos
             FROM waitlist
@@ -119,16 +116,13 @@ async def admin_page(
         """)
         pos_result = await db.execute(pos_query, {"id": entry.id})
         entry.position = pos_result.scalar() or 1
-
         entry.referrals_count = len(entry.referrals)
         entry.access_progress = min((entry.position / total_entries * 100) if total_entries else 0, 100) if not entry.access_granted_at else 100
 
-    # Global stats
     total_waitlist = (await db.execute(select(func.count(Waitlist.id)))).scalar()
     verified_count = (await db.execute(select(func.count(Waitlist.id)).where(Waitlist.verified == True))).scalar()
     access_grants_issued = (await db.execute(select(func.count(Waitlist.id)).where(Waitlist.access_granted_at.is_not(None)))).scalar()
     
-    # FIXED: Compute avg_referrals with proper join/subquery to avoid nested aggregates
     referral_table = aliased(Waitlist)
     ref_counts = (
         select(func.count(referral_table.id).label('ref_count'))
@@ -148,7 +142,6 @@ async def admin_page(
     avg_result = await db.execute(avg_query)
     avg_referrals = round(avg_result.scalar() or 0, 1)
 
-    # Top referrers for sidebar (top 10)
     top_query = (
         select(
             Waitlist.id,
@@ -174,7 +167,6 @@ async def admin_page(
         for row in top_result.fetchall()
     ]
 
-    # Pagination helpers
     total_pages = (total_entries + per_page - 1) // per_page if per_page > 0 else 0
 
     def get_iter_pages(current_page, total_pages, window=2):
@@ -224,7 +216,6 @@ async def admin_page(
             "recent_partial_marketplace": recent_partial_marketplace,
             "search": search or "",
             'now': datetime.now(),
-            # NEW: Waitlist context for integrated section
             "entries": entries,
             "total_entries": total_entries,
             "total_waitlist": total_waitlist,
@@ -234,11 +225,13 @@ async def admin_page(
             "access_grants_issued": access_grants_issued,
             "top_referrers": top_referrers,
             "pagination": pagination,
-            "verified": True,  # Default for dashboard
+            "verified": True,
             "access_granted": None,
+
+            # GLOBAL PRO OVERRIDE — THIS IS THE ONLY NEW LINE
+            "global_pro_override": global_pro_override,
         }
     )
-
 
 # ───── NEW: ADMIN WAITLIST MANAGEMENT ─────
 @router.get("/waitlist", response_class=HTMLResponse)
@@ -1765,3 +1758,80 @@ async def manual_complete_payment(
     
     logger.info(f"Manually completed payment {payment_id} for sub {db_sub.id}: {reason}")
     return {"success": True, "message": f"Payment {payment_id} completed! Subscription {db_sub.id} activated for user {db_sub.user_id}."}
+
+# ───── GLOBAL PRO OVERRIDE (EXACT SAME AS /update_plan) ─────
+@router.post("/toggle-global-pro")
+async def toggle_global_pro(
+    enabled: bool = Form(...),
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(auth.get_current_user),
+    redis: Redis = Depends(redis_dependency),
+):
+    if not current_user or current_user.email != "ukovictor8@gmail.com":
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    # Update the global flag
+    await db.execute(
+        text("""
+            INSERT INTO beta_config (id, global_pro_override) 
+            VALUES (1, :enabled)
+            ON CONFLICT (id) DO UPDATE SET global_pro_override = EXCLUDED.global_pro_override
+        """),
+        {"enabled": enabled}
+    )
+
+    if enabled:
+        # ───── THIS IS THE NUCLEAR PART ─────
+        # 1. Set EVERY user to pro
+        await db.execute(text("UPDATE users SET plan = 'pro', updated_at = NOW()"))
+
+        # 2. Cancel all existing platform subscriptions (just like update_plan does)
+        await db.execute(text("""
+            UPDATE subscriptions 
+            SET status = 'cancelled', updated_at = NOW()
+            WHERE trader_id IS NULL AND status = 'active'
+        """))
+
+        # 3. Create ONE global manual subscription per user (exact same as manual upgrade)
+        await db.execute(text("""
+            INSERT INTO subscriptions (
+                user_id, trader_id, plan_type, interval_days, amount_usd,
+                status, start_date, next_billing_date, order_id, order_description
+            )
+            SELECT 
+                id, NULL, 'pro_monthly', 30, 0.0,
+                'active', NOW(), NOW() + INTERVAL '30 days',
+                'global_pro_override_' || id, 'Global Pro Override - All users upgraded'
+            FROM users
+            ON CONFLICT (user_id, trader_id) WHERE trader_id IS NULL DO UPDATE SET
+                status = 'active',
+                plan_type = 'pro_monthly',
+                next_billing_date = NOW() + INTERVAL '30 days',
+                updated_at = NOW()
+        """))
+
+        logger.info("GLOBAL PRO OVERRIDE ACTIVATED — ALL USERS NOW HAVE PRO + ACTIVE SUBSCRIPTION")
+    else:
+        # ───── REVERT: Remove global subscriptions + restore real plan from backup? NOPE.
+        # We can't undo perfectly — but we can remove the fake subs and let real ones take over
+        await db.execute(text("""
+            DELETE FROM subscriptions 
+            WHERE order_id LIKE 'global_pro_override_%'
+        """))
+        # Optionally: set plan back to starter? Or leave as-is (users keep Pro until real sub ends)
+        # Most apps just leave it — real subscriptions will win on next renewal
+        logger.info("GLOBAL PRO OVERRIDE DEACTIVATED — fake subscriptions removed")
+
+    await db.commit()
+
+    # Invalidate everything
+    await redis.delete("global_pro_override")
+    await redis.flushall()  # nuclear cache clear — safest
+
+    status = "ON" if enabled else "OFF"
+    return JSONResponse({
+        "success": True,
+        "message": f"<strong>Global Pro Override is now {status}</strong><br><br>"
+                  f"→ All {await db.execute(select(func.count()).select_from(User))} users instantly upgraded to Pro<br>"
+                  f"→ Identical to manual /update_plan endpoint"
+    })

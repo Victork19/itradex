@@ -41,6 +41,10 @@ logger = logging.getLogger("iTrade")
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
+ADMIN_EMAILS = {
+    "ukovictor8@gmail.com",
+    "dawnmustard02@gmail.com",   
+}
 
 @router.get("", response_class=HTMLResponse)
 async def admin_page(
@@ -51,7 +55,7 @@ async def admin_page(
 ):
     if not current_user:
         return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
-    if current_user.email != "ukovictor8@gmail.com":
+    if current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Access denied")
 
     initials = ""
@@ -246,7 +250,7 @@ async def admin_waitlist_page(
     current_user: User = Depends(auth.get_current_user),
     redis: Redis = Depends(redis_dependency)  # For cache invalidation if needed
 ):
-    if not current_user or current_user.email != "ukovictor8@gmail.com":
+    if current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Access denied")
 
     # Base query for waitlist entries
@@ -403,7 +407,7 @@ async def admin_grant_waitlist_access(
     current_user: User = Depends(auth.get_current_user),
     redis: Redis = Depends(redis_dependency)  # Added for cache invalidation
 ):
-    if not current_user or current_user.email != "ukovictor8@gmail.com":
+    if current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Access denied")
 
     entry = await db.get(Waitlist, waitlist_id)
@@ -453,7 +457,7 @@ async def admin_revoke_waitlist_access(
     current_user: User = Depends(auth.get_current_user),
     redis: Redis = Depends(redis_dependency)  # Added for cache invalidation
 ):
-    if not current_user or current_user.email != "ukovictor8@gmail.com":
+    if current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Access denied")
 
     entry = await db.get(Waitlist, waitlist_id)
@@ -503,7 +507,7 @@ async def admin_bulk_grant_waitlist_access(
     current_user: User = Depends(auth.get_current_user),
     redis: Redis = Depends(redis_dependency)  # Added for cache invalidation
 ):
-    if not current_user or current_user.email != "ukovictor8@gmail.com":
+    if current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Access denied")
 
     if not waitlist_ids:
@@ -570,7 +574,7 @@ async def toggle_beta_mode(
     db: AsyncSession = Depends(get_session),
     current_user: User = Depends(auth.get_current_user)
 ):
-    if not current_user or current_user.email != "ukovictor8@gmail.com":
+    if current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Access denied")
 
     if award_points_on_use < 0:
@@ -610,7 +614,7 @@ async def admin_generate_beta_invites(
     db: AsyncSession = Depends(get_session),
     current_user: User = Depends(auth.get_current_user)
 ):
-    if not current_user or current_user.email != "ukovictor8@gmail.com":
+    if current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Access denied")
 
     target_user = await db.get(User, user_id)
@@ -649,7 +653,7 @@ async def admin_generate_beta_pool(
     db: AsyncSession = Depends(get_session),
     current_user: User = Depends(auth.get_current_user)
 ):
-    if not current_user or current_user.email != "ukovictor8@gmail.com":
+    if current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Access denied")
 
     created_codes = []
@@ -688,7 +692,7 @@ async def list_users(
     db: AsyncSession = Depends(get_session),
     current_user: User = Depends(auth.get_current_user)
 ):
-    if not current_user or current_user.email != "ukovictor8@gmail.com":
+    if current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Access denied")
     
     data = await get_users_list(db, search, plan, is_trader, limit, offset)
@@ -705,7 +709,7 @@ async def list_referrals(
     db: AsyncSession = Depends(get_session),
     current_user: User = Depends(auth.get_current_user)
 ):
-    if not current_user or current_user.email != "ukovictor8@gmail.com":
+    if current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Access denied")
     
     data = await get_referrals_list(db, search, status, limit, offset)
@@ -724,7 +728,7 @@ async def list_beta_invites(
     db: AsyncSession = Depends(get_session),
     current_user: User = Depends(auth.get_current_user)
 ):
-    if not current_user or current_user.email != "ukovictor8@gmail.com":
+    if current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Access denied")
     
     # Base query with joins
@@ -820,7 +824,7 @@ async def list_points(
     db: AsyncSession = Depends(get_session),
     current_user: User = Depends(auth.get_current_user)
 ):
-    if not current_user or current_user.email != "ukovictor8@gmail.com":
+    if current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Access denied")
     
     data = await get_points_list(db, search, type, user_id, limit, offset)
@@ -836,7 +840,7 @@ async def admin_adjust_points(
     db: AsyncSession = Depends(get_session),
     current_user: User = Depends(auth.get_current_user)
 ):
-    if not current_user or current_user.email != "ukovictor8@gmail.com":
+    if current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Access denied")
     
     user = await db.get(User, user_id)
@@ -904,7 +908,7 @@ async def list_payments(
     db: AsyncSession = Depends(get_session),
     current_user: User = Depends(auth.get_current_user)
 ):
-    if not current_user or current_user.email != "ukovictor8@gmail.com":
+    if current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Access denied")
     
     data = await get_payments_list(db, status, user_id, crypto_currency, limit, offset)
@@ -919,7 +923,7 @@ async def admin_refund_payment(
     db: AsyncSession = Depends(get_session),
     current_user: User = Depends(auth.get_current_user)
 ):
-    if not current_user or current_user.email != "ukovictor8@gmail.com":
+    if current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Access denied")
     
     payment = await db.get(Payment, payment_id, Payment.nowpayments_payment_id)
@@ -955,7 +959,7 @@ async def admin_send_bulk_notification(
     db: AsyncSession = Depends(get_session),
     current_user: User = Depends(auth.get_current_user)
 ):
-    if not current_user or current_user.email != "ukovictor8@gmail.com":
+    if current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Access denied")
     
     if not user_ids:
@@ -989,7 +993,7 @@ async def admin_generate_fake_data(
     db: AsyncSession = Depends(get_session),
     current_user: User = Depends(auth.get_current_user)
 ):
-    if not current_user or current_user.email != "ukovictor8@gmail.com":
+    if current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Access denied")
     
     from faker import Faker
@@ -1040,7 +1044,7 @@ async def update_pricing(
     current_user: User = Depends(auth.get_current_user),
     db: AsyncSession = Depends(get_session)
 ):
-    if not current_user or current_user.email != "ukovictor8@gmail.com":
+    if current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Access denied")
 
     prices = [
@@ -1071,7 +1075,7 @@ async def update_discount(
     current_user: User = Depends(auth.get_current_user),
     db: AsyncSession = Depends(get_session)
 ):
-    if not current_user or current_user.email != "ukovictor8@gmail.com":
+    if current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Access denied")
 
     expiry_date = None
@@ -1105,7 +1109,7 @@ async def update_marketplace_discount(
     current_user: User = Depends(auth.get_current_user),
     db: AsyncSession = Depends(get_session)
 ):
-    if not current_user or current_user.email != "ukovictor8@gmail.com":
+    if current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Access denied")
 
     expiry_date = None
@@ -1140,7 +1144,7 @@ async def update_eligibility(
     current_user: User = Depends(auth.get_current_user),
     db: AsyncSession = Depends(get_session)
 ):
-    if not current_user or current_user.email != "ukovictor8@gmail.com":
+    if current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Access denied")
 
     if min_trades < 1 or min_win_rate < 0 or min_win_rate > 100 or max_marketplace_price < 0 or trader_share_percent < 0 or trader_share_percent > 100:
@@ -1176,7 +1180,7 @@ async def update_upload_limits(
     current_user: User = Depends(auth.get_current_user),
     db: AsyncSession = Depends(get_session)
     ):
-    if not current_user or current_user.email != "ukovictor8@gmail.com":
+    if current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Access denied")
 
     plans_data = [
@@ -1208,7 +1212,7 @@ async def update_insights_limits(
     current_user: User = Depends(auth.get_current_user),
     db: AsyncSession = Depends(get_session)
 ):
-    if not current_user or current_user.email != "ukovictor8@gmail.com":
+    if current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Access denied")
 
     plans_data = [
@@ -1240,7 +1244,7 @@ async def update_ai_chat_limits(
     current_user: User = Depends(auth.get_current_user),
     db: AsyncSession = Depends(get_session)
 ):
-    if not current_user or current_user.email != "ukovictor8@gmail.com":
+    if current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Access denied")
 
     plans_data = [
@@ -1274,7 +1278,7 @@ async def update_initial_tp(
     current_user: User = Depends(auth.get_current_user),
     db: AsyncSession = Depends(get_session)
 ):
-    if not current_user or current_user.email != "ukovictor8@gmail.com":
+    if current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Access denied")
 
     if amount < 0:
@@ -1303,7 +1307,7 @@ async def update_upgrade_tp(
     current_user: User = Depends(auth.get_current_user),
     db: AsyncSession = Depends(get_session)
 ):
-    if not current_user or current_user.email != "ukovictor8@gmail.com":
+    if current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Access denied")
 
     if pro_amount < 0 or elite_amount < 0:
@@ -1340,7 +1344,7 @@ async def update_beta_referral_tp(
     current_user: User = Depends(auth.get_current_user),
     db: AsyncSession = Depends(get_session)
 ):
-    if not current_user or current_user.email != "ukovictor8@gmail.com":
+    if current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Access denied")
 
     if starter_amount < 0 or pro_amount < 0 or elite_amount < 0:
@@ -1378,7 +1382,7 @@ async def update_user_plan(
     current_user: User = Depends(auth.get_current_user),
     db: AsyncSession = Depends(get_session)
 ):
-    if not current_user or current_user.email != "ukovictor8@gmail.com":
+    if  current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Access denied")
 
     if plan not in ["starter", "pro", "elite"]:
@@ -1480,7 +1484,7 @@ async def update_marketplace_price(
     current_user: User = Depends(auth.get_current_user),
     db: AsyncSession = Depends(get_session)
 ):
-    if not current_user or current_user.email != "ukovictor8@gmail.com":
+    if current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Access denied")
 
     if price < 0:
@@ -1510,7 +1514,7 @@ async def toggle_trader(
     db: AsyncSession = Depends(get_session),
     redis: Redis = Depends(redis_dependency)  # NEW: Add Redis dependency for cache invalidation
 ):
-    if not current_user or current_user.email != "ukovictor8@gmail.com":
+    if current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Access denied")
 
     config = (await db.execute(select(EligibilityConfig).where(EligibilityConfig.id == 1))).scalar_one_or_none()
@@ -1573,7 +1577,7 @@ async def create_test_subscription(
     current_user: User = Depends(auth.get_current_user),
     db: AsyncSession = Depends(get_session)
 ):
-    if not current_user or current_user.email != "ukovictor8@gmail.com":
+    if current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Access denied")
     
     existing = await db.execute(
@@ -1626,7 +1630,7 @@ async def delete_test_subscription(
     current_user: User = Depends(auth.get_current_user),
     db: AsyncSession = Depends(get_session)
 ):
-    if not current_user or current_user.email != "ukovictor8@gmail.com":
+    if current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Access denied")
     
     result = await db.execute(
@@ -1660,7 +1664,7 @@ async def approve_trader(
     db: AsyncSession = Depends(get_session),
     redis: Redis = Depends(redis_dependency)  # NEW: Add Redis dependency for invalidation
 ):
-    if not current_user or current_user.email != "ukovictor8@gmail.com":
+    if current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Access denied")
 
     applicant = await db.get(User, user_id)
@@ -1712,7 +1716,7 @@ async def manual_complete_payment(
     current_user: User = Depends(auth.get_current_user),
     db: AsyncSession = Depends(get_session)
 ):
-    if not current_user or current_user.email != "ukovictor8@gmail.com":
+    if current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Access denied")
 
     payment_id = payload.get("payment_id")
@@ -1767,7 +1771,7 @@ async def toggle_global_pro(
     current_user: User = Depends(auth.get_current_user),
     redis: Redis = Depends(redis_dependency),
 ):
-    if not current_user or current_user.email != "ukovictor8@gmail.com":
+    if current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Access denied")
 
     # Update the global flag
@@ -1835,3 +1839,121 @@ async def toggle_global_pro(
                   f"→ All {await db.execute(select(func.count()).select_from(User))} users instantly upgraded to Pro<br>"
                   f"→ Identical to manual /update_plan endpoint"
     })
+
+# ───── BULK UPGRADE ALL USERS TO PRO (SAFE & IDENTICAL TO INDIVIDUAL) ─────
+@router.post("/bulk-upgrade-all-to-pro")
+async def bulk_upgrade_all_to_pro(
+    interval: str = Form("monthly", description="monthly or yearly"),
+    dry_run: bool = Form(False, description="If True, only counts and logs, no changes"),
+    current_user: User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_session),
+    redis: Redis = Depends(redis_dependency),
+):
+    if current_user.email not in ADMIN_EMAILS:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    if interval not in ["monthly", "yearly"]:
+        raise HTTPException(status_code=400, detail="Interval must be 'monthly' or 'yearly'")
+
+    # Fetch ALL users (exclude admin yourself if you want)
+    users_result = await db.execute(select(User).where(User.email != "ukovictor8@gmail.com"))
+    users = users_result.scalars().all()
+
+    if not users:
+        return JSONResponse({"success": False, "message": "No users found"})
+
+    upgraded_count = 0
+    already_pro = 0
+    errors = []
+
+    interval_days = 30 if interval == "monthly" else 365
+
+    # Get Pro TP bonus amount
+    config = await db.get(UpgradeTpConfig, 1)  # id=1 is Pro
+    tp_bonus = config.amount if config else 10
+
+    if dry_run:
+        return JSONResponse({
+            "success": True,
+            "dry_run": True,
+            "total_users": len(users),
+            "would_upgrade_to_pro_with_tp_bonus": tp_bonus,
+            "message": f"DRY RUN: Would upgrade {len(users)} users to Pro ({interval}) with {tp_bonus} TP bonus each"
+        })
+
+    for user in users:
+        try:
+            # Skip if already pro/elite
+            if user.plan in ["pro", "elite"]:
+                already_pro += 1
+                continue
+
+            # Cancel existing active platform subs
+            old_subs = await db.execute(
+                select(Subscription).where(
+                    Subscription.user_id == user.id,
+                    Subscription.trader_id.is_(None),
+                    Subscription.status == 'active'
+                )
+            )
+            for sub in old_subs.scalars():
+                sub.status = 'cancelled'
+                sub.updated_at = datetime.utcnow()
+
+            # Create new clean manual subscription
+            new_sub = Subscription(
+                user_id=user.id,
+                trader_id=None,
+                plan_type=f"pro_{interval}",
+                interval_days=interval_days,
+                amount_usd=0.0,
+                status='active',
+                start_date=datetime.utcnow(),
+                next_billing_date=datetime.utcnow() + timedelta(days=interval_days),
+                order_id=f"bulk_global_pro_{user.id}_{interval}_{datetime.utcnow().strftime('%Y%m%d')}",
+                order_description="Bulk Global Pro Upgrade — All users upgraded",
+            )
+            db.add(new_sub)
+
+            # Update user plan
+            user.plan = "pro"
+            user.updated_at = datetime.utcnow()
+
+            # Grant TP bonus (exactly like individual upgrade)
+            if tp_bonus > 0:
+                await grant_trade_points(
+                    db=db,
+                    user=user,
+                    action="bulk_global_pro",
+                    amount=tp_bonus,
+                    description=f"Bulk Pro upgrade bonus: +{tp_bonus} TP",
+                    redis=redis
+                )
+
+            upgraded_count += 1
+
+        except Exception as e:
+            errors.append(f"User {user.id} ({user.email}): {str(e)}")
+            logger.error(f"Bulk upgrade failed for user {user.id}: {e}")
+
+    await db.commit()
+
+    # Optional: invalidate important caches
+    await redis.delete("global_pro_override")
+    await redis.delete("leaderboard")
+    await redis.delete("eligible_traders")
+
+    summary = {
+        "success": True,
+        "upgraded_count": upgraded_count,
+        "already_had_pro_or_elite": already_pro,
+        "total_processed": len(users),
+        "tp_bonus_per_user": tp_bonus,
+        "interval": interval,
+        "errors": errors or None,
+        "message": f"Successfully upgraded {upgraded_count} users to Pro ({interval}) with {tp_bonus} TP bonus each!"
+    }
+
+    logger.info(f"ADMIN BULK PRO UPGRADE COMPLETE: {upgraded_count} upgraded, {already_pro} skipped, {len(errors)} errors")
+
+    return JSONResponse(summary)

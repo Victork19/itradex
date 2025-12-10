@@ -232,6 +232,51 @@
 {% endblock %}
 {% block content %}
 <main class="container-main">
+  <!-- NEW: BULK UPGRADE ALL USERS TO PRO (SAFE & RELIABLE) -->
+<div class="admin-card bg-brand-500/10 border border-brand-500 p-6 mb-6" id="bulk-pro-card">
+  <div class="d-flex align-items-start justify-content-between gap-4">
+    <div class="flex-grow-1">
+      <h4 class="mb-2 text-brand-600 fw-bold d-flex align-items-center gap-2">
+        <i class="bi bi-stars text-warning"></i>
+        BULK UPGRADE ALL USERS TO PRO
+      </h4>
+      <p class="mb-3 text-muted">
+        Upgrades <strong>every non-Pro/Elite user</strong> to Pro in one click — 100% identical to individual manual upgrades.
+      </p>
+      <div class="row g-3 align-items-end">
+        <div class="col-auto">
+          <label class="form-label fw-semibold small">Interval</label>
+          <select class="form-select" id="bulk-interval">
+            <option value="monthly">Monthly</option>
+            <option value="yearly">Yearly</option>
+          </select>
+        </div>
+        <div class="col-auto">
+          <div class="form-check mt-3">
+            <input class="form-check-input" type="checkbox" id="bulk-dry-run" checked>
+            <label class="form-check-label text-warning fw-semibold" for="bulk-dry-run">
+              Dry Run (Test First - Recommended)
+            </label>
+          </div>
+        </div>
+      </div>
+      <div id="bulk-summary" class="mt-3 p-3 bg-white rounded border" style="display:none;">
+        <strong>Dry Run Result:</strong> 
+        <span id="bulk-total">0</span> users total → 
+        <span id="bulk-upgrade-count" class="text-success fw-bold">0</span> would be upgraded to Pro 
+        <span id="bulk-interval-text"></span> with 
+        <span id="bulk-tp-bonus" class="text-warning fw-bold">0</span> TP bonus each
+      </div>
+    </div>
+
+    <div class="text-end">
+      <button id="bulk-pro-btn" class="btn btn-lg btn-brand fw-bold px-5" style="min-width:180px;">
+        <span class="spinner-border spinner-border-sm me-2 d-none"></span>
+        Run Dry Run
+      </button>
+    </div>
+  </div>
+</div>
   <!-- GLOBAL PRO OVERRIDE — FINAL WORKING VERSION -->
 <div class="admin-card bg-red-900/20 border border-red-600 p-6 mb-6" id="global-pro-card">
   <form hx-post="/admin/toggle-global-pro" 
@@ -1496,7 +1541,62 @@
 </main>
 {% endblock %}
 
-{% block scripts %}<script>
+{% block scripts %}
+<script>
+  // BULK UPGRADE ALL TO PRO — UI + LOGIC
+  document.getElementById('bulk-pro-btn').addEventListener('click', async function () {
+    const btn = this;
+    const spinner = btn.querySelector('.spinner-border');
+    const dryRun = document.getElementById('bulk-dry-run').checked;
+    const interval = document.getElementById('bulk-interval').value;
+  
+    btn.disabled = true;
+    spinner.classList.remove('d-none');
+    btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>${dryRun ? 'Running...' : 'Upgrading...'}`;
+  
+    try {
+      const res = await fetch('/admin/bulk-upgrade-all-to-pro', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          interval: interval,
+          dry_run: dryRun
+        })
+      });
+      const data = await res.json();
+  
+      if (!data.success) throw new Error(data.message || 'Failed');
+  
+      if (dryRun) {
+        document.getElementById('bulk-summary').style.display = 'block';
+        document.getElementById('bulk-total').textContent = data.total_processed;
+        document.getElementById('bulk-upgrade-count').textContent = data.upgraded_count;
+        document.getElementById('bulk-interval-text').textContent = `(${interval})`;
+        document.getElementById('bulk-tp-bonus').textContent = data.tp_bonus_per_user;
+        
+        btn.innerHTML = 'Run For Real';
+        document.getElementById('bulk-dry-run').checked = false;
+        showToast(`Dry run complete! ${data.upgraded_count} users would be upgraded. Click again to execute.`, 'success');
+      } else {
+        showToast(data.message, 'success');
+        setTimeout(() => location.reload(), 2000);
+      }
+  
+    } catch (err) {
+      showToast(err.message || 'Operation failed', 'error');
+    } finally {
+      btn.disabled = false;
+      spinner.classList.add('d-none');
+      if (dryRun) {
+        btn.innerHTML = 'Run For Real';
+      } else {
+        btn.innerHTML = 'Run Dry Run';
+        document.getElementById('bulk-dry-run').checked = true;
+      }
+    }
+  });
+  </script>
+<script>
   // Hide AI Chat in Admin
   document.getElementById('chatFab').style.display = 'none';
   document.getElementById('chatOffcanvas').style.display = 'none';
